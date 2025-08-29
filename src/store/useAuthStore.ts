@@ -11,7 +11,7 @@ export const useAuthStore = create<AuthStore> ((set) => ({
         set({ loading: true, error: null });
         try {
             //API call
-            const response = await axios.post("http://localhost:3000/api/auth/login",{email, password});
+            const response = await axios.post(`/api/auth/login`,{email, password});
 
             console.log("Login response:", response.data);  
             
@@ -34,7 +34,7 @@ export const useAuthStore = create<AuthStore> ((set) => ({
         set({ loading: true, error: null });
         try {
             //API call
-            const response = await axios.post("http://localhost:3000/api/auth/signup", { email, password, name });
+            const response = await axios.post(`/api/auth/signup`, { email, password, name });
 
             console.log("Signup response:", response.data);
 
@@ -56,7 +56,7 @@ export const useAuthStore = create<AuthStore> ((set) => ({
     getCurrentUser: async () => {
         set({ loading: true, error: null });
         try {
-            const response = await axios.get("http://localhost:3000/api/users/me", {
+            const response = await axios.get(`/api/users/me`, {
                 withCredentials: true
             });
 

@@ -2,8 +2,10 @@ export interface User {
     id: string,
     email: string,
     username: string,
-    name: string,
-    avatar: string
+    fullName: string,
+    avatar: string,
+    bio: string,
+    status: string
 }
 
 export interface AuthStore {
@@ -13,4 +15,12 @@ export interface AuthStore {
     login: (email: string, password: string) => Promise<void>;
     signup: (email: string, password: string, name: string) => Promise<void>;
     getCurrentUser: () => Promise<void>;
+}
+
+export interface UserStore {
+    users: User[] | null;
+    loading: boolean;
+    error: string | null;
+    fetchUsers: () => Promise<void>;
+    getUserById: (id: string) => Promise<User | null>;
 }

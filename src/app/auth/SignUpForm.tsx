@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 const SignUpForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
 
   const { signup, user, loading } = useAuthStore();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await signup(email, password, name);
+    await signup(email, password, fullName);
     console.log("Registered user:", user);
   };
 
@@ -34,10 +34,10 @@ const SignUpForm = () => {
       <span className="mb-4 text-sm">or use your email for registration</span>
       <Input
         type="text"
-        placeholder="Name"
+        placeholder="Full Name"
         className="my-2 w-full border-none bg-secondary p-3"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
       />
       <Input
         type="email"
