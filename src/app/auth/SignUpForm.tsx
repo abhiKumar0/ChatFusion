@@ -3,18 +3,20 @@ import { CircleSlash } from "lucide-react";
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/router";
 
 const SignUpForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const router = useRouter();
 
   const { signup, user, loading } = useAuthStore();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await signup(email, password, fullName);
-    console.log("Registered user:", user);
+    if (user) router.push("/");
   };
 
   return (
