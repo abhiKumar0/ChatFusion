@@ -2,38 +2,28 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
-export const GET = async () => {
+export const GET = async (req: Request) => {
     try {
-        const currentUser = await getCurrentUser();
-        if (!currentUser) {
+        const userId = req.headers.get("x-user-id");
+
+        if (!userId) {
             return NextResponse.json(
                 { message: "Unauthorized" },
                 { status: 401 }
             );
         }
+        
         const conversations = await prisma.conversation.findMany({
-            orderBy: { createdAt: 'desc' },
             where: {
-                participants: { some: { userId: currentUser.id } },
-            },
-            include: { //Include means which fields to show in associated tables
-                messages: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 1, // Fetch only the last message for preview
-                },
-                participants: {
-                    include: {
-                        user: {
-                            select: { id: true, username: true, email: true, fullName: true, avatar: true },
-                        },
-                    },
-                },
-            },
-        });
+                participants: {some : {id: userId}}
+            }
+        })
+        
 
         return NextResponse.json(conversations);
         
     } catch (error) {
+        console.log(error)
         return NextResponse.json(
             { message: "Internal Server Error while getting convo" },
             { status: 500 }
@@ -43,10 +33,9 @@ export const GET = async () => {
 
 export const POST = async (request : Request) => {
     try {
-        const currentUser = await getCurrentUser();
+        const userId = request.headers.get("x-user-id");
         const {recipientId } = await request.json();
-
-        if (!currentUser) {
+        if (!userId) {
             return NextResponse.json(
                 { message: "Unauthorized" },
                 { status: 401 }
@@ -56,7 +45,7 @@ export const POST = async (request : Request) => {
         const chat = await prisma.conversation.findFirst({
             where: {
                 AND: [
-                    {participants : {some: {userId: currentUser.id}}},
+                    {participants : {some: {userId}}},
                     {participants : {some: {userId: recipientId}}},
                 ]
             }
@@ -70,9 +59,12 @@ export const POST = async (request : Request) => {
             data: {
                 participants: {
                     create: [
-                        {userId: currentUser.id},
+                        {userId},
                         {userId: recipientId}
                     ]
+                },
+                messages: {
+                    create: []
                 }
             },
             include: {

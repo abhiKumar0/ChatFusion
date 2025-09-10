@@ -22,19 +22,22 @@ export const useAuthStore = create<AuthStore> ((set) => ({
             if (data) {
                 set({ user: data.user, loading: false });
                 window.location.href = "/";
+                return true;
             } else {
                 set({ error: "Login failed", loading: false });
+                return false;
             }
         } catch (error) {
             console.error("Login error:", error);
             set({ error: "Login failed", loading: false });
+            return false;
         }
     },
-    signup: async (email:string, password:string, name:string) => {
+    signup: async (email:string, password:string, fullName:string) => {
         set({ loading: true, error: null });
         try {
             //API call
-            const response = await axios.post(`/api/auth/signup`, { email, password, name });
+            const response = await axios.post(`/api/auth/signup`, { email, password, fullName });
 
             console.log("Signup response:", response.data);
 
@@ -45,12 +48,15 @@ export const useAuthStore = create<AuthStore> ((set) => ({
             if (data) {
                 set({ user: data.user, loading: false });
                 window.location.href = "/";
+                return true;
             } else {
                 set({ error: "Signup failed", loading: false });
+                return false;
             }
         } catch (error) {
             console.error("Signup error:", error);
             set({ error: "Signup failed", loading: false });
+            return false;
         }
     },
     getCurrentUser: async () => {

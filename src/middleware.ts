@@ -12,7 +12,7 @@ export async function middleware(request: NextRequest) {
   const token =
     request.cookies.get(COOKIE_NAME)?.value ||
     request.headers.get("authorization")?.replace("Bearer ", "");
-
+    
   // 2. If no token, redirect to login
   if (!token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -44,5 +44,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/users/:path*",
+    "/api/conversations/:path*"
   ],
 };
