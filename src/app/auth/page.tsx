@@ -5,11 +5,6 @@ import { useState } from 'react';
 import SignUpForm from './SignUpForm';
 import LoginForm from './LogInForm';
 
-// For simplicity, defining components in the same file as requested.
-// In a larger app, these would be in separate files.
-
-
-
 
 
 const Auth = () => {
