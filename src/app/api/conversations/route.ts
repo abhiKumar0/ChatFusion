@@ -15,7 +15,14 @@ export const GET = async (req: Request) => {
         
         const conversations = await prisma.conversation.findMany({
             where: {
-                participants: {some : {id: userId}}
+                participants: {some : {userId}}
+            },
+            include: {
+                participants: {
+                    include: {
+                        user: {select: { id: true, username: true, email: true, fullName: true, avatar: true }}
+                    }
+                }
             }
         })
         
