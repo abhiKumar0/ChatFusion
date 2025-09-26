@@ -2,16 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Sidebar, ContactList, Chat } from '@/components';
+import { Sidebar, ContactList, Chat, ChatArea } from '@/components';
 import Welcome from '@/pages/Welcome';
 import MobileNav from '@/components/MobileNav';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { useChatStore } from '@/store/useChatStore';
 
 export default function HomePage() {
   const { user, getCurrentUser } = useAuthStore();
   const [activeView, setActiveView] = useState('contacts');
   const [darkMode, setDarkMode] = useState(false);
   const [isContactListOpen, setIsContactListOpen] = useState(false);
+
+  const currentConversation = useChatStore(state => state.currentConversation);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -37,8 +40,10 @@ export default function HomePage() {
         {/* Desktop layout */}
         <div className="hidden lg:flex flex-1">
           <ContactList />
-          <Chat />
+          {currentConversation ? <ChatArea /> : <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>}
         </div>
+
+
         {/* Tablet layout */}
         <div className="hidden md:flex lg:hidden flex-1">
           <Sheet open={isContactListOpen} onOpenChange={setIsContactListOpen}>
@@ -46,13 +51,26 @@ export default function HomePage() {
               <ContactList />
             </SheetContent>
           </Sheet>
-          <Chat />
+          
+
+
         </div>
+
+
         {/* Mobile layout */}
         <div className="md:hidden flex-1">
-          {activeView === 'contacts' ? <ContactList /> : <Chat />}
+          {activeView === 'contacts' ? <ContactList /> :
+            <>
+              {currentConversation ? <ChatArea /> : <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>}
+            
+            </>
+          }
         </div>
+
+
       </div>
+
+      
       <MobileNav 
         activeView={activeView} 
         setActiveView={setActiveView} 

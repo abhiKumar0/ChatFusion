@@ -6,21 +6,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useGetConversations } from '@/lib/react-query/queries';
 
 const ContactList = () => {
 
-  const { conversations, getConversations, currentConversation, getConversationById } = useChatStore();
+  // const { conversations, getConversations, currentConversation, getConversationById } = useChatStore();
+  const { data, loading, error} = useGetConversations();
+
+  const conversations = data || [];
+  
+  const {currentConversation, setCurrentConversation} = useChatStore();
 
   const { user } = useAuthStore();
 
-  useEffect(() => {
-    getConversations();
-  }, []);
-
-  // console.log("Conversations:", conversations);
-  const [activeChat, setActiveChat] = useState<string | null>(null);
-
-
+// console.log("Conversations:", conversations);
 
   return (
     <div className="w-80 border-r border-border hidden lg:flex flex-col">
@@ -40,12 +39,12 @@ const ContactList = () => {
           <div className="flex-1 overflow-y-auto py-2">
             {conversations && conversations.map((convo) => {
               const contact = convo.participants.filter(participant => participant.user.id !== user?.id)[0].user; 
-              console.log("Contact:", contact);
+              // console.log("Contact:", contact);
             return (
               <div 
                 key={convo.id}
-                className={`p-3 flex items-center gap-3 hover:bg-secondary/50 cursor-pointer transition-colors ${activeChat === contact.id ? 'bg-secondary' : ''}`}
-                onClick={() => setActiveChat(contact.id)}
+                className={`p-3 flex items-center gap-3 hover:bg-secondary/50 cursor-pointer transition-colors ${currentConversation === convo.id ? 'bg-secondary' : ''}`}
+                onClick={() => setCurrentConversation(convo.id)}
               >
                 <div className="relative">
                   <Avatar>

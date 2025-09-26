@@ -49,14 +49,6 @@ export interface UserStore {
 }
 
 export interface ChatStore {
-    conversations: Conversation[] | null;
-    currentConversation: Conversation | null;
-    loading: boolean;
-    error: string | null;
-    messages: Message[] | null;
-    getConversations: () => Promise<void>;
-    getConversationById: (id: string) => Promise<void>;
-    sendMessage: (conversationId: string, content: string, parentId?: string, media?: string) => Promise<void>;
-    getMessages: (conversationId: string) => Promise<void>;
-    createConversation: (participantId: string) => Promise<void>;
+    currentConversation: string | null;
+    setCurrentConversation: (id: string) => void;
 }

@@ -8,7 +8,10 @@ export const GET = async (req: Request, {params} : {params: {conversationsId: st
 
         console.log("Convo ",convoId)
         const conversation = await prisma.conversation.findUnique({
-            where: {id : convoId}
+            where: {id : convoId},
+            include: {
+                participants: {include: {user: {select: {id: true, email: true, username: true, fullName: true, avatar: true, bio: true, status: true}}}},
+            }
         });
 
         if (!conversation) {

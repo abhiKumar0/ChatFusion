@@ -1,34 +1,43 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 import { MoreVertical, Paperclip, Phone, Send, Smile, Video } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthStore } from '@/store/useAuthStore'
+import { useChatStore } from '@/store/useChatStore';
+import { useGetConversationById, useGetMessages } from '@/lib/react-query/queries';
+import {Message} from '@/types/types';
 
 const ChatArea = () => {
+  const [messages, setMessages] = useState([]);
 
-    const { user } = useAuthStore();
-      const [darkMode, setDarkMode] = useState(false);
-      const [activeChat, setActiveChat] = useState<string | null>(null);
-      
-      // Demo data
-      const contacts = [
-        { id: '1', name: 'Alex Johnson', avatar: 'https://i.pravatar.cc/150?img=1', status: 'online', lastMessage: 'Hey! How are you doing?', time: '2:30 PM', unread: 3 },
-        { id: '2', name: 'Sarah Williams', avatar: 'https://i.pravatar.cc/150?img=2', status: 'offline', lastMessage: "Let me know when you're free', time: 'Yesterday", unread: 0 },
-        { id: '3', name: 'Michael Brown', avatar: 'https://i.pravatar.cc/150?img=3', status: 'online', lastMessage: 'The project looks great!', time: '9:15 AM', unread: 1 },
-        { id: '4', name: 'Emma Davis', avatar: 'https://i.pravatar.cc/150?img=4', status: 'away', lastMessage: 'Can we schedule a call?', time: 'Monday', unread: 0 },
-        { id: '5', name: 'Team ChatFusion', avatar: 'https://i.pravatar.cc/150?img=5', status: 'online', lastMessage: 'Welcome to ChatFusion!', time: 'Tuesday', unread: 2 },
-      ];
+  const { user } = useAuthStore();
+
+  const {currentConversation} = useChatStore();
+
+  const {data, loading, error} = useGetMessages(currentConversation || '');
+  const {data: conversation, loading: convoLoading, error: convoError} = useGetConversationById(currentConversation || '');
+  console.log("Messages Data:", data)
+  
+  useEffect(() => {
+    if (!data || !data.pages) return;
+    setMessages(
+      data.pages.flatMap(page =>
+        page.messages.map((msg: any) => ({
+          ...msg,
+          isOwn: msg.senderId === user?.id,
+        }))
+      ).reverse()
+    );
+  }, [data, user?.id]);
+  
     
-      const messages = [
-        { id: '1', senderId: '1', text: "Hey there! How's the new ChatFusion app working for you?", time: '2:30 PM', isOwn: false },
-        { id: '2', senderId: user?.id, text: "It's amazing! The interface is so clean and intuitive.", time: '2:32 PM', isOwn: true },
-        { id: '3', senderId: '1', text: "I know right? The real-time sync is impressive too.", time: '2:33 PM', isOwn: false },
-        { id: '4', senderId: user?.id, text: "Absolutely! And I love the dark mode feature.", time: '2:35 PM', isOwn: true },
-        { id: '5', senderId: '1', text: "Have you tried the group chat feature yet?", time: '2:36 PM', isOwn: false },
-        { id: '6', senderId: user?.id, text: "Not yet, but I'm planning to set one up for our team soon!", time: '2:38 PM', isOwn: true },
-      ];
-
+  if (loading) return <div className="flex-1 flex items-center justify-center">Loading...</div>;
+  if (error) return <div className="flex-1 flex items-center justify-center">Error loading messages</div>;
+  console.log("Messages:", messages);
+  if (currentConversation === null) {
+    return <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>;
+  }
   return (
     <div className="flex-1 flex flex-col">
           {/* Chat Header */}
@@ -58,10 +67,10 @@ const ChatArea = () => {
           
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message) => (
+            {messages && messages.map((message: Message) => (
               <div key={message.id} className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[70%] ${message.isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'} rounded-2xl p-3 px-4`}>
-                  <p>{message.text}</p>
+                  <p>{message.content}</p>
                   <span className="text-xs opacity-70 block text-right mt-1">{message.time}</span>
                 </div>
               </div>
