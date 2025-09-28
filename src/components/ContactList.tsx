@@ -6,18 +6,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useGetConversations } from '@/lib/react-query/queries';
+import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
 
 const ContactList = () => {
 
   // const { conversations, getConversations, currentConversation, getConversationById } = useChatStore();
-  const { data, loading, error} = useGetConversations();
+  const { data: conversations, loading, error} = useGetConversations();
 
-  const conversations = data || [];
+
   
   const {currentConversation, setCurrentConversation} = useChatStore();
 
-  const { user } = useAuthStore();
+  const { data: user } = useGetMe();
 
 // console.log("Conversations:", conversations);
 
@@ -39,7 +39,7 @@ const ContactList = () => {
           <div className="flex-1 overflow-y-auto py-2">
             {conversations && conversations.map((convo) => {
               const contact = convo.participants.filter(participant => participant.user.id !== user?.id)[0].user; 
-              // console.log("Contact:", contact);
+              
             return (
               <div 
                 key={convo.id}

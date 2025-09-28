@@ -2,7 +2,6 @@ import { LogOut, MessageSquare, Moon, Settings, Sun, Users } from 'lucide-react'
 import React from 'react';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuthStore } from '@/store/useAuthStore';
 import Link from 'next/link';
 import {
   Tooltip,
@@ -10,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useGetMe } from '@/lib/react-query/queries';
 
 interface SidebarProps {
   darkMode: boolean;
@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProps) => {
-  const { user } = useAuthStore();
+  const { data: user } = useGetMe();
 
   return (
     <aside className="w-20 bg-card border-r border-border flex flex-col items-center py-6 hidden md:flex">
@@ -39,9 +39,11 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
           {/* Navigation Icons */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setIsContactListOpen(true)}>
-                <MessageSquare className="w-5 h-5" />
-              </Button>
+              <Link href="/">
+                <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => setIsContactListOpen(true)}>
+                  <MessageSquare className="w-5 h-5" />
+                </Button>
+              </Link>
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>Messages</p>
@@ -49,9 +51,11 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-xl">
-                <Link href="/users"><Users className="w-5 h-5" /> </Link>
-              </Button>
+              <Link href="/users">
+                <Button variant="ghost" size="icon" className="rounded-xl">
+                  <Users className="w-5 h-5" /> 
+                </Button>
+              </Link>
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>Users</p>

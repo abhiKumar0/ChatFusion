@@ -5,7 +5,7 @@ import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthStore } from '@/store/useAuthStore'
 import { useChatStore } from '@/store/useChatStore';
-import { useGetConversationById, useGetMessages, useCreateMessage } from '@/lib/react-query/queries';
+import { useGetConversationById, useGetMessages, useCreateMessage, useGetMe } from '@/lib/react-query/queries';
 import { Message } from '@/types/types';
 
 interface UIMessage extends Message {
@@ -15,7 +15,7 @@ interface UIMessage extends Message {
 const ChatArea = () => {
   const [newMessage, setNewMessage] = React.useState('');
 
-  const { user } = useAuthStore();
+  const { data: user } = useGetMe();
   const {currentConversation} = useChatStore();
 
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
@@ -105,7 +105,7 @@ const ChatArea = () => {
               <Button variant="ghost" size="icon" className="rounded-full">
                 <Smile className="w-5 h-5" />
               </Button>
-              <Button size="icon" className="rounded-full bg-primary hover:bg-primary/90" onClick={handleSendMessage}>
+              <Button size="icon" className="cursor-pointer not-last-of-type:rounded-full bg-primary hover:bg-primary/90" onClick={handleSendMessage}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>

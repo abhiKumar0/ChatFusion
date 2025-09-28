@@ -2,28 +2,34 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Sidebar, ContactList, Chat, ChatArea } from '@/components';
+import { Sidebar, ContactList, Chat, ChatArea, Loading } from '@/components';
 import Welcome from '@/pages/Welcome';
 import MobileNav from '@/components/MobileNav';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useChatStore } from '@/store/useChatStore';
+import { useGetMe } from '@/lib/react-query/queries';
 
 export default function HomePage() {
-  const { user, getCurrentUser } = useAuthStore();
   const [activeView, setActiveView] = useState('contacts');
   const [darkMode, setDarkMode] = useState(false);
   const [isContactListOpen, setIsContactListOpen] = useState(false);
 
   const currentConversation = useChatStore(state => state.currentConversation);
 
+  const { data:user, isLoading, error} = useGetMe();
+
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.documentElement.classList.toggle('dark');
   };
 
-  useEffect(() => {
-    getCurrentUser();
-  }, [getCurrentUser]);
+  if (isLoading) {
+    return <Loading />
+  }
+
+  if (error) {
+    return 
+  }
 
   if (!user) {
     return <Welcome />;
