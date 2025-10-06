@@ -40,13 +40,7 @@ export interface AuthStore {
     getCurrentUser: () => Promise<void>;
 }
 
-export interface UserStore {
-    users: User[] | null;
-    loading: boolean;
-    error: string | null;
-    fetchUsers: () => Promise<void>;
-    getUserById: (id: string) => Promise<User | null>;
-}
+
 
 export interface ChatStore {
     currentConversation: string | null;

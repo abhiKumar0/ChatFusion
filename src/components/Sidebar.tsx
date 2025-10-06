@@ -1,4 +1,4 @@
-import { LogOut, MessageSquare, Moon, Settings, Sun, Users } from 'lucide-react';
+import { Bell, Contact, LogOut, MessageSquare, Moon, Settings, Sun, UserRoundSearch, Users } from 'lucide-react';
 import React from 'react';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -53,7 +53,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             <TooltipTrigger asChild>
               <Link href="/users">
                 <Button variant="ghost" size="icon" className="rounded-xl">
-                  <Users className="w-5 h-5" /> 
+                  <UserRoundSearch className="w-5 h-5" /> 
                 </Button>
               </Link>
             </TooltipTrigger>
@@ -64,11 +64,21 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-xl">
-                <Link href="/settings"><Settings className="w-5 h-5" /> </Link>
+                <Link href="/friends"><Users className="w-5 h-5" /> </Link>
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>Settings</p>
+              <p>Friends</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-xl">
+                <Link href="/notifications"><Bell className="w-5 h-5" /> </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Notifications</p>
             </TooltipContent>
           </Tooltip>
         </div>

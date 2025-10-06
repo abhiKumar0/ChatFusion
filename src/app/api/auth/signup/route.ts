@@ -12,8 +12,8 @@ export const POST = async (request: Request) => {
     //body from request
     const body = request.json();
 
-    const { email, password, fullName } = await body;
-    console.log(fullName)
+    const { email, password, fullName, publicKey, encryptPrivateKey } = await body;
+    
 
     if (!email || !password || !fullName) {
       return NextResponse.json({ message: "Missing fields" }, { status: 400 });
@@ -41,6 +41,8 @@ export const POST = async (request: Request) => {
         fullName,
         password: hashedPassword,
         username,
+        publicKey,
+        encryptedPrivateKey: encryptPrivateKey,
       },
     });
 

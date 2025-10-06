@@ -1,23 +1,29 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useUserStore } from '@/store/useUserStore';
+import { useGetUsers, useSendFriendRequest } from '@/lib/react-query/queries';
 
 const UsersPage = () => {
     const { user } = useAuthStore();
-    const { users, fetchUsers } = useUserStore();
+    const { data: users, isLoading, isError } = useGetUsers();
+    const { mutate: sendFriendRequest, isSuccess } = useSendFriendRequest();
+    const [friendRequestStatus, setFriendRequestStatus] = useState<{ [key: string]: boolean }>({});
 
-    useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
+    const handleAddFriend = (receiverId: string) => {
+        sendFriendRequest(receiverId, {
+            onSuccess: () => {
+                setFriendRequestStatus((prev) => ({ ...prev, [receiverId]: true }));
+            },
+        });
+    };
+
     const contacts = users || [];
-    console.log(contacts);
 
     return (
         <div className="w-full max-w-4xl mx-auto p-4">
@@ -59,6 +65,15 @@ const UsersPage = () => {
                                 <div className="mt-2 flex justify-end">
                                     <Button size="sm" variant="outline" className="text-xs">
                                         View Profile
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs ml-2"
+                                        onClick={() => handleAddFriend(contact.id)}
+                                        disabled={friendRequestStatus[contact.id] || isSuccess}
+                                    >
+                                        {friendRequestStatus[contact.id] ? "Request Sent" : "Add Friend"}
                                     </Button>
                                 </div>
                         </div>

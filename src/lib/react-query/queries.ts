@@ -10,11 +10,14 @@ import {
   getMe,
   getUsers,
   getUserById,
-  getConversations,
+  sendFriendRequest,
   createConversation,
   getConversationById,
   createMessage,
   getMessages,
+  getConversations,
+  getFriendRequests,
+  respondToFriendRequest,
 } from './api';
 
 export const queryClient = new QueryClient();
@@ -22,7 +25,7 @@ export const queryClient = new QueryClient();
 // Auth Mutations
 export const useSignUp = () => {
   const mutation = useMutation({
-    mutationFn: signUp,
+    mutationFn: ({ fullName, email, password }: { fullName: string; email: string; password: string }) => signUp(fullName, email, password),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
@@ -87,7 +90,51 @@ export const useGetUserById = (id: string) => {
   };
 };
 
-// Conversation Queries and Mutations
+// Friend Request Mutations
+export const useSendFriendRequest = () => {
+    const mutation = useMutation({
+        mutationFn: sendFriendRequest,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+        },
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
+};
+
+export const useRespondToFriendRequest = () => {
+  const mutation = useMutation({
+    mutationFn: ({ friendRequestId, status }: { friendRequestId: string; status: 'ACCEPTED' | 'REJECTED' }) => respondToFriendRequest(friendRequestId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+};
+
+export const useGetFriendRequests = () => {
+  const query = useQuery({
+    queryKey: ['friendRequests'],
+    queryFn: getFriendRequests,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+};
+
+// Conversation Queries
+
+
 export const useGetConversations = () => {
   const query = useQuery({
     queryKey: ['conversations'],

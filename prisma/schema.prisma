@@ -1,77 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-//   directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+
+// =================================
+//          ENUMS
+// =================================
+
+enum ConversationType {
+  ONE_TO_ONE
+  GROUP
+}
+
+enum ParticipantRole {
+  ADMIN
+  MEMBER
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+// =================================
+//          MODELS
+// =================================
 
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
   email     String   @unique
-  password  String   
   fullName      String?
   avatar    String?
-  status     String   @default("offline")
-  bio       String?
+  password  String   // Hashed password for login
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // ADDED: The other side of the sender/receiver relation
-  sendMessages Message[]
+  // --- Fields for E2EE ---
+  publicKey           String? // User's public key (sharable)
+  encryptedPrivateKey String? // Private key, encrypted with user's password
+  // salt                String? // Salt used for deriving key from password
+  // keyNonce            String? // Nonce used for encrypting the private key
 
-  conversations   ConversationParticipant[]
+  // --- Relations ---
+  messagesSent          Message[]                 @relation("SentMessages")
+  conversations         ConversationParticipant[]
+  sentFriendRequests    FriendRequest[]           @relation("SentRequests")
+  receivedFriendRequests FriendRequest[]           @relation("ReceivedRequests")
 }
 
 model Conversation {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  name      String?          //Group name
+  type      ConversationType @default(ONE_TO_ONE)
+  avatar    String?          // Group avatar
 
-  messages   Message[]
-
-  participants   ConversationParticipant[]
-
-  createdAt  DateTime @default(now())
+  // --- Relations ---
+  messages     Message[]
+  participants ConversationParticipant[]
 }
 
+// Join table to manage users in conversations and their roles
 model ConversationParticipant {
-  //Id
-  id             String       @id @default(cuid())
-
-  //Conversation reference to another model
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
-  conversationId String // ID of the conversation
-  
-  //User reference
-  user           User         @relation(fields: [userId], references: [id])
-  userId         String // User id
-
-  joinedAt DateTime @default(now())
-
-  @@unique([conversationId, userId])
-}
-model Message {
-  id String @id @default(cuid())
-
-  // Relations to User
-  sender     User   @relation(fields: [senderId], references: [id])
-  senderId   String
-
-  // Self-relation for replies
-  parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id])
-  parentMessageId String?
-
-  replies         Message[] @relation("MessageReplies")
-
-  seen           Boolean   @default(false)
-  media          String?
-
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  userId         String
+  user           User   @relation(fields: [userId], references: [id])
   conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  role           ParticipantRole @default(MEMBER)
+
+  @@id([userId, conversationId])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  content         String   // Encrypted message content
+  nonce           String   // Nonce used for E2EE decryption
+  media           String?  // Encrypted media URL
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // --- Relations ---
+  sender          User   @relation("SentMessages", fields: [senderId], references: [id])
+  senderId        String
+  conversation    Conversation @relation(fields: [conversationId], references: [id])
+  conversationId  String
+
+  // --- Fields for Threaded Messages (Re-added) ---
+  parentMessage   Message?  @relation("Replies", fields: [parentMessageId], references: [id])
+  parentMessageId String?
+  replies         Message[] @relation("Replies")
+}
+
+model FriendRequest {
+  id          String              @id @default(cuid())
+  status      FriendRequestStatus @default(PENDING)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // --- Relations ---
+  sender      User   @relation("SentRequests", fields: [senderId], references: [id])
+  senderId    String
+  receiver    User   @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  receiverId  String
+
+  @@unique([senderId, receiverId]) // Ensures a user can only send one request to another
 }

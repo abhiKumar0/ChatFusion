@@ -1,12 +1,20 @@
 import axios from 'axios';
 import { User } from '@/types/types';
+import { encryptPrivateKey, generateUserKeys } from '../crypto';
 
 const api = axios.create({
   baseURL: '/api',
+  withCredentials: true,
 });
 
 // Auth
-export const signUp = async (data: {data: {fullName: string, email: string, password: string}}) => {
+export const signUp = async (fullName: string, email: string, password: string) => {
+
+  const {publicKey, privateKey} = await generateUserKeys();
+  const encryptedKey_base64 = await encryptPrivateKey(privateKey, password);
+console.log(publicKey, privateKey, encryptedKey_base64)
+  const data = { fullName, email, password, publicKey, encryptPrivateKey: encryptedKey_base64};
+  console.log(data)
   const response = await api.post('/auth/signup', data);
   return response.data;
 };
@@ -32,7 +40,23 @@ export const getUserById = async (id: string): Promise<User> => {
   return data;
 };
 
-// Conversations
+// Friend Requests
+export const sendFriendRequest = async (receiverId: string) => {
+    const response = await api.post('/friendRequest', { receiverId });
+    return response.data;
+};
+
+export const respondToFriendRequest = async (friendRequestId: string, status: 'ACCEPTED' | 'REJECTED') => {
+  const response = await api.put('/friendRequest', { friendRequestId, status });
+  return response.data;
+};
+
+export const getFriendRequests = async () => {
+  const response = await api.get('/friendRequest');
+  console.log(response)
+  return response.data;
+};
+
 export const getConversations = async () => {
   const response = await api.get('/conversations');
   return response.data;

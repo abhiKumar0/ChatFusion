@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversationById, useGetMessages, useCreateMessage, useGetMe } from '@/lib/react-query/queries';
 import { Message } from '@/types/types';
+import Loading from './Loading';
 
 interface UIMessage extends Message {
   isOwn: boolean;
@@ -15,14 +16,25 @@ interface UIMessage extends Message {
 const ChatArea = () => {
   const [newMessage, setNewMessage] = React.useState('');
 
+  //Current User
   const { data: user } = useGetMe();
+
+  //Current Conversation's ID
   const {currentConversation} = useChatStore();
 
+  //Messages in Current Conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
+
+
+  //Conversation data
   const { data: conversation, isLoading: convoLoading, error: convoError } = useGetConversationById(currentConversation, !!currentConversation);
 
+
+  //Instance for message creation
   const createMessageMutation = useCreateMessage();
   
+  
+  //Combining multiple pages of messages into one
   const messages: UIMessage[] = useMemo(() => {
     if (!messagePages || !messagePages.pages) return [];
     return messagePages.pages
@@ -34,6 +46,8 @@ const ChatArea = () => {
       .reverse();
   }, [messagePages, user?.id]);
   
+
+  //Send new Message in current conversation
   const handleSendMessage = () => {
     if (newMessage.trim() && currentConversation) {
       createMessageMutation.mutate({ conversationId: currentConversation, content: newMessage });
@@ -41,13 +55,21 @@ const ChatArea = () => {
     }
   };
 
+
+  //In case no conversation is selected
   if (currentConversation === null) {
     return <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>;
   }
 
-  if (convoLoading || messagesLoading) return <div className="flex-1 flex items-center justify-center">Loading...</div>;
+
+  //Loading
+  if (convoLoading || messagesLoading) return <Loading />;
+
+  //Error
   if (convoError || messagesError) return <div className="flex-1 flex items-center justify-center">Error loading conversation</div>;
 
+
+  //Other Participant in the current conversation
   const otherParticipant = conversation?.participants.find(p => p.user.id !== user?.id)?.user;
 
   return (
@@ -78,7 +100,7 @@ const ChatArea = () => {
           </div>
           
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 h-screen">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[70%] ${message.isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'} rounded-2xl p-3 px-4`}>

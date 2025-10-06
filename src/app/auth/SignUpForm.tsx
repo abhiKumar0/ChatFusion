@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { useSignUp } from "@/lib/react-query/queries";
 
 const SignUpForm = () => {
   const [email, setEmail] = useState("");
@@ -11,12 +12,17 @@ const SignUpForm = () => {
   const [fullName, setFullName] = useState("");
   const router = useRouter();
 
-  const { signup, user, loading } = useAuthStore();
+  const {mutateAsync: signup, isLoading: loading} = useSignUp();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await signup(email, password, fullName);
-    if (user) router.push("/");
+    if (!email || !password || !fullName) return;
+    try {
+      await signup({ email, password, fullName });
+      router.push("/");
+    } catch (error) {
+      console.error("Sign up failed:", error);
+    }
   };
 
   return (

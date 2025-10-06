@@ -4,19 +4,25 @@ import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { useLogIn } from "@/lib/react-query/queries";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
-  const { login, user } = useAuthStore();
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    await login(email, password);
-    if (user) router.push("/");
-  };
+  const {mutateAsync: login, isLoading: loading} = useLogIn();
+  
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!email || !password) return;
+      try {
+        await login({email, password});
+        router.push("/");
+      } catch (error) {
+        console.error("Sign up failed:", error);
+      }
+    };
 
   return (
     <form
