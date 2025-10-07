@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Sidebar, ContactList, Chat, ChatArea, Loading } from '@/components';
+import { Sidebar, ContactList, ChatArea, Loading } from '@/components';
 import Welcome from '@/pages/Welcome';
 import MobileNav from '@/components/MobileNav';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -23,13 +23,7 @@ export default function HomePage() {
     document.documentElement.classList.toggle('dark');
   };
 
-  if (isLoading) {
-    return <Loading />
-  }
 
-  if (error) {
-    return 
-  }
 
   if (!user) {
     return <Welcome />;

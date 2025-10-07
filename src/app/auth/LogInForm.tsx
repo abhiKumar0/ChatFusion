@@ -17,7 +17,7 @@ const LoginForm = () => {
       e.preventDefault();
       if (!email || !password) return;
       try {
-        await login({email, password});
+        await login({ data: { email, password } });
         router.push("/");
       } catch (error) {
         console.error("Sign up failed:", error);

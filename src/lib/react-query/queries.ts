@@ -191,7 +191,7 @@ export const useCreateMessage = () => {
   };
 };
 
-export const useGetMessages = (conversationId: string) => {
+export const useGetMessages = (currentConversation: string | null, p0: boolean, conversationId: string) => {
   const query = useInfiniteQuery({
     queryKey: ['messages', conversationId],
     queryFn: ({ pageParam }) =>
