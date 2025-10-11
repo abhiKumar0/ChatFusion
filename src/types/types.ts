@@ -5,10 +5,12 @@ export interface User {
     fullName: string,
     avatar: string,
     bio: string,
-    status: string
+    status: string,
+    publicKey?: string,
+    encryptedPrivateKey?: string
 }
 
-interface Message {
+export interface Message {
     id: string,
     senderId: string,
     parentMessageId?: string,
@@ -19,7 +21,8 @@ interface Message {
     updatedAt: Date,
     replies?: Message[],
     sender: User,
-    parentMessage?: Message
+    parentMessage?: Message,
+    nonce?: string
 }
 
 interface Conversation {
@@ -44,5 +47,7 @@ export interface AuthStore {
 
 export interface ChatStore {
     currentConversation: string | null;
+    currentParticipant: User | null;
     setCurrentConversation: (id: string) => void;
+    setCurrentParticipant: (participant: User) => void;
 }

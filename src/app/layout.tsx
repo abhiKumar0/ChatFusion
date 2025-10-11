@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "./provider";
+import { SocketProvider } from "@/lib/socket-provider";
+import { CryptoProvider } from "@/lib/crypto-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +29,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <QueryProvider>
-          {children}
+          <SocketProvider>
+            <CryptoProvider>
+              {children}
+            </CryptoProvider>
+          </SocketProvider>
         </QueryProvider>
       </body>
     </html>

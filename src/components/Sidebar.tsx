@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useGetMe } from '@/lib/react-query/queries';
+import { NotificationCount } from './NotificationCount';
 
 interface SidebarProps {
   darkMode: boolean;
@@ -75,6 +76,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-xl">
                 <Link href="/notifications"><Bell className="w-5 h-5" /> </Link>
+                <NotificationCount />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">

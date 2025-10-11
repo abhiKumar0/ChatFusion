@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     // If token is invalid or expired, redirect to login
     console.error("JWT Verification Error:", error);
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/auth", request.url));
   }
 }
 
@@ -46,5 +46,8 @@ export const config = {
     "/api/users/:path*",
     "/api/conversations/:path*",
     "/api/friendRequest/:path*",
+    "/users/:path*",
+    "/notifications/:path*",
+    "/friends/:path*",
   ],
 };

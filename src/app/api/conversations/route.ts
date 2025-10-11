@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
 
 export const GET = async (req: Request) => {
     try {
@@ -20,7 +19,7 @@ export const GET = async (req: Request) => {
             include: {
                 participants: {
                     include: {
-                        user: {select: { id: true, username: true, email: true, fullName: true, avatar: true }}
+                        user: {select: { id: true, username: true, email: true, fullName: true, avatar: true, publicKey: true }}
                     }
                 }
             }

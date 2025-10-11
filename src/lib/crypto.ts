@@ -76,15 +76,15 @@ export async function decryptMessage(
 
 
 // Function to encrypt the private key with a password
-export function encryptPrivateKey(privateKey: string, password: string): string {
-  const encrypted = CryptoJS.AES.encrypt(privateKey, password).toString();
+export function encryptPrivateKey(privateKey: string, email: string): string {
+  const encrypted = CryptoJS.AES.encrypt(privateKey, email).toString();
   return encrypted;
 }
 
 // Function to decrypt the private key with a password
-export function decryptPrivateKey(encryptedPrivateKey: string, password: string): string {
+export function decryptPrivateKey(encryptedPrivateKey: string, email: string): string {
   try {
-    const bytes = CryptoJS.AES.decrypt(encryptedPrivateKey, password);
+    const bytes = CryptoJS.AES.decrypt(encryptedPrivateKey, email);
     const originalText = bytes.toString(CryptoJS.enc.Utf8);
 
     // If decryption fails, toString() returns an empty string.

@@ -7,6 +7,7 @@ import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
+import { useSocket } from '@/lib/socket-provider';
 
 const ContactList = () => {
 
@@ -15,7 +16,8 @@ const ContactList = () => {
 
 
   
-  const {currentConversation, setCurrentConversation} = useChatStore();
+  const {currentConversation, setCurrentConversation, setCurrentParticipant} = useChatStore();
+  const socket = useSocket();
 
   const { data: user } = useGetMe();
 
@@ -44,7 +46,11 @@ const ContactList = () => {
               <div 
                 key={convo.id}
                 className={`p-3 flex items-center gap-3 hover:bg-secondary/50 cursor-pointer transition-colors ${currentConversation === convo.id ? 'bg-secondary' : ''}`}
-                onClick={() => setCurrentConversation(convo.id)}
+                onClick={() => {
+                  setCurrentConversation(convo.id);
+                  setCurrentParticipant(contact);
+                  socket?.emit('join_conversation', convo.id);
+                }}
               >
                 <div className="relative">
                   <Avatar>

@@ -43,6 +43,7 @@ model User {
   password  String   // Hashed password for login
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  isOnline  Boolean @default(false)
 
   // --- Fields for E2EE ---
   publicKey           String? // User's public key (sharable)
@@ -88,6 +89,7 @@ model Message {
   media           String?  // Encrypted media URL
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  seen            Boolean @default(false)
 
   // --- Relations ---
   sender          User   @relation("SentMessages", fields: [senderId], references: [id])

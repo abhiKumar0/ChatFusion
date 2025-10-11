@@ -27,13 +27,15 @@
 // }
 
 import { prisma } from "@/lib/prisma";
+import { getIO } from "@/lib/socket-server";
 import { NextResponse } from "next/server";
+import { randomBytes } from "crypto";
 
 export const POST = async (req: Request, {params} : {params: {conversationsId: string}}) => {
     try {
         const userId = req.headers.get("x-user-id");
         const convoId = params.conversationsId;
-        const {parentId, content, media} = await req.json();
+        const {parentId, content, media, nonce} = await req.json();
 
         if (!userId) {
             return NextResponse.json({message: "Unauthorize"}, {status: 401});
@@ -72,6 +74,7 @@ export const POST = async (req: Request, {params} : {params: {conversationsId: s
                 media,
                 conversationId: convoId,
                 parentMessageId: parentId,
+                nonce: nonce || randomBytes(12).toString('base64'),
             },
             include: {
                 sender: true, // Optionally include sender details
@@ -89,6 +92,12 @@ export const POST = async (req: Request, {params} : {params: {conversationsId: s
                 // If not, you can manually set it: updatedAt: new Date()
             }
         });
+
+        // Emit to conversation room for realtime updates
+        try {
+            const io = getIO();
+            io.to(`convo:${convoId}`).emit("receive_message", newMessage);
+        } catch {}
 
         return NextResponse.json(newMessage, {status: 201});
         

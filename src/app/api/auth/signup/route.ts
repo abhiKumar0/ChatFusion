@@ -62,13 +62,13 @@ export const POST = async (request: Request) => {
       path: "/", // The cookie is available for all paths
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
     const response = NextResponse.json({ user: userWithoutPassword, token }, { status: 201 });
 
     response.headers.set("Set-Cookie", serializeCookie);
 
     return response;
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { message: "Internal server error" },
       { status: 500 }

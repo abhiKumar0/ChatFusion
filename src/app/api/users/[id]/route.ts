@@ -10,7 +10,7 @@ export const GET = async(req: Request, { params }: { params: { id: string } }) =
             return new Response("User not found", { status: 404 });
         }
         return new Response(JSON.stringify(user), { status: 200 });
-    } catch (error) {
+    } catch {
         return new Response("Error fetching user", { status: 500 });
     }
 }

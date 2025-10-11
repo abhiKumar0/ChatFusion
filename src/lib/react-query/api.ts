@@ -1,37 +1,46 @@
-import axios from 'axios';
-import { User } from '@/types/types';
-import { encryptPrivateKey, generateUserKeys } from '../crypto';
+import axios from "axios";
+import { User } from "@/types/types";
+import { encryptPrivateKey, generateUserKeys } from "../crypto";
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: "/api",
   withCredentials: true,
 });
 
 // Auth
-export const signUp = async (fullName: string, email: string, password: string) => {
-
-  const {publicKey, privateKey} = await generateUserKeys();
-  const encryptedKey_base64 = await encryptPrivateKey(privateKey, password);
-console.log(publicKey, privateKey, encryptedKey_base64)
-  const data = { fullName, email, password, publicKey, encryptPrivateKey: encryptedKey_base64};
-  console.log(data)
-  const response = await api.post('/auth/signup', data);
+export const signUp = async (
+  fullName: string,
+  email: string,
+  password: string
+) => {
+  const { publicKey, privateKey } = await generateUserKeys();
+  const encryptedKey_base64 = await encryptPrivateKey(privateKey, email);
+  console.log(publicKey, privateKey, encryptedKey_base64);
+  const data = {
+    fullName,
+    email,
+    password,
+    publicKey,
+    encryptPrivateKey: encryptedKey_base64,
+  };
+  console.log(data);
+  const response = await api.post("/auth/signup", data);
   return response.data;
 };
 
-export const logIn = async (data: {data: {email: string, password: string}}) => {
-  const response = await api.post('/auth/login', data);
+export const logIn = async (data: { email: string; password: string }) => {
+  const response = await api.post("/auth/login", data);
   return response.data;
 };
 
 // Users
 export const getMe = async () => {
-  const response = await api.get('/users/me');
+  const response = await api.get("/users/me");
   return response.data.user;
 };
 
 export const getUsers = async (): Promise<User[]> => {
-  const { data } = await api.get('/users');
+  const { data } = await api.get("/users");
   return data.users;
 };
 
@@ -42,28 +51,31 @@ export const getUserById = async (id: string): Promise<User> => {
 
 // Friend Requests
 export const sendFriendRequest = async (receiverId: string) => {
-    const response = await api.post('/friendRequest', { receiverId });
-    return response.data;
+  const response = await api.post("/friendRequest", { receiverId });
+  return response.data;
 };
 
-export const respondToFriendRequest = async (friendRequestId: string, status: 'ACCEPTED' | 'REJECTED') => {
-  const response = await api.put('/friendRequest', { friendRequestId, status });
+export const respondToFriendRequest = async (
+  friendRequestId: string,
+  status: "ACCEPTED" | "REJECTED"
+) => {
+  const response = await api.put("/friendRequest", { friendRequestId, status });
   return response.data;
 };
 
 export const getFriendRequests = async () => {
-  const response = await api.get('/friendRequest');
-  console.log(response)
+  const response = await api.get("/friendRequest");
+  console.log(response);
   return response.data;
 };
 
 export const getConversations = async () => {
-  const response = await api.get('/conversations');
+  const response = await api.get("/conversations");
   return response.data;
 };
 
 export const createConversation = async (recipientId: string) => {
-  const response = await api.post('/conversations', { recipientId });
+  const response = await api.post("/conversations", { recipientId });
   return response.data;
 };
 
@@ -78,16 +90,20 @@ export const createMessage = async ({
   content,
   media,
   parentId,
+  nonce,
 }: {
   conversationId: string;
   content: string;
   media?: string;
   parentId?: string;
+  nonce?: string;
 }) => {
-  const response = await api.post(
-    `/conversations/${conversationId}/message`,
-    { content, media, parentId }
-  );
+  const response = await api.post(`/conversations/${conversationId}/message`, {
+    content,
+    media,
+    parentId,
+    nonce,
+  });
   return response.data;
 };
 
@@ -98,11 +114,8 @@ export const getMessages = async ({
   conversationId: string;
   cursor?: string;
 }) => {
-  const response = await api.get(
-    `/conversations/${conversationId}/message`,
-    {
-      params: { cursor },
-    }
-  );
+  const response = await api.get(`/conversations/${conversationId}/message`, {
+    params: { cursor },
+  });
   return response.data;
 };

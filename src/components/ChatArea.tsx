@@ -1,13 +1,17 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { Button } from './ui/button'
 import { MoreVertical, Paperclip, Phone, Send, Smile, Video } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuthStore } from '@/store/useAuthStore'
 import { useChatStore } from '@/store/useChatStore';
-import { useGetConversationById, useGetMessages, useCreateMessage, useGetMe } from '@/lib/react-query/queries';
+import { useGetMessages, useCreateMessage, useGetMe } from '@/lib/react-query/queries';
+import { useSocket } from '@/lib/socket-provider';
+import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
+import { encryptMessage } from '@/lib/crypto';
+import { useCrypto } from '@/lib/crypto-context';
 import Loading from './Loading';
+import MessageBubble from './MessageBubble';
 
 interface UIMessage extends Message {
   isOwn: boolean;
@@ -20,25 +24,57 @@ const ChatArea = () => {
   const { data: user } = useGetMe();
 
   //Current Conversation's ID
-  const {currentConversation} = useChatStore();
+  const {currentConversation, currentParticipant} = useChatStore();
 
   //Messages in Current Conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
 
-
-  //Conversation data
-  const { data: conversation, isLoading: convoLoading, error: convoError } = useGetConversationById(currentConversation, !!currentConversation);
-
-
   //Instance for message creation
   const createMessageMutation = useCreateMessage();
+  const queryClient = useQueryClient();
+
+  // Crypto context for cached private key
+  const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
+
+  // Socket subscription with optimistic updates
+  const socket = useSocket();
+  useEffect(() => {
+    if (!socket || !currentConversation) return;
+    socket.emit('join_conversation', currentConversation);
+    const handler = (newMessage: Message) => {
+      console.log('ChatArea received socket message:', newMessage);
+      // Optimistic update - add to the last page (most recent messages)
+      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (data.pages.length === 0) return data;
+        
+        // Add to the first page (most recent messages)
+        const firstPage = data.pages[0];
+        return {
+          ...data,
+          pages: [
+            { ...firstPage, messages: [...firstPage.messages, newMessage] },
+            ...data.pages.slice(1)
+          ]
+        };
+      });
+    };
+    socket.on('receive_message', handler);
+    return () => {
+      socket.off('receive_message', handler);
+    };
+  }, [socket, currentConversation, queryClient]);
   
   
   //Combining multiple pages of messages into one
   const messages: UIMessage[] = useMemo(() => {
     if (!messagePages || !messagePages.pages) return [];
     return messagePages.pages
-      .flatMap(page => page.messages)
+      .flatMap((page: unknown) => {
+        const typedPage = page as { messages: Message[]; nextCursor: string | null };
+        return typedPage.messages;
+      })
       .map((msg: Message) => ({
         ...msg,
         isOwn: msg.senderId === user?.id,
@@ -46,12 +82,48 @@ const ChatArea = () => {
       .reverse();
   }, [messagePages, user?.id]);
   
-
   //Send new Message in current conversation
-  const handleSendMessage = () => {
-    if (newMessage.trim() && currentConversation) {
-      createMessageMutation.mutate({ conversationId: currentConversation, content: newMessage });
-      setNewMessage('');
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !currentConversation || !user || !currentParticipant || !decryptedPrivateKey) return;
+    
+    const messageText = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
+    
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      senderId: user.id,
+      content: messageText,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      seen: false,
+      sender: user,
+      nonce: ''
+    };
+    
+    // Add optimistic update immediately
+    queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+      if (!oldData || typeof oldData !== 'object') return oldData;
+      const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+      if (data.pages.length === 0) return data;
+      
+      const firstPage = data.pages[0];
+      return {
+        ...data,
+        pages: [
+          { ...firstPage, messages: [...firstPage.messages, optimisticMessage] },
+          ...data.pages.slice(1)
+        ]
+      };
+    });
+    
+    try {
+      const {ciphertext, nonce} = await encryptMessage(messageText, currentParticipant.publicKey!, decryptedPrivateKey);
+      createMessageMutation.mutate({ conversationId: currentConversation, content: ciphertext, nonce });
+    } catch {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+      setNewMessage(messageText); // Restore message text
     }
   };
 
@@ -63,14 +135,10 @@ const ChatArea = () => {
 
 
   //Loading
-  if (convoLoading || messagesLoading) return <Loading />;
+  if (messagesLoading || cryptoLoading) return <Loading />;
 
   //Error
-  if (convoError || messagesError) return <div className="flex-1 flex items-center justify-center">Error loading conversation</div>;
-
-
-  //Other Participant in the current conversation
-  const otherParticipant = conversation?.participants.find(p => p.user.id !== user?.id)?.user;
+  if (messagesError) return <div className="flex-1 flex items-center justify-center">Error loading messages</div>;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -78,11 +146,11 @@ const ChatArea = () => {
           <div className="h-16 border-b border-border flex items-center justify-between px-6">
             <div className="flex items-center gap-3">
               <Avatar>
-                <AvatarImage src={otherParticipant?.avatar} />
-                <AvatarFallback>{otherParticipant?.fullName.charAt(0)}</AvatarFallback>
+                <AvatarImage src={currentParticipant?.avatar} />
+                <AvatarFallback>{currentParticipant?.fullName.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-medium">{otherParticipant?.fullName}</h3>
+                <h3 className="font-medium">{currentParticipant?.fullName}</h3>
                 <p className="text-xs text-muted-foreground">Online</p>
               </div>
             </div>
@@ -102,12 +170,7 @@ const ChatArea = () => {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 h-screen">
             {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] ${message.isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'} rounded-2xl p-3 px-4`}>
-                  <p>{message.content}</p>
-                  <span className="text-xs opacity-70 block text-right mt-1">{new Date(message.createdAt).toLocaleTimeString()}</span>
-                </div>
-              </div>
+              <MessageBubble key={message.id} message={message} />
             ))}
           </div>
           

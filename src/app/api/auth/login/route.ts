@@ -12,7 +12,7 @@ export const POST = async (request: Request) => {
     const body = await request.json();
 
     const { email, password } = await body;
-
+console.log(email, password);
     //input check
     if (!email || !password) {
       return NextResponse.json({ message: "Missing fields" }, { status: 400 });
@@ -52,7 +52,7 @@ export const POST = async (request: Request) => {
       path: "/", // The cookie is available for all paths
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { ...userWithoutPassword } = user;
     const response = NextResponse.json({ user: userWithoutPassword, token }, { status: 200 });
 
     response.headers.set("Set-Cookie", serializeCookie);

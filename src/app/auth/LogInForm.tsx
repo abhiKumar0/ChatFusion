@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/store/useAuthStore";
+
 import { CircleSlash } from "lucide-react";
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const LoginForm = () => {
       e.preventDefault();
       if (!email || !password) return;
       try {
-        await login({ data: { email, password } });
+        await login({ email, password });
         router.push("/");
       } catch (error) {
         console.error("Sign up failed:", error);

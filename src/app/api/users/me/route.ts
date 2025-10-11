@@ -20,10 +20,10 @@ export const GET = async (request: Request) => {
             return NextResponse.json({message: "User not found"}, { status: 404 });
         }
 
-        const { password, ...userWithoutPassword } = user;
+        const { ...userWithoutPassword } = user;
 
         return NextResponse.json({ user: userWithoutPassword }, { status: 200 });
-    } catch (error) {
+    } catch {
         return NextResponse.json(
             { message: "Error while retrieving current user" },
             { status: 500 }
