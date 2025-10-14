@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { Sidebar, ContactList, ChatArea, Loading } from '@/components';
+import React, { useState } from 'react';
+import { Sidebar, ContactList, ChatArea } from '@/components';
 import Welcome from '@/pages/Welcome';
 import MobileNav from '@/components/MobileNav';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMe } from '@/lib/react-query/queries';
 
@@ -13,10 +11,9 @@ export default function HomePage() {
   const [activeView, setActiveView] = useState('contacts');
   const [darkMode, setDarkMode] = useState(false);
   const [isContactListOpen, setIsContactListOpen] = useState(false);
-
   const currentConversation = useChatStore(state => state.currentConversation);
 
-  const { data:user, isLoading, error} = useGetMe();
+  const { data:user} = useGetMe();
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -39,7 +36,9 @@ export default function HomePage() {
         />
         {/* Desktop layout */}
         <div className="hidden lg:flex flex-1">
-          <ContactList />
+          <div className="w-80">
+            <ContactList />
+          </div>
           {currentConversation ? <ChatArea /> : <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>}
         </div>
 

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChatStore } from '@/store/useChatStore';
@@ -10,30 +10,63 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
 import { encryptMessage } from '@/lib/crypto';
 import { useCrypto } from '@/lib/crypto-context';
-import Loading from './Loading';
+import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
+import { ComponentErrorBoundary } from './ErrorBoundary';
 
 interface UIMessage extends Message {
   isOwn: boolean;
 }
 
+// Error fallback component
+const ChatErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
+  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+    <h3 className="text-lg font-medium mb-2">Something went wrong in the chat</h3>
+    <p className="text-muted-foreground mb-4">{error.message}</p>
+    <Button onClick={resetErrorBoundary} variant="outline">
+      Try again
+    </Button>
+  </div>
+);
+
+// Typing indicator component
+const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
+  if (!isVisible) return null;
+  
+  return (
+    <div className="flex justify-start mb-2">
+      <div className="max-w-[70%] bg-secondary rounded-2xl rounded-bl-none p-3 px-4">
+        <div className="flex items-center space-x-1">
+          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '0ms'}}></div>
+          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '150ms'}}></div>
+          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '300ms'}}></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ChatArea = () => {
-  const [newMessage, setNewMessage] = React.useState('');
-  const [localMessages, setLocalMessages] = React.useState<UIMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  //Current User
-  const { data: user } = useGetMe();
+  // Current User
+  const { data: user, error: userError } = useGetMe();
 
-  //Current Conversation's ID
+  // Current Conversation's ID
   const { currentConversation, currentParticipant } = useChatStore();
 
+  const { data: conversationData, error: conversationError } = useGetConversationById(currentConversation || "");
 
-  const { data: conversationData } = useGetConversationById(currentConversation || "");
-
-  //Messages in Current Conversation
+  // Messages in Current Conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
 
-  //Instance for message creation
+  // Instance for message creation
   const createMessageMutation = useCreateMessage();
   const queryClient = useQueryClient();
 
@@ -71,49 +104,139 @@ const ChatArea = () => {
   }, [socket, currentConversation, queryClient]);
 
 
-  //Combining multiple pages of messages into one
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  // Combining multiple pages of messages into one (optimized)
   const messages: UIMessage[] = useMemo(() => {
-    if (!messagePages || !messagePages.pages) return [];
-    const serverMessages = messagePages.pages
-      .flatMap((page: unknown) => {
-        const typedPage = page as { messages: Message[]; nextCursor: string | null };
-        return typedPage.messages;
-      })
-      .map((msg: Message) => ({
-        ...msg,
-        isOwn: msg.senderId === user?.id,
-        status: 'delivered' // Default status for messages from server
-      }));
+    if (!messagePages?.pages || !user?.id) return [];
+    
+    try {
+      const serverMessages = messagePages.pages
+        .flatMap((page: unknown) => {
+          const typedPage = page as { messages: Message[]; nextCursor: string | null };
+          return typedPage.messages || [];
+        })
+        .map((msg: Message) => ({
+          ...msg,
+          isOwn: msg.senderId === user.id,
+          status: 'delivered' as const
+        }));
 
-    // Merge with local messages, giving priority to server messages
-    const localMessagesMap = new Map(localMessages.map(msg => [msg.id, msg]));
-    serverMessages.forEach(msg => {
-      // If we have a local version of this message, keep its status
-      if (localMessagesMap.has(msg.id)) {
-        const localMsg = localMessagesMap.get(msg.id)!;
-        if (localMsg.status === 'sending') {
-          msg.status = 'sent'; // Update status to sent once we get it from server
+      // Merge with local messages more efficiently
+      const localMessagesMap = new Map(localMessages.map(msg => [msg.id, msg]));
+      const mergedMessages = new Map<string, UIMessage>();
+      
+      // Add server messages
+      serverMessages.forEach(msg => {
+        const localMsg = localMessagesMap.get(msg.id);
+        mergedMessages.set(msg.id, {
+          ...msg,
+          status: localMsg?.status === 'sending' ? 'sent' : msg.status
+        });
+      });
+      
+      // Add local messages that aren't yet on server
+      localMessages.forEach(msg => {
+        if (msg.status === 'sending' && !mergedMessages.has(msg.id)) {
+          mergedMessages.set(msg.id, msg);
         }
-      }
-    });
+      });
 
-    return [...serverMessages, ...localMessages.filter(m => m.status === 'sending')]
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return Array.from(mergedMessages.values())
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } catch (error) {
+      console.error('Error processing messages:', error);
+      setError('Failed to load messages');
+      return [];
+    }
   }, [messagePages, user?.id, localMessages]);
 
+  // Auto-scroll when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      const timeoutId = setTimeout(scrollToBottom, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages.length, scrollToBottom]);
+
+  // Clean up local messages when server messages arrive
   useEffect(() => {
     if (messagePages?.pages?.length) {
       setLocalMessages(prev => prev.filter(msg => msg.status === 'sending'));
     }
-  }, []);
+  }, [messagePages?.pages?.length]);
 
-  //Send new Message in current conversation
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !currentConversation || !user || !currentParticipant || !decryptedPrivateKey) return;
+  // Handle errors
+  useEffect(() => {
+    if (userError || conversationError || messagesError) {
+      const errorMsg = userError?.message || conversationError?.message || messagesError?.message || 'An error occurred';
+      setError(errorMsg);
+      console.error('Chat error:', { userError, conversationError, messagesError });
+    }
+  }, [userError, conversationError, messagesError]);
+
+  // Socket typing events
+  useEffect(() => {
+    if (!socket || !currentConversation) return;
+    
+    const handleTyping = () => setIsTyping(true);
+    const handleStopTyping = () => setIsTyping(false);
+    
+    socket.on('user_typing', handleTyping);
+    socket.on('user_stop_typing', handleStopTyping);
+    
+    return () => {
+      socket.off('user_typing', handleTyping);
+      socket.off('user_stop_typing', handleStopTyping);
+    };
+  }, [socket, currentConversation]);
+
+  // Typing timeout ref
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle typing events
+  const handleTyping = useCallback(() => {
+    if (!socket || !currentConversation) return;
+    
+    // Emit typing event
+    socket.emit('typing', { conversationId: currentConversation });
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set timeout to stop typing
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit('stop_typing', { conversationId: currentConversation });
+    }, 1000);
+  }, [socket, currentConversation]);
+
+  // Send new Message in current conversation (optimized)
+  const handleSendMessage = useCallback(async () => {
+    if (!newMessage.trim() || !currentConversation || !user || !currentParticipant || !decryptedPrivateKey || !conversationData) {
+      return;
+    }
 
     const messageText = newMessage.trim();
     setNewMessage(''); // Clear input immediately
-    const participant = conversationData.participants.find(p => p.user.id !== user.id)?.user;
+    setError(null); // Clear any previous errors
+    
+    // Stop typing when sending message
+    if (socket && typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      socket.emit('stop_typing', { conversationId: currentConversation });
+    }
+
+    const participant = conversationData.participants.find((p: any) => p.user.id !== user.id)?.user;
+    if (!participant) {
+      setError('Unable to find conversation participant');
+      setNewMessage(messageText);
+      return;
+    }
 
     // Create optimistic message
     const tempId = `temp-${Date.now()}`;
@@ -128,116 +251,232 @@ const ChatArea = () => {
       isOwn: true,
       status: "sending"
     };
+    
     setLocalMessages(prev => [...prev, optimisticMessage]);
-    // Add optimistic update immediately
-    queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-      if (!oldData || typeof oldData !== 'object') return oldData;
-      const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-      if (data.pages.length === 0) return data;
-
-      const firstPage = data.pages[0];
-      return {
-        ...data,
-        pages: [
-          { ...firstPage, messages: [...firstPage.messages, optimisticMessage] },
-          ...data.pages.slice(1)
-        ]
-      };
-    });
 
     try {
-
+      // Encrypt message
       const { ciphertext, nonce } = await encryptMessage(messageText, participant.publicKey, decryptedPrivateKey);
-      // console.log(ciphertext, nonce)
+      
+      // Update message status to sent
       setLocalMessages(prev =>
         prev.map(msg =>
           msg.id === tempId ? { ...msg, status: 'sent' } : msg
         )
       );
-      await createMessageMutation.mutate({ conversationId: currentConversation, content: ciphertext, nonce });
+      
+      // Send message to server
+      await createMessageMutation.mutateAsync({ 
+        conversationId: currentConversation, 
+        content: ciphertext, 
+        nonce 
+      });
+      
     } catch (error) {
-      console.error("Eorrorjnsbfdjhsdbduvgsbdyuhfgbsdb", error);
-      // Revert optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
-      setNewMessage(messageText); // Restore message text
+      console.error('Error sending message:', error);
+      
+      // Update message status to error
+      setLocalMessages(prev =>
+        prev.map(msg =>
+          msg.id === tempId ? { ...msg, status: 'error' } : msg
+        )
+      );
+      
+      // Set error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
+      setError(`Failed to send message: ${errorMessage}`);
+      
+      // Optionally restore message text for retry
+      setNewMessage(messageText);
     }
-  };
+  }, [newMessage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation]);
 
 
-  //In case no conversation is selected
-  if (currentConversation === null) {
-    return <div className="flex-1 flex items-center justify-center text-muted-foreground">Select a conversation to start chatting</div>;
+  // Handle input change with typing indicator
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    handleTyping();
+  }, [handleTyping]);
+
+  // Handle key press
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }, [handleSendMessage]);
+
+  // Clear typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Loading states
+  if (messagesLoading || cryptoLoading) {
+    return (
+      <div className="flex-1 flex flex-col">
+        {/* Chat Header Skeleton */}
+        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-muted rounded-full animate-pulse"></div>
+            <div>
+              <div className="h-4 bg-muted rounded w-24 mb-1 animate-pulse"></div>
+              <div className="h-3 bg-muted rounded w-16 animate-pulse"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="w-8 h-8 bg-muted rounded-full animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+        <MessageSkeleton />
+        {/* Input Skeleton */}
+        <div className="p-4 border-t border-border">
+          <div className="bg-secondary rounded-full px-4 py-2 animate-pulse">
+            <div className="h-10 bg-muted rounded-full"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
+  // Error states
+  if (!currentConversation) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-muted-foreground">
+        Select a conversation to start chatting
+      </div>
+    );
+  }
 
-  //Loading
-  if (messagesLoading || cryptoLoading) return <Loading />;
-
-  //Error
-  if (messagesError) return <div className="flex-1 flex items-center justify-center">Error loading messages</div>;
+  if (messagesError && !messages.length) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
+        <h3 className="text-lg font-medium mb-2">Failed to load messages</h3>
+        <p className="text-muted-foreground mb-4">{messagesError.message}</p>
+        <Button onClick={() => window.location.reload()} variant="outline">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Chat Header */}
-      <div className="h-16 border-b border-border flex items-center justify-between px-6">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={currentParticipant?.avatar} />
-            <AvatarFallback>{currentParticipant?.fullName.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h3 className="font-medium">{currentParticipant?.fullName}</h3>
-            <p className="text-xs text-muted-foreground">Online</p>
+    <ComponentErrorBoundary 
+      fallback={
+        <ChatErrorFallback 
+          error={new Error('Chat error')} 
+          resetErrorBoundary={() => window.location.reload()} 
+        />
+      }
+    >
+      <div className="flex-1 flex flex-col">
+        {/* Chat Header */}
+        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <Avatar>
+              <AvatarImage src={currentParticipant?.avatar} />
+              <AvatarFallback>{currentParticipant?.fullName?.charAt(0) || '?'}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-medium">{currentParticipant?.fullName || 'Unknown User'}</h3>
+              <p className="text-xs text-muted-foreground">
+                {isTyping ? 'typing...' : 'Online'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="rounded-full" title="Voice Call">
+              <Phone className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full" title="Video Call">
+              <Video className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full" title="More Options">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Phone className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Video className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <MoreVertical className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 h-screen">
-        {messages && messages.length > 0 ? (
-          messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))
-        ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            Be the first to send a message
+        {/* Error Display */}
+        {error && (
+          <div className="px-6 py-2 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm">{error}</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setError(null)}
+                className="ml-auto h-auto p-1 text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200"
+              >
+                ×
+              </Button>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Message Input */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Paperclip className="w-5 h-5" />
-          </Button>
-          <Input
-            placeholder="Type a message..."
-            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-          />
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Smile className="w-5 h-5" />
-          </Button>
-          <Button size="icon" className="cursor-pointer not-last-of-type:rounded-full bg-primary hover:bg-primary/90" onClick={handleSendMessage}>
-            <Send className="w-4 h-4" />
-          </Button>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-2" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+          {messages && messages.length > 0 ? (
+            <>
+              {messages.map((message) => (
+                <MessageBubble 
+                  key={message.id} 
+                  message={message} 
+                  conversationData={conversationData}
+                />
+              ))}
+              <TypingIndicator isVisible={isTyping} />
+            </>
+          ) : (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              <div className="text-center">
+                <div className="text-4xl mb-2">💬</div>
+                <p>Be the first to send a message</p>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Message Input */}
+        <div className="p-4 border-t border-border bg-background">
+          <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2">
+            <Button variant="ghost" size="icon" className="rounded-full" title="Attach File">
+              <Paperclip className="w-5 h-5" />
+            </Button>
+            <Input
+              ref={inputRef}
+              placeholder="Type a message..."
+              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+              value={newMessage}
+              onChange={handleInputChange}
+              onKeyPress={handleKeyPress}
+              disabled={createMessageMutation.isPending}
+            />
+            <Button variant="ghost" size="icon" className="rounded-full" title="Emojis">
+              <Smile className="w-5 h-5" />
+            </Button>
+            <Button 
+              size="icon" 
+              className="rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50" 
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || createMessageMutation.isPending}
+              title="Send Message"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </ComponentErrorBoundary>
   )
 }
 

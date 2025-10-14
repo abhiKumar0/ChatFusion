@@ -2,9 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 
-export const GET = async (req: Request, {params} : {params: {conversationsId: string}}) => {
+export const GET = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
-        const convoId = params.conversationsId;
+        const resolvedParams = await params;
+        const convoId = resolvedParams.conversationsId;
 
         console.log("Convo ",convoId)
         const conversation = await prisma.conversation.findUnique({

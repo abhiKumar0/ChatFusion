@@ -4,6 +4,7 @@ import "./globals.css";
 import QueryProvider from "./provider";
 import { SocketProvider } from "@/lib/socket-provider";
 import { CryptoProvider } from "@/lib/crypto-context";
+import { AppErrorBoundary } from "@/components/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,13 +29,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        <QueryProvider>
-          <SocketProvider>
-            <CryptoProvider>
-              {children}
-            </CryptoProvider>
-          </SocketProvider>
-        </QueryProvider>
+        <AppErrorBoundary>
+          <QueryProvider>
+            <SocketProvider>
+              <CryptoProvider>
+                {children}
+              </CryptoProvider>
+            </SocketProvider>
+          </QueryProvider>
+        </AppErrorBoundary>
       </body>
     </html>
   );

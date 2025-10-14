@@ -43,7 +43,11 @@ const Home = () => {
       {/* Main Layout */}
       <div className="flex-1 flex">
         {/* Sidebar */}
-        <Sidebar />
+        <Sidebar 
+          darkMode={darkMode} 
+          toggleDarkMode={toggleDarkMode} 
+          setIsContactListOpen={() => {}} 
+        />
         
         {/* Contacts List */}
         <ContactList />

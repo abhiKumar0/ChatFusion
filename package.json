@@ -2,6 +2,7 @@
   "name": "chatfusion",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "nodemon server.ts",
     "build": "next build",
@@ -31,6 +32,7 @@
     "next": "15.5.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-error-boundary": "^6.0.0",
     "react-resizable-panels": "^3.0.6",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",

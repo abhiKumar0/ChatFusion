@@ -225,6 +225,7 @@ export const useGetMessages = (conversationId: string | null, enabled: boolean) 
     queryFn: ({ pageParam }) =>
       getMessages({ conversationId: conversationId as string, cursor: pageParam }),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    initialPageParam: undefined,
     enabled: Boolean(enabled && conversationId),
     staleTime: 30 * 1000, // 30 seconds
   });

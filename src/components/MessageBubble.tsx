@@ -1,25 +1,58 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useMemo} from 'react';
 import { Message } from '@/types/types';
-import {useGetConversationById, useGetMe} from "@/lib/react-query/queries.ts";
+import {useGetMe} from "@/lib/react-query/queries.ts";
 import {decryptMessage, decryptPrivateKey} from "@/lib/crypto.ts";
-import {useChatStore} from "@/store/useChatStore.ts";
+import {useCrypto} from "@/lib/crypto-context.tsx";
 
 interface MessageBubbleProps {
-  message: Message & { isOwn: boolean };
+  message: Message & { isOwn: boolean; status?: string };
+  conversationData?: {
+    participants: Array<{
+      user: {
+        id: string;
+        email: string;
+        fullName: string;
+        publicKey: string;
+        encryptedPrivateKey: string;
+      };
+    }>;
+  };
 }
 
-const MessageBubble = React.memo(({ message }: MessageBubbleProps) => {
+// Cache for decrypted messages to avoid re-decryption
+const messageCache = new Map<string, string>();
+
+const MessageBubble = React.memo(({ message, conversationData }: MessageBubbleProps) => {
     const [content, setContent] = useState<string>("");
     const { data: currentUser }= useGetMe();
-    const {currentConversation} = useChatStore();
-    const {data:conversationData} = useGetConversationById(currentConversation || "");
-    const [isDecrypting, setIsDecrypting] = useState(true);
+    const [isDecrypting, setIsDecrypting] = useState(false);
+    const { decryptedPrivateKey } = useCrypto();
+
+    // Memoize participant to avoid recalculation
+    const participant = useMemo(() => {
+        if (!conversationData || !currentUser?.id) return null;
+        return conversationData.participants.find(p => p.user.id !== currentUser.id)?.user;
+    }, [conversationData, currentUser?.id]);
+
+    // Create cache key for this message
+    const cacheKey = useMemo(() => 
+        `${message.id}-${message.content}-${message.nonce}`,
+        [message.id, message.content, message.nonce]
+    );
 
     useEffect(() => {
         let cancelled = false;
 
-        if (!conversationData || !currentUser?.id || !message?.sender?.id) {
-            // nothing to do yet; wait for data
+        if (!conversationData || !currentUser?.id || !message?.sender?.id || !participant) {
+            setContent('[Unable to decrypt message]');
+            setIsDecrypting(false);
+            return;
+        }
+
+        // Check cache first
+        const cached = messageCache.get(cacheKey);
+        if (cached) {
+            setContent(cached);
             setIsDecrypting(false);
             return;
         }
@@ -27,34 +60,43 @@ const MessageBubble = React.memo(({ message }: MessageBubbleProps) => {
         const decryptMessageContent = async () => {
             try {
                 setIsDecrypting(true);
-                setContent(""); // clear previous content while decrypting
+                setContent("");
 
                 const isOwn = message.sender.id === currentUser.id;
-                const participant = conversationData.participants.find((p: any) => p.user.id !== currentUser.id)?.user;
 
-                if (!participant) {
-                    if (!cancelled) setContent('[Message could not be decrypted]');
-                    return;
+                // Use cached private key from crypto context when available
+                let privateKey;
+                if (decryptedPrivateKey && !isOwn) {
+                    privateKey = decryptedPrivateKey;
+                } else {
+                    privateKey = isOwn
+                        ? await decryptPrivateKey(participant.encryptedPrivateKey, participant.email)
+                        : await decryptPrivateKey(currentUser.encryptedPrivateKey, currentUser.email);
                 }
-
-                // await decryption of private keys
-                const privateKey = isOwn
-                    ? await decryptPrivateKey(participant.encryptedPrivateKey, participant.email)
-                    : await decryptPrivateKey(currentUser.encryptedPrivateKey, currentUser.email);
 
                 const publicKey = isOwn ? currentUser?.publicKey : participant?.publicKey;
 
-                // if any required material is missing, show error
                 if (!publicKey || !message.nonce || !privateKey) {
-                    if (!cancelled) setContent('[Message could not be decrypted]');
+                    const errorMsg = '[Message could not be decrypted]';
+                    if (!cancelled) {
+                        setContent(errorMsg);
+                        messageCache.set(cacheKey, errorMsg);
+                    }
                     return;
                 }
 
                 const decrypted = await decryptMessage(message.content, message.nonce, publicKey, privateKey);
-                if (!cancelled) setContent(decrypted);
+                if (!cancelled) {
+                    setContent(decrypted);
+                    messageCache.set(cacheKey, decrypted);
+                }
             } catch (error) {
                 console.error('Error decrypting message:', error);
-                if (!cancelled) setContent('[Message could not be decrypted]');
+                const errorMsg = '[Message could not be decrypted]';
+                if (!cancelled) {
+                    setContent(errorMsg);
+                    messageCache.set(cacheKey, errorMsg);
+                }
             } finally {
                 if (!cancelled) setIsDecrypting(false);
             }
@@ -65,7 +107,7 @@ const MessageBubble = React.memo(({ message }: MessageBubbleProps) => {
         return () => {
             cancelled = true;
         };
-    }, [message, currentUser, conversationData]);
+    }, [message, currentUser, participant, cacheKey, decryptedPrivateKey, conversationData]);
 
     // Status icon component
     const StatusIcon = ({ status }: { status?: string }) => {

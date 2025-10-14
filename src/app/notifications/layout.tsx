@@ -24,7 +24,11 @@ export default function UsersLayout({
       {/* Main Layout */}
       <div className="flex-1 flex">
         {/* Sidebar */}
-        <Sidebar />
+        <Sidebar 
+          darkMode={darkMode} 
+          toggleDarkMode={toggleDarkMode} 
+          setIsContactListOpen={() => {}} 
+        />
         
         {/* Main Content */}
         <div className="flex-1">

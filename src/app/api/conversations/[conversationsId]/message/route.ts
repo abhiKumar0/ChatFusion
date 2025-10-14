@@ -31,10 +31,11 @@ import { getIO } from "@/lib/socket-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 
-export const POST = async (req: Request, {params} : {params: {conversationsId: string}}) => {
+export const POST = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
         const userId = req.headers.get("x-user-id");
-        const convoId = params.conversationsId;
+        const resolvedParams = await params;
+        const convoId = resolvedParams.conversationsId;
         const {parentId, content, media, nonce} = await req.json();
 
         if (!userId) {
@@ -115,10 +116,11 @@ export const POST = async (req: Request, {params} : {params: {conversationsId: s
 
 const MESSAGE_BATCH_SIZE = 50;
 
-export const GET = async (req: Request, {params} : {params: {conversationsId: string}}) => {
+export const GET = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
         const userId = req.headers.get("x-user-id");
-        const convoId = params.conversationsId;
+        const resolvedParams = await params;
+        const convoId = resolvedParams.conversationsId;
         if (!userId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }

@@ -21,7 +21,7 @@ const NotificationsList = () => {
         <h2 className="text-xl font-semibold">Notifications</h2>
       </div>
       <div className="flex-1 overflow-y-auto py-2 space-y-2">
-        {notifications?.map(n => (
+        {notifications?.map((n: any) => (
           <div
             key={n.id}
             className="flex items-center justify-between bg-card p-3 rounded shadow hover:bg-accent transition"

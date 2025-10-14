@@ -7,7 +7,7 @@ import Loading from "@/components/Loading";
 import Welcome from "@/pages/Welcome";
 import { useGetMe } from "@/lib/react-query/queries";
 import { useState } from "react";
-import {Resizable, ResizableHandle, ResizablePanel, ResizablePanelGroup} from "@/components/ui/resizable"; // Adjust import if needed
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"; // Adjust import if needed
 
 export default function NotificationsPage() {
   const [darkMode, setDarkMode] = useState(false);
