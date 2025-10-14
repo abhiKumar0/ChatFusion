@@ -14,7 +14,6 @@ export interface Message {
     id: string,
     senderId: string,
     parentMessageId?: string,
-    seen: boolean,
     media?: string,
     content: string,
     createdAt: Date,
@@ -22,7 +21,8 @@ export interface Message {
     replies?: Message[],
     sender: User,
     parentMessage?: Message,
-    nonce?: string
+    nonce?: string,
+    status: string,
 }
 
 interface Conversation {

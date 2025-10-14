@@ -14,7 +14,7 @@ export const signUp = async (
   password: string
 ) => {
   const { publicKey, privateKey } = await generateUserKeys();
-  const encryptedKey_base64 = await encryptPrivateKey(privateKey, email);
+  const encryptedKey_base64 = encryptPrivateKey(privateKey, email);
   console.log(publicKey, privateKey, encryptedKey_base64);
   const data = {
     fullName,

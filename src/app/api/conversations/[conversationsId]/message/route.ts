@@ -149,7 +149,7 @@ export const GET = async (req: Request, {params} : {params: {conversationsId: st
 
             include: {
                 sender: {
-                    select: {fullName: true, id: true, username: true},
+                    select: {fullName: true, id: true, username: true, encryptedPrivateKey: true, publicKey: true, email: true},
                 },
             },
             

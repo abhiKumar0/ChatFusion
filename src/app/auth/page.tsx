@@ -1,14 +1,21 @@
 'use client';
 
 import { CircleSlash } from 'lucide-react';
-import { useState } from 'react';
+import {useEffect, useState} from 'react';
 import SignUpForm from './SignUpForm';
 import LoginForm from './LogInForm';
+import {useGetMe} from "@/lib/react-query/queries.ts";
+import {useRouter} from "next/navigation";
 
 
 
 const Auth = () => {
   const [isSignUpActive, setIsSignUpActive] = useState(false);
+  const {data:user} = useGetMe();
+  const router = useRouter();
+  if (user) {
+      router.push("/");
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">

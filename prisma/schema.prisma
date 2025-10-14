@@ -38,12 +38,12 @@ model User {
   id        String   @id @default(cuid())
   username  String   @unique
   email     String   @unique
-  fullName      String?
+  fullName  String?
   avatar    String?
-  password  String   // Hashed password for login
+  password  String // Hashed password for login
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  isOnline  Boolean @default(false)
+  isOnline  Boolean  @default(false)
 
   // --- Fields for E2EE ---
   publicKey           String? // User's public key (sharable)
@@ -52,9 +52,9 @@ model User {
   // keyNonce            String? // Nonce used for encrypting the private key
 
   // --- Relations ---
-  messagesSent          Message[]                 @relation("SentMessages")
-  conversations         ConversationParticipant[]
-  sentFriendRequests    FriendRequest[]           @relation("SentRequests")
+  messagesSent           Message[]                 @relation("SentMessages")
+  conversations          ConversationParticipant[]
+  sentFriendRequests     FriendRequest[]           @relation("SentRequests")
   receivedFriendRequests FriendRequest[]           @relation("ReceivedRequests")
 }
 
@@ -62,9 +62,9 @@ model Conversation {
   id        String           @id @default(cuid())
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
-  name      String?          //Group name
+  name      String? //Group name
   type      ConversationType @default(ONE_TO_ONE)
-  avatar    String?          // Group avatar
+  avatar    String? // Group avatar
 
   // --- Relations ---
   messages     Message[]
@@ -74,28 +74,28 @@ model Conversation {
 // Join table to manage users in conversations and their roles
 model ConversationParticipant {
   userId         String
-  user           User   @relation(fields: [userId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversation   Conversation    @relation(fields: [conversationId], references: [id])
   role           ParticipantRole @default(MEMBER)
 
   @@id([userId, conversationId])
 }
 
 model Message {
-  id              String   @id @default(cuid())
-  content         String   // Encrypted message content
-  nonce           String   // Nonce used for E2EE decryption
-  media           String?  // Encrypted media URL
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  seen            Boolean @default(false)
+  id        String   @id @default(cuid())
+  content   String // Encrypted message content
+  nonce     String // Nonce used for E2EE decryption
+  media     String? // Encrypted media URL
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    String   @default("sent")
 
   // --- Relations ---
-  sender          User   @relation("SentMessages", fields: [senderId], references: [id])
-  senderId        String
-  conversation    Conversation @relation(fields: [conversationId], references: [id])
-  conversationId  String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
+  senderId       String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String
 
   // --- Fields for Threaded Messages (Re-added) ---
   parentMessage   Message?  @relation("Replies", fields: [parentMessageId], references: [id])
@@ -104,16 +104,16 @@ model Message {
 }
 
 model FriendRequest {
-  id          String              @id @default(cuid())
-  status      FriendRequestStatus @default(PENDING)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id        String              @id @default(cuid())
+  status    FriendRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 
   // --- Relations ---
-  sender      User   @relation("SentRequests", fields: [senderId], references: [id])
-  senderId    String
-  receiver    User   @relation("ReceivedRequests", fields: [receiverId], references: [id])
-  receiverId  String
+  sender     User   @relation("SentRequests", fields: [senderId], references: [id])
+  senderId   String
+  receiver   User   @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  receiverId String
 
   @@unique([senderId, receiverId]) // Ensures a user can only send one request to another
 }

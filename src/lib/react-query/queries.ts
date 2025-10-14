@@ -19,6 +19,7 @@ import {
   getFriendRequests,
   respondToFriendRequest,
 } from './api';
+import { Message } from '@/types/types';
 
 // QueryClient is now provided by the provider.tsx
 

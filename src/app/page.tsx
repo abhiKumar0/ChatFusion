@@ -45,16 +45,16 @@ export default function HomePage() {
 
 
         {/* Tablet layout */}
-        <div className="hidden md:flex lg:hidden flex-1">
-          <Sheet open={isContactListOpen} onOpenChange={setIsContactListOpen}>
-            <SheetContent side="left" className="p-0 w-80">
-              <ContactList />
-            </SheetContent>
-          </Sheet>
+        {/*<div className="hidden md:flex lg:hidden flex-1">*/}
+          {/*<Sheet open={isContactListOpen} onOpenChange={setIsContactListOpen}>*/}
+          {/*  <SheetContent side="left" className="p-0 w-80">*/}
+          {/*    <ContactList />*/}
+          {/*  </SheetContent>*/}
+          {/*</Sheet>*/}
           
 
 
-        </div>
+        {/*</div>*/}
 
 
         {/* Mobile layout */}

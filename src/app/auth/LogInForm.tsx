@@ -63,7 +63,7 @@ const LoginForm = () => {
         type="submit"
         className="mt-4 transform rounded-full px-12 py-3 text-xs font-bold uppercase tracking-wider transition-transform duration-75 ease-in hover:scale-105"
       >
-        Sign In
+        {loading ? "Signing in..." : "Sign In"}
       </Button>
     </form>
   );
