@@ -26,7 +26,7 @@ const ChatErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetE
     <p className="text-muted-foreground mb-4">{error.message}</p>
     <Button onClick={resetErrorBoundary} variant="outline">
       Try again
-    </Button>
+    </Button> 
   </div>
 );
 

@@ -70,7 +70,7 @@ interface AppErrorBoundaryProps {
 export const AppErrorBoundary: React.FC<AppErrorBoundaryProps> = ({ children }) => {
   return (
     <ReactErrorBoundary
-      fallback={<ErrorFallback error={new Error('Application error')} resetErrorBoundary={() => window.location.reload()} />}
+      FallbackComponent={ErrorFallback}
       onError={(error: Error, errorInfo: any) => {
         console.error('App Error Boundary caught an error:', error, errorInfo);
       }}
@@ -95,11 +95,9 @@ export const ComponentErrorBoundary: React.FC<ComponentErrorBoundaryProps> = ({
   fallback,
   onError 
 }) => {
-  const defaultFallback = <ErrorFallback error={new Error('Component error')} resetErrorBoundary={() => window.location.reload()} />;
-  
   return (
     <ReactErrorBoundary
-      fallback={fallback || defaultFallback}
+      FallbackComponent={fallback || ErrorFallback}
       onError={onError}
     >
       {children}
