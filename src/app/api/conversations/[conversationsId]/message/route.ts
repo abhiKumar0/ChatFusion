@@ -94,11 +94,8 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
             }
         });
 
-        // Emit to conversation room for realtime updates
-        try {
-            const io = getIO();
-            io.to(`convo:${convoId}`).emit("receive_message", newMessage);
-        } catch {}
+        // Note: Real-time updates are handled client-side via socket emission
+        // This avoids the Socket.IO initialization issue in API routes
 
         return NextResponse.json(newMessage, {status: 201});
         

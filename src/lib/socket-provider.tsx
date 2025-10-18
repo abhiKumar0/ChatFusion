@@ -12,9 +12,12 @@ export const useSocket = () => {
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const { data: user } = useGetMe();
+  const { data: user, isLoading: userLoading } = useGetMe();
 
   useEffect(() => {
+    // Only create socket connection when user data is available
+    if (!user || userLoading) return;
+
     const newSocket = io(process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:3000', { 
       withCredentials: true,
       transports: ['websocket', 'polling'],
@@ -29,6 +32,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       // Join user-specific room for notifications
       if (user?.id) {
         newSocket.emit('join', user.id);
+        console.log('Joined user room:', user.id);
       }
     });
     
@@ -43,20 +47,21 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     newSocket.on('receive_message', (data) => {
       console.log('Received message via socket:', data);
     });
+
+    newSocket.on('user_typing', () => {
+      console.log('User is typing...');
+    });
+
+    newSocket.on('user_stop_typing', () => {
+      console.log('User stopped typing...');
+    });
     
     setSocket(newSocket);
 
     return () => {
       newSocket.close();
     };
-  }, []);
-
-  // Join user room when user data is available
-  useEffect(() => {
-    if (socket && user?.id) {
-      socket.emit('join', user.id);
-    }
-  }, [socket, user?.id]);
+  }, [user, userLoading]);
 
   return (
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>

@@ -76,13 +76,20 @@ const ChatArea = () => {
   // Socket subscription with real-time updates
   const socket = useSocket();
   useEffect(() => {
-    if (!socket || !currentConversation) return;
+    if (!socket || !currentConversation || !user) {
+      console.log('Socket setup skipped:', { socket: !!socket, currentConversation, user: !!user });
+      return;
+    }
+    
+    console.log('Setting up socket for conversation:', currentConversation);
     
     // Join conversation room
     socket.emit('join_conversation', currentConversation);
+    console.log('Emitted join_conversation for:', currentConversation);
     
     const handler = (newMessage: Message) => {
       console.log('ChatArea received socket message:', newMessage);
+      console.log('Current user ID:', user?.id, 'Message sender ID:', newMessage.senderId);
       
       // Only add message if it's not from current user (to avoid duplicates)
       if (newMessage.senderId === user?.id) {
@@ -104,6 +111,7 @@ const ChatArea = () => {
           return data;
         }
 
+        console.log('Adding new message to cache:', newMessage.id);
         // Add to the first page (most recent messages)
         return {
           ...data,
@@ -116,7 +124,10 @@ const ChatArea = () => {
     };
     
     socket.on('receive_message', handler);
+    console.log('Added receive_message listener');
+    
     return () => {
+      console.log('Cleaning up socket listeners for conversation:', currentConversation);
       socket.off('receive_message', handler);
     };
   }, [socket, currentConversation, queryClient, user?.id]);
@@ -289,6 +300,15 @@ const ChatArea = () => {
         content: ciphertext, 
         nonce 
       });
+      
+      // Emit message via socket for real-time updates
+      if (socket && currentConversation) {
+        console.log('Emitting message via client socket:', serverMessage);
+        socket.emit('send_message', {
+          conversationId: currentConversation,
+          message: serverMessage
+        });
+      }
       
       // Remove optimistic message and let the server message take over
       setLocalMessages(prev => prev.filter(msg => msg.id !== tempId));

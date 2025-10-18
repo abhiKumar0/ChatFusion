@@ -10,6 +10,9 @@ export function initSocket(server: HTTPServer) {
     transports: ["websocket", "polling"],
   });
 
+  // Make ioInstance globally available
+  (global as any).ioInstance = ioInstance;
+
   ioInstance.on("connection", (socket: Socket) => {
     console.log("User connected:", socket.id);
     
@@ -18,6 +21,8 @@ export function initSocket(server: HTTPServer) {
       if (userId) {
         socket.join(userId);
         console.log(`User ${userId} joined their room`);
+      } else {
+        console.log("No userId provided for join event");
       }
     });
 
@@ -26,6 +31,9 @@ export function initSocket(server: HTTPServer) {
       if (conversationId) {
         socket.join(`convo:${conversationId}`);
         console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+        console.log(`Room convo:${conversationId} now has ${ioInstance?.sockets.adapter.rooms.get(`convo:${conversationId}`)?.size || 0} members`);
+      } else {
+        console.log("No conversationId provided for join_conversation event");
       }
     });
 
@@ -60,6 +68,13 @@ export function initSocket(server: HTTPServer) {
 }
 
 export function getIO() {
+  // Try to get from global first (for API routes)
+  const globalIO = (global as any).ioInstance;
+  if (globalIO) {
+    return globalIO;
+  }
+  
+  // Fallback to local instance
   if (!ioInstance) {
     throw new Error("Socket.IO not initialized. Call initSocket(server) first.");
   }
