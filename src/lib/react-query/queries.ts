@@ -189,27 +189,27 @@ export const useCreateMessage = () => {
   const mutation = useMutation({
     mutationFn: createMessage,
     onSuccess: (data, variables) => {
-      // Replace optimistic message with real message from server
+      // Add the new message to the cache
       queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
         
+        if (queryData.pages.length === 0) return queryData;
+        
+        // Add to the first page (most recent messages)
+        const firstPage = queryData.pages[0];
         return {
           ...queryData,
-          pages: queryData.pages.map(page => ({
-            ...page,
-            messages: page.messages.map(msg => 
-              msg.id.startsWith('temp-') ? data : msg
-            )
-          }))
+          pages: [
+            { ...firstPage, messages: [...firstPage.messages, data] },
+            ...queryData.pages.slice(1)
+          ]
         };
       });
     },
     onError: (error, variables) => {
-      // Revert optimistic update on error
-      queryClient.invalidateQueries({
-        queryKey: ['messages', variables.conversationId],
-      });
+      console.error('Message creation failed:', error);
+      // Don't invalidate queries on error - let the UI handle the error state
     },
   });
   return {

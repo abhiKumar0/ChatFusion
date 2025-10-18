@@ -73,21 +73,38 @@ const ChatArea = () => {
   // Crypto context for cached private key
   const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
-  // Socket subscription with optimistic updates
+  // Socket subscription with real-time updates
   const socket = useSocket();
   useEffect(() => {
     if (!socket || !currentConversation) return;
+    
+    // Join conversation room
     socket.emit('join_conversation', currentConversation);
+    
     const handler = (newMessage: Message) => {
       console.log('ChatArea received socket message:', newMessage);
-      // Optimistic update - add to the last page (most recent messages)
+      
+      // Only add message if it's not from current user (to avoid duplicates)
+      if (newMessage.senderId === user?.id) {
+        console.log('Ignoring own message from socket');
+        return;
+      }
+      
+      // Add message to query cache
       queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
         if (data.pages.length === 0) return data;
 
-        // Add to the first page (most recent messages)
+        // Check if message already exists to prevent duplicates
         const firstPage = data.pages[0];
+        const messageExists = firstPage.messages.some(msg => msg.id === newMessage.id);
+        if (messageExists) {
+          console.log('Message already exists, skipping');
+          return data;
+        }
+
+        // Add to the first page (most recent messages)
         return {
           ...data,
           pages: [
@@ -97,11 +114,12 @@ const ChatArea = () => {
         };
       });
     };
+    
     socket.on('receive_message', handler);
     return () => {
       socket.off('receive_message', handler);
     };
-  }, [socket, currentConversation, queryClient]);
+  }, [socket, currentConversation, queryClient, user?.id]);
 
 
   // Auto-scroll to bottom when new messages arrive
@@ -231,7 +249,7 @@ const ChatArea = () => {
       socket.emit('stop_typing', { conversationId: currentConversation });
     }
 
-    const participant = conversationData.participants.find((p: any) => p.user.id !== user.id)?.user;
+    const participant = conversationData.participants.find((p: { user: { id: string } }) => p.user.id !== user.id)?.user;
     if (!participant) {
       setError('Unable to find conversation participant');
       setNewMessage(messageText);
@@ -266,11 +284,14 @@ const ChatArea = () => {
       );
       
       // Send message to server
-      await createMessageMutation.mutateAsync({ 
+      const serverMessage = await createMessageMutation.mutateAsync({ 
         conversationId: currentConversation, 
         content: ciphertext, 
         nonce 
       });
+      
+      // Remove optimistic message and let the server message take over
+      setLocalMessages(prev => prev.filter(msg => msg.id !== tempId));
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -286,7 +307,7 @@ const ChatArea = () => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
       setError(`Failed to send message: ${errorMessage}`);
       
-      // Optionally restore message text for retry
+      // Restore message text for retry
       setNewMessage(messageText);
     }
   }, [newMessage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation]);
@@ -368,14 +389,7 @@ const ChatArea = () => {
   }
 
   return (
-    <ComponentErrorBoundary 
-      fallback={
-        <ChatErrorFallback 
-          error={new Error('Chat error')} 
-          resetErrorBoundary={() => window.location.reload()} 
-        />
-      }
-    >
+    <ComponentErrorBoundary>
       <div className="flex-1 flex flex-col">
         {/* Chat Header */}
         <div className="h-16 border-b border-border flex items-center justify-between px-6">
@@ -459,7 +473,6 @@ const ChatArea = () => {
               value={newMessage}
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
-              disabled={createMessageMutation.isPending}
             />
             <Button variant="ghost" size="icon" className="rounded-full" title="Emojis">
               <Smile className="w-5 h-5" />
@@ -468,7 +481,7 @@ const ChatArea = () => {
               size="icon" 
               className="rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50" 
               onClick={handleSendMessage}
-              disabled={!newMessage.trim() || createMessageMutation.isPending}
+              disabled={!newMessage.trim()}
               title="Send Message"
             >
               <Send className="w-4 h-4" />
