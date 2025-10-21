@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChatStore } from '@/store/useChatStore';
@@ -13,6 +13,7 @@ import { useCrypto } from '@/lib/crypto-context';
 import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
 import { ComponentErrorBoundary } from './ErrorBoundary';
+import EmojiPicker from 'emoji-picker-react'
 
 interface UIMessage extends Message {
   isOwn: boolean;
@@ -54,6 +55,8 @@ const ChatArea = () => {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Current User
   const { data: user, error: userError } = useGetMe();
@@ -80,23 +83,23 @@ const ChatArea = () => {
       console.log('Socket setup skipped:', { socket: !!socket, currentConversation, user: !!user });
       return;
     }
-    
+
     console.log('Setting up socket for conversation:', currentConversation);
-    
+
     // Join conversation room
     socket.emit('join_conversation', currentConversation);
     console.log('Emitted join_conversation for:', currentConversation);
-    
+
     const handler = (newMessage: Message) => {
       console.log('ChatArea received socket message:', newMessage);
       console.log('Current user ID:', user?.id, 'Message sender ID:', newMessage.senderId);
-      
+
       // Only add message if it's not from current user (to avoid duplicates)
       if (newMessage.senderId === user?.id) {
         console.log('Ignoring own message from socket');
         return;
       }
-      
+
       // Add message to query cache
       queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
@@ -122,10 +125,10 @@ const ChatArea = () => {
         };
       });
     };
-    
+
     socket.on('receive_message', handler);
     console.log('Added receive_message listener');
-    
+
     return () => {
       console.log('Cleaning up socket listeners for conversation:', currentConversation);
       socket.off('receive_message', handler);
@@ -141,7 +144,7 @@ const ChatArea = () => {
   // Combining multiple pages of messages into one (optimized)
   const messages: UIMessage[] = useMemo(() => {
     if (!messagePages?.pages || !user?.id) return [];
-    
+
     try {
       const serverMessages = messagePages.pages
         .flatMap((page: unknown) => {
@@ -157,7 +160,7 @@ const ChatArea = () => {
       // Merge with local messages more efficiently
       const localMessagesMap = new Map(localMessages.map(msg => [msg.id, msg]));
       const mergedMessages = new Map<string, UIMessage>();
-      
+
       // Add server messages
       serverMessages.forEach(msg => {
         const localMsg = localMessagesMap.get(msg.id);
@@ -166,7 +169,7 @@ const ChatArea = () => {
           status: localMsg?.status === 'sending' ? 'sent' : msg.status
         });
       });
-      
+
       // Add local messages that aren't yet on server
       localMessages.forEach(msg => {
         if (msg.status === 'sending' && !mergedMessages.has(msg.id)) {
@@ -210,13 +213,13 @@ const ChatArea = () => {
   // Socket typing events
   useEffect(() => {
     if (!socket || !currentConversation) return;
-    
+
     const handleTyping = () => setIsTyping(true);
     const handleStopTyping = () => setIsTyping(false);
-    
+
     socket.on('user_typing', handleTyping);
     socket.on('user_stop_typing', handleStopTyping);
-    
+
     return () => {
       socket.off('user_typing', handleTyping);
       socket.off('user_stop_typing', handleStopTyping);
@@ -229,7 +232,7 @@ const ChatArea = () => {
   // Handle typing events
   const handleTyping = useCallback(() => {
     if (!socket || !currentConversation) return;
-    
+
     // Emit typing event
     socket.emit('typing', { conversationId: currentConversation });
     
@@ -354,6 +357,18 @@ const ChatArea = () => {
         clearTimeout(typingTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Toggle emoji picker visibility
+  const toggleEmojiPicker = useCallback(() => {
+    setShowEmojiPicker(prev => !prev);
+  }, []);
+
+  // Handle emoji selection
+  const onEmojiClick = useCallback((emojiData: { emoji: string }) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    // Focus back on input after emoji selection
+    inputRef.current?.focus();
   }, []);
 
   // Loading states
@@ -494,12 +509,35 @@ const ChatArea = () => {
               onChange={handleInputChange}
               onKeyPress={handleKeyPress}
             />
-            <Button variant="ghost" size="icon" className="rounded-full" title="Emojis">
-              <Smile className="w-5 h-5" />
-            </Button>
+            <div className="relative" ref={emojiPickerRef}>
+              <Button 
+                type="button"
+                variant="ghost" 
+                size="icon" 
+                className={`rounded-full cursor-pointer ${showEmojiPicker ? 'bg-accent' : ''}`} 
+                title="Emojis"
+                onClick={toggleEmojiPicker}
+              >
+                {showEmojiPicker ? <X className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
+              </Button>
+              {showEmojiPicker && (
+                <div className="absolute bottom-10 right-0 z-50">
+                  <EmojiPicker 
+                    onEmojiClick={onEmojiClick}
+                    width={300}
+                    height={350}
+                    searchPlaceholder="Search emojis..."
+                    previewConfig={{
+                      showPreview: false
+                    }}
+                    skinTonesDisabled
+                  />
+                </div>
+              )}
+            </div>
             <Button 
               size="icon" 
-              className="rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50" 
+              className="rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 cursor-pointer" 
               onClick={handleSendMessage}
               disabled={!newMessage.trim()}
               title="Send Message"

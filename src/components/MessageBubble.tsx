@@ -1,22 +1,24 @@
-import React, {useEffect, useState, useMemo} from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Message } from '@/types/types';
-import {useGetMe} from "@/lib/react-query/queries.ts";
-import {decryptMessage, decryptPrivateKey} from "@/lib/crypto.ts";
-import {useCrypto} from "@/lib/crypto-context.tsx";
+import { useGetMe } from "@/lib/react-query/queries.ts";
+import { decryptMessage, decryptPrivateKey } from "@/lib/crypto.ts";
+import { useCrypto } from "@/lib/crypto-context.tsx";
+import { Ellipsis, Smile } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MessageBubbleProps {
-  message: Message & { isOwn: boolean; status?: string };
-  conversationData?: {
-    participants: Array<{
-      user: {
-        id: string;
-        email: string;
-        fullName: string;
-        publicKey: string;
-        encryptedPrivateKey: string;
-      };
-    }>;
-  };
+    message: Message & { isOwn: boolean; status?: string };
+    conversationData?: {
+        participants: Array<{
+            user: {
+                id: string;
+                email: string;
+                fullName: string;
+                publicKey: string;
+                encryptedPrivateKey: string;
+            };
+        }>;
+    };
 }
 
 // Cache for decrypted messages to avoid re-decryption
@@ -24,9 +26,10 @@ const messageCache = new Map<string, string>();
 
 const MessageBubble = React.memo(({ message, conversationData }: MessageBubbleProps) => {
     const [content, setContent] = useState<string>("");
-    const { data: currentUser }= useGetMe();
+    const { data: currentUser } = useGetMe();
     const [isDecrypting, setIsDecrypting] = useState(false);
     const { decryptedPrivateKey } = useCrypto();
+    const [showOptions, setShowOptions] = useState(false);
 
     // Memoize participant to avoid recalculation
     const participant = useMemo(() => {
@@ -35,7 +38,7 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
     }, [conversationData, currentUser?.id]);
 
     // Create cache key for this message
-    const cacheKey = useMemo(() => 
+    const cacheKey = useMemo(() =>
         `${message.id}-${message.content}-${message.nonce}`,
         [message.id, message.content, message.nonce]
     );
@@ -130,19 +133,33 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
     };
 
     return (
-        <div className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'} mb-2`}>
+        <div className={`flex items-center ${message.isOwn ? 'justify-end' : 'justify-start'} mb-2`}
+            onMouseEnter={() => setShowOptions(true)}
+            onMouseLeave={() => setShowOptions(false)}>
+            <div className={`mr-2 items-end  space-x-2 bg-gray-100 rounded-md ${showOptions && message.isOwn ? 'flex' : 'hidden'}`}>
+                <Popover>
+                    <PopoverTrigger><p className='cursor-pointer'><Ellipsis /></p></PopoverTrigger>
+                    <PopoverContent>
+                        <div>
+                            <p>Edit</p>
+                            <p>Copy</p>
+                            <p>Delete</p>
+                        </div>
+                    </PopoverContent>
+                </Popover>
+                <p className='cursor-pointer'><Smile /></p>
+            </div>
             <div
-                className={`max-w-[70%] relative rounded-2xl p-3 px-4 ${
-                    message.isOwn 
-                        ? 'bg-primary text-primary-foreground rounded-br-none' 
+                className={`max-w-[70%] relative rounded-2xl p-3 px-4 ${message.isOwn
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
                         : 'bg-secondary rounded-bl-none'
-                }`}
+                    }`}
             >
                 {isDecrypting ? (
                     <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{animationDelay: '0ms'}}></div>
-                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{animationDelay: '150ms'}}></div>
-                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{animationDelay: '300ms'}}></div>
+                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                 ) : (
                     <p className="break-words">{content}</p>
@@ -154,6 +171,19 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
                     </span>
                     <StatusIcon status={message?.status} />
                 </div>
+
+            </div>
+            <div className={`ml-2 flex items-end space-x-2 ${showOptions && !message.isOwn ? 'flex' : 'hidden'}`}>
+                <p className='cursor-pointer'><Smile /></p>
+                <Popover>
+                    <PopoverTrigger><Ellipsis /></PopoverTrigger>
+                    <PopoverContent className='w-fit'>
+                            <p>Edit</p>
+                            <p>Copy</p>
+                            <p>Delete</p>
+                    </PopoverContent>
+                </Popover>
+
             </div>
         </div>
     );
