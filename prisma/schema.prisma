@@ -30,6 +30,16 @@ enum FriendRequestStatus {
   DECLINED
 }
 
+enum MessageType {
+  TEXT
+  IMAGE
+  STICKER
+  AUDIO
+  VIDEO
+  FILE
+}
+
+
 // =================================
 //          MODELS
 // =================================
@@ -56,6 +66,7 @@ model User {
   conversations          ConversationParticipant[]
   sentFriendRequests     FriendRequest[]           @relation("SentRequests")
   receivedFriendRequests FriendRequest[]           @relation("ReceivedRequests")
+  reactions              Reaction[]
 }
 
 model Conversation {
@@ -82,6 +93,20 @@ model ConversationParticipant {
   @@id([userId, conversationId])
 }
 
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messageId String
+  message   Message @relation("MessageReactions", fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId, emoji])
+}
+
 model Message {
   id        String   @id @default(cuid())
   content   String // Encrypted message content
@@ -90,7 +115,8 @@ model Message {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   status    String   @default("sent")
-
+  type      MessageType @default(TEXT)
+  reactions Reaction[] @relation("MessageReactions")
   // --- Relations ---
   sender         User         @relation("SentMessages", fields: [senderId], references: [id])
   senderId       String

@@ -6,8 +6,14 @@ let ioInstance: IOServer | null = null;
 export function initSocket(server: HTTPServer) {
   if (ioInstance) return ioInstance;
   ioInstance = new IOServer(server, {
-    cors: { origin: true, credentials: true },
+    cors: { 
+      origin: process.env.NODE_ENV === 'production' 
+        ? [process.env.NEXT_PUBLIC_SOCKET_URL || process.env.APP_URL]
+        : true, 
+      credentials: true 
+    },
     transports: ["websocket", "polling"],
+    allowEIO3: true,
   });
 
   // Make ioInstance globally available

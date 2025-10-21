@@ -18,7 +18,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     // Only create socket connection when user data is available
     if (!user || userLoading) return;
 
-    const newSocket = io(process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:3000', { 
+    // Get socket URL based on environment
+    const getSocketUrl = () => {
+      if (process.env.NODE_ENV === 'production') {
+        // In production, use the same domain as the app
+        return process.env.APP_URL || window.location.origin;
+      }
+      return 'http://localhost:3000';
+    };
+
+    const newSocket = io(getSocketUrl(), { 
       withCredentials: true,
       transports: ['websocket', 'polling'],
       autoConnect: true,
@@ -42,6 +51,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
+      console.error('Socket URL attempted:', getSocketUrl());
+      console.error('Environment:', process.env.NODE_ENV);
     });
     
     newSocket.on('receive_message', (data) => {
