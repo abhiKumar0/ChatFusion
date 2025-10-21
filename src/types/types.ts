@@ -10,6 +10,16 @@ export interface User {
     encryptedPrivateKey?: string
 }
 
+export interface Reaction {
+    id: string,
+    emoji: string,
+    messageId: string,
+    userId: string,
+    user: User,
+    createdAt: Date,
+    updatedAt: Date,
+}
+
 export interface Message {
     id: string,
     senderId: string,
@@ -23,6 +33,7 @@ export interface Message {
     parentMessage?: Message,
     nonce?: string,
     status: string,
+    reactions?: Reaction[],
 }
 
 interface Conversation {

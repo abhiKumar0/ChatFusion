@@ -150,6 +150,13 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
                 sender: {
                     select: {fullName: true, id: true, username: true, encryptedPrivateKey: true, publicKey: true, email: true},
                 },
+                reactions: {
+                    include: {
+                        user: {
+                            select: {id: true, fullName: true, username: true}
+                        }
+                    }
+                }
             },
             
             //sort messages in descending order based on createdAt

@@ -3,8 +3,12 @@ import { Message } from '@/types/types';
 import { useGetMe } from "@/lib/react-query/queries.ts";
 import { decryptMessage, decryptPrivateKey } from "@/lib/crypto.ts";
 import { useCrypto } from "@/lib/crypto-context.tsx";
-import { Ellipsis, Smile } from 'lucide-react';
+import { Ellipsis, Smile, Check, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useDeleteMessage, useUpdateMessage, useAddReaction, useRemoveReaction } from '@/lib/react-query/queries';
+import { Button } from '@/components/ui/button';
+import { encryptMessage } from '@/lib/crypto';
+import EmojiPicker from 'emoji-picker-react';
 
 interface MessageBubbleProps {
     message: Message & { isOwn: boolean; status?: string };
@@ -19,17 +23,189 @@ interface MessageBubbleProps {
             };
         }>;
     };
+    conversationId: string;
 }
 
 // Cache for decrypted messages to avoid re-decryption
 const messageCache = new Map<string, string>();
 
-const MessageBubble = React.memo(({ message, conversationData }: MessageBubbleProps) => {
+const MessageBubble = React.memo(({ message, conversationData, conversationId }: MessageBubbleProps) => {
     const [content, setContent] = useState<string>("");
     const { data: currentUser } = useGetMe();
     const [isDecrypting, setIsDecrypting] = useState(false);
     const { decryptedPrivateKey } = useCrypto();
     const [showOptions, setShowOptions] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const updateMessageMutation = useUpdateMessage();
+    const deleteMessageMutation = useDeleteMessage();
+    const addReactionMutation = useAddReaction();
+    const removeReactionMutation = useRemoveReaction();
+
+    // Handle operation errors and success
+    useEffect(() => {
+        if (updateMessageMutation.error) {
+            setError('Failed to update message');
+            setIsEditing(false);
+        } else if (updateMessageMutation.isSuccess) {
+            setSuccessMessage('Message updated successfully');
+            setTimeout(() => setSuccessMessage(null), 3000);
+        }
+    }, [updateMessageMutation.error, updateMessageMutation.isSuccess]);
+
+    useEffect(() => {
+        if (deleteMessageMutation.error) {
+            setError('Failed to delete message');
+        } else if (deleteMessageMutation.isSuccess) {
+            setSuccessMessage('Message deleted successfully');
+            setTimeout(() => setSuccessMessage(null), 3000);
+        }
+    }, [deleteMessageMutation.error, deleteMessageMutation.isSuccess]);
+
+    useEffect(() => {
+        if (addReactionMutation.error) {
+            setError('Failed to add reaction');
+        } else if (addReactionMutation.isSuccess) {
+            setSuccessMessage('Reaction added');
+            setTimeout(() => setSuccessMessage(null), 2000);
+        }
+    }, [addReactionMutation.error, addReactionMutation.isSuccess]);
+
+    useEffect(() => {
+        if (removeReactionMutation.error) {
+            setError('Failed to remove reaction');
+        } else if (removeReactionMutation.isSuccess) {
+            setSuccessMessage('Reaction removed');
+            setTimeout(() => setSuccessMessage(null), 2000);
+        }
+    }, [removeReactionMutation.error, removeReactionMutation.isSuccess]);
+
+    // Clear error when starting new operations
+    const handleEdit = () => {
+        setError(null);
+        setIsEditing(true);
+        setEditText(content);
+    };
+
+    // Update edit text when content changes and we're editing
+    useEffect(() => {
+        if (isEditing) {
+            setEditText(content);
+        }
+    }, [content, isEditing]);
+
+    // Close emoji picker when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showEmojiPicker) {
+                const target = event.target as Element;
+                if (!target.closest('.emoji-picker-container')) {
+                    setShowEmojiPicker(false);
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showEmojiPicker]);
+
+    const handleCopy = async () => {
+        try {
+            setError(null);
+            await navigator.clipboard.writeText(content);
+            setSuccessMessage('Message copied to clipboard');
+            setTimeout(() => setSuccessMessage(null), 2000);
+        } catch {
+            setError('Failed to copy message');
+        }
+    };
+
+    const handleDelete = () => {
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmDelete = () => {
+        setError(null);
+        setShowDeleteConfirm(false);
+        deleteMessageMutation.mutate({ conversationId, messageId: message.id });
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteConfirm(false);
+    };
+
+    const handleReact = () => {
+        setShowEmojiPicker(true);
+    };
+
+    const handleEmojiSelect = (emojiData: { emoji: string }) => {
+        setError(null);
+        
+        // Check if user already reacted with this emoji
+        const existingReaction = message.reactions?.find(
+            reaction => reaction.userId === currentUser?.id && reaction.emoji === emojiData.emoji
+        );
+        
+        if (existingReaction) {
+            // Remove existing reaction
+            removeReactionMutation.mutate({ 
+                conversationId, 
+                messageId: message.id, 
+                emoji: emojiData.emoji 
+            });
+        } else {
+            // Add new reaction
+            addReactionMutation.mutate({ 
+                conversationId, 
+                messageId: message.id, 
+                emoji: emojiData.emoji 
+            });
+        }
+        
+        setShowEmojiPicker(false);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editText.trim() || editText === content) {
+            setIsEditing(false);
+            return;
+        }
+        
+        if (!conversationData || !currentUser?.id || !participant) {
+            setError('Unable to encrypt message');
+            return;
+        }
+
+        setError(null);
+        
+        try {
+            // Encrypt the updated message
+            const { ciphertext, nonce } = await encryptMessage(editText.trim(), participant.publicKey, decryptedPrivateKey!);
+            
+            updateMessageMutation.mutate({ 
+                conversationId, 
+                messageId: message.id, 
+                content: ciphertext,
+                nonce
+            });
+            setIsEditing(false);
+        } catch (error) {
+            console.error('Error encrypting message:', error);
+            setError('Failed to encrypt message');
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setEditText('');
+        setError(null);
+    };
+
+    
 
     // Memoize participant to avoid recalculation
     const participant = useMemo(() => {
@@ -132,22 +308,130 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
         }
     };
 
+    //Update
+    
+
     return (
         <div className={`flex items-center ${message.isOwn ? 'justify-end' : 'justify-start'} mb-2`}
             onMouseEnter={() => setShowOptions(true)}
             onMouseLeave={() => setShowOptions(false)}>
-            <div className={`mr-2 items-end  space-x-2 bg-gray-100 rounded-md ${showOptions && message.isOwn ? 'flex' : 'hidden'}`}>
-                <Popover>
-                    <PopoverTrigger><p className='cursor-pointer'><Ellipsis /></p></PopoverTrigger>
-                    <PopoverContent>
-                        <div>
-                            <p>Edit</p>
-                            <p>Copy</p>
-                            <p>Delete</p>
-                        </div>
-                    </PopoverContent>
-                </Popover>
-                <p className='cursor-pointer'><Smile /></p>
+            
+            {/* Error Display */}
+            {error && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded-lg text-sm z-10 shadow-lg backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                        <span>{error}</span>
+                        <button 
+                            onClick={() => setError(null)}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 cursor-pointer"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Display */}
+            {successMessage && (
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-3 py-2 rounded-lg text-sm z-10 shadow-lg backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                        <span>{successMessage}</span>
+                        <button 
+                            onClick={() => setSuccessMessage(null)}
+                            className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 cursor-pointer"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
+
+
+            <div className={`mr-2 items-end space-x-2 ${showOptions && message.isOwn ? 'flex' : 'hidden'}`}>
+                <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                disabled={updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                            >
+                                <Ellipsis className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-32 p-1" align="end">
+                            <div className="space-y-1">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm"
+                                    onClick={handleEdit}
+                                    disabled={updateMessageMutation.isPending}
+                                >
+                                    {updateMessageMutation.isPending ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                            Editing...
+                                        </div>
+                                    ) : (
+                                        'Edit'
+                                    )}
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm"
+                                    onClick={handleCopy}
+                                >
+                                    Copy
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={handleDelete}
+                                    disabled={deleteMessageMutation.isPending}
+                                >
+                                    {deleteMessageMutation.isPending ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                            Deleting...
+                                        </div>
+                                    ) : (
+                                        'Delete'
+                                    )}
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                    
+                    <div className="relative">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            onClick={handleReact}
+                            title={addReactionMutation.isPending ? 'Adding reaction...' : 'Add reaction'}
+                        >
+                            <Smile className="h-4 w-4" />
+                        </Button>
+                        {showEmojiPicker && (
+                            <div className="absolute bottom-10 right-0 z-50 emoji-picker-container">
+                                <EmojiPicker 
+                                    onEmojiClick={handleEmojiSelect}
+                                    width={300}
+                                    height={350}
+                                    searchPlaceholder="Search emojis..."
+                                    previewConfig={{
+                                        showPreview: false
+                                    }}
+                                    skinTonesDisabled
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
             <div
                 className={`max-w-[70%] relative rounded-2xl p-3 px-4 ${message.isOwn
@@ -161,8 +445,96 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
                         <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '150ms' }}></div>
                         <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
+                ) : isEditing ? (
+                    <div className="flex items-center gap-2 p-2 bg-white/10 dark:bg-black/10 rounded-lg">
+                        <input
+                          className="flex-1 rounded px-3 py-2 text-sm border border-gray-700 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          disabled={updateMessageMutation.isPending}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEdit();
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          placeholder="Edit message..."
+                        />
+                        <div className="flex items-center  gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={handleCancelEdit}
+                              disabled={updateMessageMutation.isPending}
+                              title="Cancel"
+                              className="h-8 w-8 p-0 bg-red-500 hover:bg-red-700 cursor-pointer"
+                            >
+                              <X className='w-4 h-4' />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              onClick={handleSaveEdit}
+                              disabled={updateMessageMutation.isPending || !editText.trim() || editText === content}
+                              title="Save"
+                              className="h-8 w-8 p-0 cursor-pointer"
+                            >
+                              {updateMessageMutation.isPending ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Check className='w-4 h-4' />
+                              )}
+                            </Button>
+                        </div>
+                    </div>
                 ) : (
                     <p className="break-words">{content}</p>
+                )}
+
+                {/* Reactions Display */}
+                {message.reactions && message.reactions.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        {message.reactions.map((reaction) => (
+                            <span 
+                                key={reaction.id}
+                                className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                onClick={() => handleEmojiSelect({ emoji: reaction.emoji })}
+                            >
+                                {reaction.emoji}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {/* Delete Confirmation Dialog */}
+                {showDeleteConfirm && (
+                    <div className="absolute top-0 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-lg rounded-lg p-3 text-sm z-20">
+                        <p className="text-gray-700 dark:text-gray-300 mb-3">Delete this message?</p>
+                        <div className="flex gap-2">
+                            <Button 
+                                size="sm" 
+                                variant="destructive" 
+                                onClick={confirmDelete}
+                                disabled={deleteMessageMutation.isPending}
+                                className="h-8 cursor-pointer"
+                            >
+                                {deleteMessageMutation.isPending ? (
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                                        Deleting...
+                                    </div>
+                                ) : (
+                                    'Delete'
+                                )}
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={cancelDelete}
+                                disabled={deleteMessageMutation.isPending}
+                                className="h-8 text-gray-700 cursor-pointer"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
                 )}
 
                 <div className="flex items-center justify-end mt-1 space-x-1">
@@ -174,16 +546,57 @@ const MessageBubble = React.memo(({ message, conversationData }: MessageBubblePr
 
             </div>
             <div className={`ml-2 flex items-end space-x-2 ${showOptions && !message.isOwn ? 'flex' : 'hidden'}`}>
-                <p className='cursor-pointer'><Smile /></p>
-                <Popover>
-                    <PopoverTrigger><Ellipsis /></PopoverTrigger>
-                    <PopoverContent className='w-fit'>
-                            <p>Edit</p>
-                            <p>Copy</p>
-                            <p>Delete</p>
-                    </PopoverContent>
-                </Popover>
-
+                <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
+                    <div className="relative">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            onClick={handleReact}
+                            title={addReactionMutation.isPending ? 'Adding reaction...' : 'Add reaction'}
+                        >
+                            <Smile className="h-4 w-4" />
+                        </Button>
+                        {showEmojiPicker && (
+                            <div className="absolute bottom-10 left-0 z-50 emoji-picker-container">
+                                <EmojiPicker 
+                                    onEmojiClick={handleEmojiSelect}
+                                    width={300}
+                                    height={350}
+                                    searchPlaceholder="Search emojis..."
+                                    previewConfig={{
+                                        showPreview: false
+                                    }}
+                                    skinTonesDisabled
+                                />
+                            </div>
+                        )}
+                    </div>
+                    
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                                <Ellipsis className="h-4 w-4" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-24 p-1" align="start">
+                            <div className="space-y-1">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm"
+                                    onClick={handleCopy}
+                                >
+                                    Copy
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
             </div>
         </div>
     );

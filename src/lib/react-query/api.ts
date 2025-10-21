@@ -119,3 +119,58 @@ export const getMessages = async ({
   });
   return response.data;
 };
+
+// Message edit/delete
+export const updateMessage = async ({
+  conversationId,
+  messageId,
+  content,
+  nonce,
+}: {
+  conversationId: string;
+  messageId: string;
+  content: string;
+  nonce: string;
+}) => {
+
+  const { data } = await api.patch(`/conversations/${conversationId}/message/${messageId}`, { content, nonce });
+  return data;
+};
+
+export const deleteMessage = async ({
+  conversationId,
+  messageId,
+}: {
+  conversationId: string;
+  messageId: string;
+}) => {
+  const { data } = await api.delete(`/conversations/${conversationId}/message/${messageId}`);
+  return data;
+};
+
+// Reactions
+export const addReaction = async ({
+  conversationId,
+  messageId,
+  emoji,
+}: {
+  conversationId: string;
+  messageId: string;
+  emoji: string;
+}) => {
+  const { data } = await api.post(`/conversations/${conversationId}/message/${messageId}/reactions`, { emoji });
+  return data;
+};
+
+export const removeReaction = async ({
+  conversationId,
+  messageId,
+  emoji,
+}: {
+  conversationId: string;
+  messageId: string;
+  emoji: string;
+}) => {
+  const { data } = await api.delete(`/conversations/${conversationId}/message/${messageId}/reactions`, { data: { emoji } });
+  return data;
+};

@@ -18,6 +18,10 @@ import {
   getConversations,
   getFriendRequests,
   respondToFriendRequest,
+  updateMessage,
+  deleteMessage,
+  addReaction,
+  removeReaction,
 } from './api';
 import { Message } from '@/types/types';
 
@@ -234,4 +238,65 @@ export const useGetMessages = (conversationId: string | null, enabled: boolean) 
     isLoading: query.isLoading,
     error: query.error,
   };
+};
+
+// Message update/delete mutations
+export const useUpdateMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateMessage,
+    onSuccess: (data, variables) => {
+      queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (queryData.pages.length === 0) return queryData;
+        const pages = queryData.pages.map((p) => ({
+          ...p,
+          messages: p.messages.map((m) => (m.id === variables.messageId ? { ...m, content: data.content, updatedAt: data.updatedAt } : m)),
+        }));
+        return { ...queryData, pages };
+      });
+    },
+  });
+};
+
+export const useDeleteMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteMessage,
+    onSuccess: (_data, variables) => {
+      queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (queryData.pages.length === 0) return queryData;
+        const pages = queryData.pages.map((p) => ({
+          ...p,
+          messages: p.messages.filter((m) => m.id !== variables.messageId),
+        }));
+        return { ...queryData, pages };
+      });
+    },
+  });
+};
+
+// Reactions mutations
+export const useAddReaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: addReaction,
+    onSuccess: (_data, variables) => {
+      // Invalidate conversation messages to refetch reactions if needed later
+      queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] });
+    },
+  });
+};
+
+export const useRemoveReaction = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: removeReaction,
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] });
+    },
+  });
 };

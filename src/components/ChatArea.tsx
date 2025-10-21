@@ -480,6 +480,7 @@ const ChatArea = () => {
                   key={message.id} 
                   message={message} 
                   conversationData={conversationData}
+                  conversationId={currentConversation}
                 />
               ))}
               <TypingIndicator isVisible={isTyping} />
