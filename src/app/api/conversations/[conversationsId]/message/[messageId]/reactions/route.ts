@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getIO } from "@/lib/socket-server";
 import { NextResponse } from "next/server";
 
 // Add a reaction to a message
@@ -24,8 +25,20 @@ export const POST = async (
       where: { userId_messageId_emoji: { userId, messageId, emoji } },
       create: { userId, messageId, emoji },
       update: {},
-      include: { user: true },
+      include: { 
+        user: {
+          select: { id: true, fullName: true, username: true }
+        }
+      },
     });
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      io.to(`convo:${conversationsId}`).emit("reaction_added", reaction);
+    } catch (error) {
+      console.error("Failed to emit reaction_added event:", error);
+    }
 
     return NextResponse.json(reaction);
   } catch (error) {
@@ -50,6 +63,16 @@ export const DELETE = async (
     await prisma.reaction.delete({
       where: { userId_messageId_emoji: { userId, messageId, emoji } },
     });
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      const { conversationsId } = await params;
+      io.to(`convo:${conversationsId}`).emit("reaction_removed", { messageId, emoji });
+    } catch (error) {
+      console.error("Failed to emit reaction_removed event:", error);
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error(error);

@@ -19,17 +19,6 @@ interface UIMessage extends Message {
   isOwn: boolean;
 }
 
-// Error fallback component
-const ChatErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-    <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-    <h3 className="text-lg font-medium mb-2">Something went wrong in the chat</h3>
-    <p className="text-muted-foreground mb-4">{error.message}</p>
-    <Button onClick={resetErrorBoundary} variant="outline">
-      Try again
-    </Button> 
-  </div>
-);
 
 // Typing indicator component
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
@@ -126,14 +115,114 @@ const ChatArea = () => {
       });
     };
 
+    // Handle new messages
     socket.on('receive_message', handler);
     console.log('Added receive_message listener');
+
+    // Handle message updates
+    const handleMessageUpdate = (updatedMessage: Message) => {
+      console.log('ChatArea received message update:', updatedMessage);
+      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (data.pages.length === 0) return data;
+
+        const pages = data.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((msg) => 
+            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+          )
+        }));
+        return { ...data, pages };
+      });
+    };
+
+    // Handle message deletions
+    const handleMessageDelete = ({ messageId }: { messageId: string }) => {
+      console.log('ChatArea received message deletion:', messageId);
+      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (data.pages.length === 0) return data;
+
+        const pages = data.pages.map((page) => ({
+          ...page,
+          messages: page.messages.filter((msg) => msg.id !== messageId)
+        }));
+        return { ...data, pages };
+      });
+    };
+
+    // Handle reaction additions
+    const handleReactionAdd = (reaction: { id: string; emoji: string; messageId: string; userId: string; user: { id: string; fullName: string; username: string } }) => {
+      console.log('ChatArea received reaction addition:', reaction);
+      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (data.pages.length === 0) return data;
+
+        const pages = data.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((msg) => {
+            if (msg.id === reaction.messageId) {
+              const existingReactions = msg.reactions || [];
+              const reactionExists = existingReactions.some(
+                (r: { userId: string; emoji: string }) => r.userId === reaction.userId && r.emoji === reaction.emoji
+              );
+              
+              if (!reactionExists) {
+                return {
+                  ...msg,
+                  reactions: [...existingReactions, reaction]
+                };
+              }
+            }
+            return msg;
+          })
+        }));
+        return { ...data, pages };
+      });
+    };
+
+    // Handle reaction removals
+    const handleReactionRemove = ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      console.log('ChatArea received reaction removal:', { messageId, emoji });
+      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (data.pages.length === 0) return data;
+
+        const pages = data.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((msg) => {
+            if (msg.id === messageId) {
+              return {
+                ...msg,
+                reactions: (msg.reactions || []).filter((r: { emoji: string }) => r.emoji !== emoji)
+              };
+            }
+            return msg;
+          })
+        }));
+        return { ...data, pages };
+      });
+    };
+
+    // Add all socket listeners
+    socket.on('message_updated', handleMessageUpdate);
+    socket.on('message_deleted', handleMessageDelete);
+    socket.on('reaction_added', handleReactionAdd);
+    socket.on('reaction_removed', handleReactionRemove);
 
     return () => {
       console.log('Cleaning up socket listeners for conversation:', currentConversation);
       socket.off('receive_message', handler);
+      socket.off('message_updated', handleMessageUpdate);
+      socket.off('message_deleted', handleMessageDelete);
+      socket.off('reaction_added', handleReactionAdd);
+      socket.off('reaction_removed', handleReactionRemove);
     };
-  }, [socket, currentConversation, queryClient, user?.id]);
+  }, [socket, currentConversation, queryClient, user]);
 
 
   // Auto-scroll to bottom when new messages arrive

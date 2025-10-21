@@ -8,7 +8,7 @@ export function initSocket(server: HTTPServer) {
   ioInstance = new IOServer(server, {
     cors: { 
       origin: process.env.NODE_ENV === 'production' 
-        ? [process.env.NEXT_PUBLIC_SOCKET_URL || process.env.APP_URL]
+        ? [process.env.NEXT_PUBLIC_SOCKET_URL, process.env.APP_URL].filter(Boolean) as string[]
         : true, 
       credentials: true 
     },
@@ -17,7 +17,7 @@ export function initSocket(server: HTTPServer) {
   });
 
   // Make ioInstance globally available
-  (global as any).ioInstance = ioInstance;
+  (global as { ioInstance?: IOServer }).ioInstance = ioInstance;
 
   ioInstance.on("connection", (socket: Socket) => {
     console.log("User connected:", socket.id);
@@ -65,6 +65,30 @@ export function initSocket(server: HTTPServer) {
       }
     );
 
+    // Handle message updates
+    socket.on("message_updated", ({ conversationId, message }: { conversationId: string; message: Record<string, unknown> }) => {
+      if (!conversationId) return;
+      ioInstance?.to(`convo:${conversationId}`).emit("message_updated", message);
+    });
+
+    // Handle message deletions
+    socket.on("message_deleted", ({ conversationId, messageId }: { conversationId: string; messageId: string }) => {
+      if (!conversationId) return;
+      ioInstance?.to(`convo:${conversationId}`).emit("message_deleted", { messageId });
+    });
+
+    // Handle reaction additions
+    socket.on("reaction_added", ({ conversationId, reaction }: { conversationId: string; reaction: Record<string, unknown> }) => {
+      if (!conversationId) return;
+      ioInstance?.to(`convo:${conversationId}`).emit("reaction_added", reaction);
+    });
+
+    // Handle reaction removals
+    socket.on("reaction_removed", ({ conversationId, messageId, emoji }: { conversationId: string; messageId: string; emoji: string }) => {
+      if (!conversationId) return;
+      ioInstance?.to(`convo:${conversationId}`).emit("reaction_removed", { messageId, emoji });
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("User disconnected:", socket.id, "Reason:", reason);
     });
@@ -75,7 +99,7 @@ export function initSocket(server: HTTPServer) {
 
 export function getIO() {
   // Try to get from global first (for API routes)
-  const globalIO = (global as any).ioInstance;
+  const globalIO = (global as { ioInstance?: IOServer }).ioInstance;
   if (globalIO) {
     return globalIO;
   }

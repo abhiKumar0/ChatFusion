@@ -246,13 +246,14 @@ export const useUpdateMessage = () => {
   return useMutation({
     mutationFn: updateMessage,
     onSuccess: (data, variables) => {
+      // Update local cache immediately
       queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
         if (queryData.pages.length === 0) return queryData;
         const pages = queryData.pages.map((p) => ({
           ...p,
-          messages: p.messages.map((m) => (m.id === variables.messageId ? { ...m, content: data.content, updatedAt: data.updatedAt } : m)),
+          messages: p.messages.map((m) => (m.id === variables.messageId ? { ...m, ...data } : m)),
         }));
         return { ...queryData, pages };
       });
@@ -284,9 +285,34 @@ export const useAddReaction = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: addReaction,
-    onSuccess: (_data, variables) => {
-      // Invalidate conversation messages to refetch reactions if needed later
-      queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] });
+    onSuccess: (data, variables) => {
+      // Update local cache immediately with the new reaction
+      queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (queryData.pages.length === 0) return queryData;
+        
+        const pages = queryData.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((msg) => {
+            if (msg.id === variables.messageId) {
+              const existingReactions = msg.reactions || [];
+              const reactionExists = existingReactions.some(
+                (r: any) => r.userId === data.userId && r.emoji === data.emoji
+              );
+              
+              if (!reactionExists) {
+                return {
+                  ...msg,
+                  reactions: [...existingReactions, data]
+                };
+              }
+            }
+            return msg;
+          })
+        }));
+        return { ...queryData, pages };
+      });
     },
   });
 };
@@ -296,7 +322,26 @@ export const useRemoveReaction = () => {
   return useMutation({
     mutationFn: removeReaction,
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] });
+      // Update local cache immediately by removing the reaction
+      queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
+        if (!oldData || typeof oldData !== 'object') return oldData;
+        const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
+        if (queryData.pages.length === 0) return queryData;
+        
+        const pages = queryData.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((msg) => {
+            if (msg.id === variables.messageId) {
+              return {
+                ...msg,
+                reactions: (msg.reactions || []).filter((r: any) => r.emoji !== variables.emoji)
+              };
+            }
+            return msg;
+          })
+        }));
+        return { ...queryData, pages };
+      });
     },
   });
 };
