@@ -8,7 +8,7 @@ import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } fr
 import { useSocket } from '@/lib/socket-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
-import { encryptMessage } from '@/lib/crypto';
+import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
 import { useCrypto } from '@/lib/crypto-context';
 import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
@@ -46,6 +46,7 @@ const ChatArea = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>("");
 
   // Current User
   const { data: user, error: userError } = useGetMe();
@@ -466,6 +467,35 @@ const ChatArea = () => {
     inputRef.current?.focus();
   }, []);
 
+  // console.log("replying to", replyingTo)
+  const handleDecryptedReplyingMessage =  async () => {
+    if (replyingTo) {
+      let privateKey, publicKey;
+
+      const isItMine = replyingTo.senderId === user?.id;
+      if (isItMine) {
+        privateKey = decryptedPrivateKey;
+        publicKey = currentParticipant?.publicKey;
+      } else {
+        publicKey = user?.publicKey;
+        privateKey = decryptPrivateKey(currentParticipant?.encryptedPrivateKey || "", currentParticipant?.email || "");
+      }
+
+      const text = await decryptMessage(replyingTo.content, replyingTo?.nonce || "", publicKey, privateKey||"");
+      // console.log("Text", text)
+      setDecryptedReplyingMessage(text);
+
+    }
+  }
+
+  useEffect(() => {
+    handleDecryptedReplyingMessage();
+    // console.log("Decrypted replying message",decryptedReplyingMessage)
+  }, [replyingTo]);
+
+
+
+
   // Loading states
   if (messagesLoading || cryptoLoading) {
     return (
@@ -518,6 +548,7 @@ const ChatArea = () => {
     );
   }
 
+  
   return (
     <ComponentErrorBoundary>
       <div className="flex-1 flex flex-col">
@@ -601,7 +632,7 @@ const ChatArea = () => {
                   Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
                 </span>
                 <span className="text-xs text-gray-500 truncate max-w-[200px]">
-                  {replyingTo.content.length > 50 ? `${replyingTo.content.substring(0, 50)}...` : replyingTo.content}
+                  {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
                 </span>
               </div>
               <Button 

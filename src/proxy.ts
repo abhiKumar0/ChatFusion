@@ -7,7 +7,7 @@ import { prisma } from "./lib/prisma";
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
 const COOKIE_NAME = "authToken";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // 1. Get the cookie from the request
   const token =
     request.cookies.get(COOKIE_NAME)?.value ||
