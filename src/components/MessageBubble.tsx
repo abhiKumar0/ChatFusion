@@ -3,12 +3,13 @@ import { Message } from '@/types/types';
 import { useGetMe } from "@/lib/react-query/queries.ts";
 import { decryptMessage, decryptPrivateKey } from "@/lib/crypto.ts";
 import { useCrypto } from "@/lib/crypto-context.tsx";
-import { Ellipsis, Smile, Check, X } from 'lucide-react';
+import { Ellipsis, Smile, Check, X, Reply } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDeleteMessage, useUpdateMessage, useAddReaction, useRemoveReaction } from '@/lib/react-query/queries';
 import { Button } from '@/components/ui/button';
 import { encryptMessage } from '@/lib/crypto';
 import EmojiPicker from 'emoji-picker-react';
+import { useChatStore } from '@/store/useChatStore';
 
 interface MessageBubbleProps {
     message: Message & { isOwn: boolean; status?: string };
@@ -31,8 +32,10 @@ const messageCache = new Map<string, string>();
 
 const MessageBubble = React.memo(({ message, conversationData, conversationId }: MessageBubbleProps) => {
     const [content, setContent] = useState<string>("");
+    const [parentContent, setParentContent] = useState<string>("");
     const { data: currentUser } = useGetMe();
     const [isDecrypting, setIsDecrypting] = useState(false);
+    const [isDecryptingParent, setIsDecryptingParent] = useState(false);
     const { decryptedPrivateKey } = useCrypto();
     const [showOptions, setShowOptions] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -45,6 +48,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
     const deleteMessageMutation = useDeleteMessage();
     const addReactionMutation = useAddReaction();
     const removeReactionMutation = useRemoveReaction();
+    const { setReplyingTo } = useChatStore();
 
     // Handle operation errors and success
     useEffect(() => {
@@ -205,6 +209,10 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
         setError(null);
     };
 
+    const handleReply = () => {
+        setReplyingTo(message);
+    };
+
     
 
     // Memoize participant to avoid recalculation
@@ -288,6 +296,81 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
         };
     }, [message, currentUser, participant, cacheKey, decryptedPrivateKey, conversationData]);
 
+    // Decrypt parent message if it exists
+    useEffect(() => {
+        let cancelled = false;
+
+        if (!message.parentMessage || !conversationData || !currentUser?.id || !participant) {
+            setParentContent('');
+            setIsDecryptingParent(false);
+            return;
+        }
+
+        // Debug logging for parentMessage
+        console.log('Parent message debug:', {
+            parentMessage: message.parentMessage,
+            sender: message.parentMessage?.sender,
+            senderId: message.parentMessage?.senderId
+        });
+
+        const parentCacheKey = `${message.parentMessage.id}-${message.parentMessage.content}-${message.parentMessage.nonce}`;
+        const cachedParent = messageCache.get(parentCacheKey);
+        if (cachedParent) {
+            setParentContent(cachedParent);
+            setIsDecryptingParent(false);
+            return;
+        }
+
+        const decryptParentMessage = async () => {
+            try {
+                setIsDecryptingParent(true);
+                setParentContent("");
+
+                const isParentOwn = message.parentMessage!.senderId === currentUser.id;
+                let privateKey;
+                if (decryptedPrivateKey && !isParentOwn) {
+                    privateKey = decryptedPrivateKey;
+                } else {
+                    privateKey = isParentOwn
+                        ? await decryptPrivateKey(participant.encryptedPrivateKey, participant.email)
+                        : await decryptPrivateKey(currentUser.encryptedPrivateKey, currentUser.email);
+                }
+
+                const publicKey = isParentOwn ? currentUser?.publicKey : participant?.publicKey;
+
+                if (!publicKey || !message.parentMessage!.nonce || !privateKey) {
+                    const errorMsg = '[Parent message could not be decrypted]';
+                    if (!cancelled) {
+                        setParentContent(errorMsg);
+                        messageCache.set(parentCacheKey, errorMsg);
+                    }
+                    return;
+                }
+
+                const decrypted = await decryptMessage(message.parentMessage!.content, message.parentMessage!.nonce, publicKey, privateKey);
+                if (!cancelled) {
+                    setParentContent(decrypted);
+                    messageCache.set(parentCacheKey, decrypted);
+                }
+            } catch (error) {
+                console.error('Error decrypting parent message:', error);
+                const errorMsg = '[Parent message could not be decrypted]';
+                if (!cancelled) {
+                    setParentContent(errorMsg);
+                    messageCache.set(parentCacheKey, errorMsg);
+                }
+            } finally {
+                if (!cancelled) setIsDecryptingParent(false);
+            }
+        };
+
+        decryptParentMessage();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [message.parentMessage, currentUser, participant, decryptedPrivateKey, conversationData]);
+
     // Status icon component
     const StatusIcon = ({ status }: { status?: string }) => {
         if (!status || !message.isOwn) return null;
@@ -366,6 +449,15 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
                                     variant="ghost" 
                                     size="sm" 
                                     className="w-full justify-start h-8 text-sm"
+                                    onClick={handleReply}
+                                >
+                                    <Reply className="w-3 h-3 mr-2" />
+                                    Reply
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm"
                                     onClick={handleEdit}
                                     disabled={updateMessageMutation.isPending}
                                 >
@@ -439,6 +531,33 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
                         : 'bg-secondary rounded-bl-none'
                     }`}
             >
+                {/* Parent Message Display */}
+                {message.parentMessage && (
+                    <div className={`mb-2 p-2 rounded-lg border-l-2 ${
+                        message.isOwn 
+                            ? 'bg-white/10 border-white/30' 
+                            : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                    }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                            <Reply className="w-3 h-3 opacity-70" />
+                            <span className="text-xs font-medium opacity-70">
+                                {message.parentMessage?.sender?.fullName || message.parentMessage?.sender?.username || "Unknown sender"}
+                            </span>
+                        </div>
+                        <div className="text-sm opacity-80">
+                            {isDecryptingParent ? (
+                                <div className="flex items-center space-x-1">
+                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                </div>
+                            ) : (
+                                <p className="truncate">{parentContent}</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {isDecrypting ? (
                     <div className="flex items-center space-x-1">
                         <div className="w-2 h-2 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -589,6 +708,15 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
                                     variant="ghost" 
                                     size="sm" 
                                     className="w-full justify-start h-8 text-sm"
+                                    onClick={handleReply}
+                                >
+                                    <Reply className="w-3 h-3 mr-2" />
+                                    Reply
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start h-8 text-sm"
                                     onClick={handleCopy}
                                 >
                                     Copy
@@ -605,3 +733,6 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
 MessageBubble.displayName = 'MessageBubble';
 
 export default MessageBubble;
+
+
+// now i want users to reply to a message, soo be a professional experienced senior SDE and implement a features where a user can reply to a message, after clicking on 3 dots there should be a reply option when clicked on that, about input it shpuld that youre replying to that with a cross icon for cancelling, after sending that new message shhould ne associated the repliedTo messages and also ui for that message should be different as well

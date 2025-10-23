@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChatStore } from '@/store/useChatStore';
@@ -51,7 +51,7 @@ const ChatArea = () => {
   const { data: user, error: userError } = useGetMe();
 
   // Current Conversation's ID
-  const { currentConversation, currentParticipant } = useChatStore();
+  const { currentConversation, currentParticipant, replyingTo, clearReplyingTo } = useChatStore();
 
   const { data: conversationData, error: conversationError } = useGetConversationById(currentConversation || "");
 
@@ -390,7 +390,8 @@ const ChatArea = () => {
       const serverMessage = await createMessageMutation.mutateAsync({ 
         conversationId: currentConversation, 
         content: ciphertext, 
-        nonce 
+        nonce,
+        parentId: replyingTo?.id
       });
       
       // Emit message via socket for real-time updates
@@ -404,6 +405,11 @@ const ChatArea = () => {
       
       // Remove optimistic message and let the server message take over
       setLocalMessages(prev => prev.filter(msg => msg.id !== tempId));
+      
+      // Clear reply state after successful send
+      if (replyingTo) {
+        clearReplyingTo();
+      }
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -422,7 +428,7 @@ const ChatArea = () => {
       // Restore message text for retry
       setNewMessage(messageText);
     }
-  }, [newMessage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation]);
+  }, [newMessage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation, replyingTo, clearReplyingTo]);
 
 
   // Handle input change with typing indicator
@@ -585,6 +591,31 @@ const ChatArea = () => {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Reply Preview */}
+        {replyingTo && (
+          <div className="px-6 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Reply className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
+                </span>
+                <span className="text-xs text-gray-500 truncate max-w-[200px]">
+                  {replyingTo.content.length > 50 ? `${replyingTo.content.substring(0, 50)}...` : replyingTo.content}
+                </span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearReplyingTo}
+                className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Message Input */}
         <div className="p-4 border-t border-border bg-background">
           <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2">
@@ -593,7 +624,7 @@ const ChatArea = () => {
             </Button>
             <Input
               ref={inputRef}
-              placeholder="Type a message..."
+              placeholder={replyingTo ? `Reply to ${replyingTo.sender.fullName || replyingTo.sender.username}...` : "Type a message..."}
               className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
               value={newMessage}
               onChange={handleInputChange}

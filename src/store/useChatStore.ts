@@ -4,6 +4,9 @@ import { ChatStore } from '@/types/types';
 export const useChatStore = create<ChatStore>((set) => ({
     currentConversation: null,
     currentParticipant: null,
+    replyingTo: null,
     setCurrentConversation: (conversation) => set({ currentConversation: conversation }),
     setCurrentParticipant: (participant) => set({ currentParticipant: participant }),
+    setReplyingTo: (message) => set({ replyingTo: message }),
+    clearReplyingTo: () => set({ replyingTo: null }),
 }))

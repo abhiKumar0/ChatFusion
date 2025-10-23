@@ -150,6 +150,13 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
                 sender: {
                     select: {fullName: true, id: true, username: true, encryptedPrivateKey: true, publicKey: true, email: true},
                 },
+                parentMessage: {
+                    include: {
+                        sender: {
+                            select: {fullName: true, id: true, username: true}
+                        }
+                    }
+                },
                 reactions: {
                     include: {
                         user: {

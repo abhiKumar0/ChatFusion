@@ -59,6 +59,9 @@ export interface AuthStore {
 export interface ChatStore {
     currentConversation: string | null;
     currentParticipant: User | null;
+    replyingTo: Message | null;
     setCurrentConversation: (id: string) => void;
     setCurrentParticipant: (participant: User) => void;
+    setReplyingTo: (message: Message | null) => void;
+    clearReplyingTo: () => void;
 }
