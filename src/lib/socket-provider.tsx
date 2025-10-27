@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useGetMe } from "@/lib/react-query/queries";
+import { useCallStore } from "@/store/useCallStore";
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -14,18 +15,18 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { data: user, isLoading: userLoading } = useGetMe();
 
+  const setSocketStatus = useCallStore(state => state.setSocketStatus);
+
   useEffect(() => {
-    // Only create socket connection when user data is available
-    if (!user || userLoading) return;
+    // Only create socket connection when user data is available and we're in browser
+    if (!user || userLoading || typeof window === 'undefined') return;
 
     // Get socket URL based on environment
     const getSocketUrl = () => {
-      if (process.env.NODE_ENV === 'production') {
-        // In production, use the same domain as the app
-        return process.env.APP_URL || window.location.origin;
-      }
-      return 'http://localhost:3000';
+      return process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
     };
+
+    setSocketStatus('connecting');
 
     const newSocket = io(getSocketUrl(), { 
       withCredentials: true,
@@ -34,45 +35,40 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      auth: { userId: user.id }
     });
-    
+
     newSocket.on('connect', () => {
       console.log('Socket connected:', newSocket.id);
-      // Join user-specific room for notifications
+      setSocketStatus('connected');
       if (user?.id) {
         newSocket.emit('join', user.id);
         console.log('Joined user room:', user.id);
       }
     });
-    
+
     newSocket.on('disconnect', (reason) => {
       console.log('Socket disconnected:', reason);
+      setSocketStatus('disconnected');
+      if (reason === "io server disconnect") {
+        newSocket.connect();
+      }
     });
 
     newSocket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       console.error('Socket URL attempted:', getSocketUrl());
       console.error('Environment:', process.env.NODE_ENV);
-    });
-    
-    newSocket.on('receive_message', (data) => {
-      console.log('Received message via socket:', data);
+      setSocketStatus('disconnected');
     });
 
-    newSocket.on('user_typing', () => {
-      console.log('User is typing...');
-    });
-
-    newSocket.on('user_stop_typing', () => {
-      console.log('User stopped typing...');
-    });
-    
     setSocket(newSocket);
 
     return () => {
+      setSocketStatus('disconnected');
       newSocket.close();
     };
-  }, [user, userLoading]);
+  }, [user, userLoading, setSocketStatus]);
 
   return (
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>

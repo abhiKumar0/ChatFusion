@@ -14,11 +14,17 @@ import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import EmojiPicker from 'emoji-picker-react'
+import { useCallStore } from "@/store/useCallStore";
+import dynamic from "next/dynamic";
+import { CallButton } from './calls';
 
 interface UIMessage extends Message {
   isOwn: boolean;
 }
 
+// Dynamically import call-related components
+const CallWindow = dynamic(() => import('./calls/CallWindow'), { ssr: false });
+const IncomingCall = dynamic(() => import('./calls/IncomingCall'), { ssr: false });
 
 // Typing indicator component
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
@@ -47,6 +53,13 @@ const ChatArea = () => {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>("");
+
+
+  const ClientOnlyCallButton = dynamic(
+  () => import("./calls/ClientOnlyCallButton"),
+  { ssr: false }
+);
+
 
   // Current User
   const { data: user, error: userError } = useGetMe();
@@ -567,17 +580,32 @@ const ChatArea = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="rounded-full" title="Voice Call">
-              <Phone className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full" title="Video Call">
-              <Video className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full" title="More Options">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </div>
+  {currentParticipant && (
+    <>
+      <CallButton
+        callType="audio"
+        targetUser={currentParticipant}
+      />
+      
+      <CallButton
+        callType="video"
+        targetUser={currentParticipant}
+      />
+    </>
+  )}
+
+  <Button 
+    variant="outline"
+    className="h-8 w-8 p-0 rounded-full"
+  >
+    <MoreVertical className="h-4 w-4" />
+  </Button>
+</div>
         </div>
+
+        {/* Call Interface */}
+        <CallWindow />
+        <IncomingCall />
 
         {/* Error Display */}
         {error && (

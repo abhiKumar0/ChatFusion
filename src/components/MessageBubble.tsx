@@ -307,11 +307,11 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
         }
 
         // Debug logging for parentMessage
-        console.log('Parent message debug:', {
-            parentMessage: message.parentMessage,
-            sender: message.parentMessage?.sender,
-            senderId: message.parentMessage?.senderId
-        });
+        // console.log('Parent message debug:', {
+        //     parentMessage: message.parentMessage,
+        //     sender: message.parentMessage?.sender,
+        //     senderId: message.parentMessage?.senderId
+        // });
 
         const parentCacheKey = `${message.parentMessage.id}-${message.parentMessage.content}-${message.parentMessage.nonce}`;
         const cachedParent = messageCache.get(parentCacheKey);
