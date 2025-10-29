@@ -13,12 +13,17 @@ export default function CallWindow() {
     localStream,
     remoteStream,
     localUser,
-    remoteUser,
-    endCall: hangup,
     isAudioEnabled,
-isVideoEnabled,
-isScreenSharing
+    isVideoEnabled,
+    isScreenSharing,
+    call: { remoteUser },
+    actions: { setIsAudioEnabled, setIsVideoEnabled, setIsScreenSharing, reset, setStatus },
   } = useCallStore();
+
+  const hangup = () => {
+    reset();
+    setStatus("ended");
+  };
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -33,14 +38,13 @@ isScreenSharing
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [status, hangup]);
+  }, [status, hangup, setStatus]);
 
-  if (status === 'idle' || status === 'rejected') {
+  if (status === 'idle' || status === 'rejected' || status === 'ended') {
     return null;
   }
 
-  function toggleTrack(arg0: string): void {
-    const kind = arg0 === 'audio' ? 'audio' : 'video';
+  const toggleTrack = (kind: 'audio' | 'video') => {
     if (!localStream) return;
 
     const tracks =
@@ -48,7 +52,6 @@ isScreenSharing
 
     if (!tracks || tracks.length === 0) return;
 
-    // Toggle all tracks of that kind
     const newEnabled = !tracks[0].enabled;
     tracks.forEach((t) => {
       try {
@@ -58,19 +61,19 @@ isScreenSharing
       }
     });
 
-    // Try to update store booleans if the store exposes setState (common in zustand)
-    try {
-      if (typeof (useCallStore as any).setState === 'function') {
-        if (kind === 'audio') {
-          (useCallStore as any).setState({ isAudioEnabled: newEnabled });
-        } else {
-          (useCallStore as any).setState({ isVideoEnabled: newEnabled });
-        }
-      }
-    } catch {
-      // no-op if store update isn't available
+    if (kind === 'audio') {
+      setIsAudioEnabled(newEnabled);
+    } else {
+      setIsVideoEnabled(newEnabled);
     }
-  }
+  };
+
+  const toggleScreenShare = () => {
+    // Implement screen share toggle logic here
+    console.log("toggleScreenShare");
+    setIsScreenSharing(!isScreenSharing);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -124,20 +127,19 @@ isScreenSharing
         )}
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-        {
-          isAudioEnabled && isVideoEnabled && isScreenSharing && remoteStream &&
-
-        <CallControls
-          isAudioEnabled={isAudioEnabled}
-          isVideoEnabled={isVideoEnabled}
-          isScreenSharing={isScreenSharing}
-          onToggleAudio={() => toggleTrack('audio')}
-          onToggleVideo={() => toggleTrack('video')}
-          onEndCall={hangup}
-        />
-      }
-      </div>
+      {(localStream || remoteStream) && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+          <CallControls
+            isAudioEnabled={isAudioEnabled}
+            isVideoEnabled={isVideoEnabled}
+            isScreenSharing={isScreenSharing}
+            onToggleAudio={() => toggleTrack('audio')}
+            onToggleVideo={() => toggleTrack('video')}
+            onToggleScreenShare={toggleScreenShare}
+            onEndCall={hangup}
+          />
+        </div>
+      )}
     </motion.div>
   );
 }

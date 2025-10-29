@@ -13,9 +13,9 @@ const Auth = () => {
   const [isSignUpActive, setIsSignUpActive] = useState(false);
   const {data:user} = useGetMe();
   const router = useRouter();
-  if (user) {
-      router.push("/");
-  }
+  // if (user) {
+  //     router.push("/");
+  // }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4 text-foreground">

@@ -89,9 +89,122 @@ export function initSocket(server: HTTPServer) {
       ioInstance?.to(`convo:${conversationId}`).emit("reaction_removed", { messageId, emoji });
     });
 
+    // --- Call / WebRTC signalling forwarding ---
+    // These handlers accept a payload with a `to` field (target user id)
+    // and forward the payload to that user's room. This enables
+    // different clients to use slightly different event names while
+    // ensuring the recipient receives the signalling data.
+
+    socket.on('webrtc:offer', (payload: { to?: string; from?: string; offer?: any; callType?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('webrtc:offer', { from: payload.from, offer: payload.offer, callType: payload.callType });
+    });
+
+    socket.on('webrtc:answer', (payload: { to?: string; from?: string; answer?: any }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('webrtc:answer', { from: payload.from, answer: payload.answer });
+    });
+
+    socket.on('webrtc:ice-candidate', (payload: { to?: string; from?: string; candidate?: any }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('webrtc:ice-candidate', { from: payload.from, candidate: payload.candidate });
+    });
+
+    // Normalized call lifecycle events
+    socket.on('call_rejected', (payload: { to?: string; from?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call_rejected', { from: payload.from });
+    });
+
+    socket.on('call:rejected', (payload: { to?: string; from?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call:rejected', { from: payload.from });
+    });
+
+    socket.on('reject_call', (payload: { to?: string; from?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call_rejected', { from: payload.from });
+    });
+
+    socket.on('end_call', (payload: { to?: string; from?: string; reason?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call_ended', { from: payload.from, reason: payload.reason });
+    });
+
+    socket.on('call_ended', (payload: { to?: string; from?: string; reason?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call_ended', { from: payload.from, reason: payload.reason });
+    });
+
+    socket.on('call:hangup', (payload: { to?: string; from?: string; reason?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      ioInstance?.to(target).emit('call:hangup', { from: payload.from, reason: payload.reason });
+    });
+
+    // Higher-level incoming call event used by clients to show ringing UI
+    socket.on('start_call', (payload: { to?: string; from?: any; offer?: any; callType?: string }) => {
+      const target = payload?.to;
+      if (!target) return;
+      // forward under two names to support clients listening to either
+      ioInstance?.to(target).emit('call:incoming', { offer: payload.offer, from: payload.from, callType: payload.callType });
+      ioInstance?.to(target).emit('incoming_call', { offer: payload.offer, from: payload.from, callType: payload.callType });
+    });
+
     socket.on("disconnect", (reason) => {
       console.log("User disconnected:", socket.id, "Reason:", reason);
     });
+
+    // WebRTC signaling events
+    socket.on(
+      "start_call",
+      (data: {
+        to: string;
+        from: { id: string; name: string };
+        signal: any;
+      }) => {
+        const { to, from, signal } = data;
+        const toSocket = findSocketByUserId(to);
+        if (toSocket) {
+          ioInstance?.to(toSocket.id).emit("call:incoming", {
+            signal,
+            from,
+          });
+        } else {
+          socket.emit("call:user:unavailable");
+        }
+      },
+    );
+
+    socket.on(
+      "end_call",
+      (data: { to: string; from: { id: string; name: string } }) => {
+        const { to } = data;
+        const toSocket = findSocketByUserId(to);
+        if (toSocket) {
+          ioInstance?.to(toSocket.id).emit("call:ended");
+        }
+      },
+    );
+
+    socket.on(
+      "reject_call",
+      (data: { to: string; from: { id: string; name: string } }) => {
+        const { to } = data;
+        const toSocket = findSocketByUserId(to);
+        if (toSocket) {
+          ioInstance?.to(toSocket.id).emit("call:rejected");
+        }
+      },
+    );
   });
 
   return ioInstance;
@@ -104,11 +217,16 @@ export function getIO() {
     return globalIO;
   }
   
-  // Fallback to local instance
+// Fallback to local instance
   if (!ioInstance) {
     throw new Error("Socket.IO not initialized. Call initSocket(server) first.");
   }
   return ioInstance;
 }
 
+function findSocketByUserId(userId: string): Socket | undefined {
+  if (!ioInstance) return undefined;
+  const sockets = Array.from(ioInstance.sockets.sockets.values());
+  return sockets.find((socket) => socket.data.userId === userId);
+}
 

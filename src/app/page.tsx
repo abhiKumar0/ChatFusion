@@ -6,18 +6,21 @@ import Welcome from '@/pages/Welcome';
 import MobileNav from '@/components/MobileNav';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMe } from '@/lib/react-query/queries';
+import { CryptoProvider } from '@/lib/crypto-context';
 
 export default function HomePage() {
-  const [activeView, setActiveView] = useState('contacts');
   const [darkMode, setDarkMode] = useState(false);
+  const [theme, setTheme] = useState('light');
+  const [activeView, setActiveView] = useState('contacts');
   const [isContactListOpen, setIsContactListOpen] = useState(false);
   const currentConversation = useChatStore(state => state.currentConversation);
 
   const { data:user} = useGetMe();
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle('dark');
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setDarkMode(next === 'dark');
   };
 
 
@@ -27,6 +30,8 @@ export default function HomePage() {
   }
 
   return (
+    <CryptoProvider>
+      
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       <div className="flex-1 flex">
         <Sidebar 
@@ -77,5 +82,7 @@ export default function HomePage() {
         toggleDarkMode={toggleDarkMode} 
       />
     </div>
+
+    </CryptoProvider>
   );
 }

@@ -6,7 +6,7 @@ import { X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCallStore } from '@/store/useCallStore';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocketStore } from '@/store/useSocketStore';
 import { useGetMe } from '@/lib/react-query/queries';
 
 interface ChatMessage {
@@ -20,9 +20,9 @@ interface ChatMessage {
 }
 
 export function CallChatSidebar() {
-  const socket = useSocket();
+  const { socket } = useSocketStore();
   const { data: currentUser } = useGetMe();
-  const { isChatOpen, setIsChatOpen, remoteUser } = useCallStore();
+  const { isChatOpen, actions: { setIsChatOpen }, call: { remoteUser } } = useCallStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);

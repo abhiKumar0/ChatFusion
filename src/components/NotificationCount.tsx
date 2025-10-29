@@ -1,9 +1,9 @@
-import { useSocket } from "@/lib/socket-provider";
+import { useSocketStore } from '@/store/useSocketStore';
 import { useGetMe } from "@/lib/react-query/queries";
 import { useEffect, useState } from "react";
 
 export const NotificationCount = () => {
-  const socket = useSocket();
+  const {socket} = useSocketStore();
   const { data: user } = useGetMe();
   const [count, setCount] = useState(0);
 

@@ -3,34 +3,34 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React, { ReactNode, useEffect } from 'react'
 import { useGetMe } from '@/lib/react-query/queries'
-import { useCallStore } from '@/store/useCallStore'
+import { useSocketStore } from '@/store/useSocketStore'
 import { initSocketClient } from '@/lib/socket-client'
+import ClientOnly from '@/components/ClientOnly'
+// import { ThemeProvider } from "next-themes"
 
-const SocketProvider = ({ children }: { children: ReactNode }) => {
+const SocketInitializer = () => {
   const { data: user, isLoading } = useGetMe();
-  const setSocketStatus = useCallStore(state => state.setSocketStatus);
-  const initSocketListeners = useCallStore(state => state.initSocketListeners);
+  const { actions: { setSocket, setIsConnected } } = useSocketStore();
 
   useEffect(() => {
     if (!user || isLoading) return;
 
     try {
       const socket = initSocketClient(user.id);
-      if (socket) {
-        initSocketListeners();
-      }
+      setSocket(socket);
+      setIsConnected(true);
     } catch (error) {
       console.error('Failed to initialize socket:', error);
-      setSocketStatus('disconnected');
+      setIsConnected(false);
     }
 
     return () => {
-      setSocketStatus('disconnected');
+      setIsConnected(false);
     };
-  }, [user, isLoading, setSocketStatus, initSocketListeners]);
+  }, [user, isLoading, setSocket, setIsConnected]);
 
-  return <>{children}</>;
-};
+  return null;
+}
 
 const QueryProvider = ({children}: {children: ReactNode}) => {
     const [queryClient] = React.useState(() => new QueryClient({
@@ -45,9 +45,18 @@ const QueryProvider = ({children}: {children: ReactNode}) => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SocketProvider>
+      {/* Delay theme provider until after hydration to avoid pre-hydration DOM changes */}
+      {/* <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      > */}
+        <ClientOnly>
+          <SocketInitializer />
+        </ClientOnly>
         {children}
-      </SocketProvider>
+      {/* </ThemeProvider> */}
     </QueryClientProvider>
   )
 }

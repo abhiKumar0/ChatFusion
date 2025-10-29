@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { initSocketClient } from '@/lib/socket-client';
 
 // Dynamically import all calling components to prevent SSR issues
-const IncomingCall = dynamic(() => import('./IncomingCall'), { ssr: false });
+const IncomingCall = dynamic(() => import('./IncomingCall').then(mod => mod.IncomingCall), { ssr: false });
 const CallWindow = dynamic(() => import('./CallWindow'), { ssr: false });
 
 export function ClientOnlyCallComponents() {

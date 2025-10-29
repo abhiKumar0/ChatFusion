@@ -49,8 +49,8 @@ export interface AuthStore {
     user: User | null;
     loading: boolean;
     error: string | null;
-    login: (email: string, password: string) => Promise<void>;
-    signup: (email: string, password: string, name: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<boolean>;
+    signup: (email: string, password: string, name: string) => Promise<boolean>;
     getCurrentUser: () => Promise<void>;
 }
 

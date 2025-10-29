@@ -5,7 +5,7 @@ import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocketStore } from '@/store/useSocketStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
 import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
@@ -24,7 +24,7 @@ interface UIMessage extends Message {
 
 // Dynamically import call-related components
 const CallWindow = dynamic(() => import('./calls/CallWindow'), { ssr: false });
-const IncomingCall = dynamic(() => import('./calls/IncomingCall'), { ssr: false });
+const IncomingCall = dynamic(() => import('./calls/IncomingCall').then(mod => mod.IncomingCall), { ssr: false });
 
 // Typing indicator component
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
@@ -80,7 +80,7 @@ const ChatArea = () => {
   const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
   // Socket subscription with real-time updates
-  const socket = useSocket();
+  const { socket } = useSocketStore();
   useEffect(() => {
     if (!socket || !currentConversation || !user) {
       console.log('Socket setup skipped:', { socket: !!socket, currentConversation, user: !!user });
@@ -694,7 +694,7 @@ const ChatArea = () => {
                 type="button"
                 variant="ghost" 
                 size="icon" 
-                className={`rounded-full cursor-pointer ${showEmojiPicker ? 'bg-accent' : ''}`} 
+                className={`rounded-full cursor-pointer ${showEmojiPicker ? 'bg-accent' : ''}`}
                 title="Emojis"
                 onClick={toggleEmojiPicker}
               >

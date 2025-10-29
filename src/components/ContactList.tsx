@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocketStore } from '@/store/useSocketStore';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 
@@ -75,7 +75,7 @@ const ContactList = () => {
   
   const { data: conversations, isLoading, error } = useGetConversations();
   const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore();
-  const socket = useSocket();
+  const socket = useSocketStore();
   const { data: user } = useGetMe();
 
   // Process and filter conversations
@@ -103,7 +103,7 @@ const ContactList = () => {
   const handleConversationClick = useCallback((convo: { id: string; contact: any }) => {
     setCurrentConversation(convo.id);
     setCurrentParticipant(convo.contact);
-    socket?.emit('join_conversation', convo.id);
+    socket?.socket?.emit('join_conversation', convo.id);
   }, [setCurrentConversation, setCurrentParticipant, socket]);
 
   // Handle search input change

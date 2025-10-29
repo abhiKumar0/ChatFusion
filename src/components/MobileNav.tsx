@@ -1,4 +1,6 @@
-import React from 'react';
+'use client'
+
+import React, {useState} from 'react';
 import { Button } from './ui/button';
 import { MessageSquare, Users, Settings, Moon, Sun } from 'lucide-react';
 

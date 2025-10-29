@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { useSocketStore } from "@/store/useSocketStore";
 import { useCallStore } from "@/store/useCallStore";
 
 let socket: Socket | null = null;
@@ -11,8 +12,8 @@ export const initSocketClient = (userId: string) => {
 
   console.log(`Initializing socket client for user: ${userId}`);
 
-  const { setSocketStatus } = useCallStore.getState();
-  setSocketStatus('connecting');
+  const { actions: { setSocket, setIsConnected } } = useSocketStore.getState();
+  setIsConnected(false);
 
   const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000";
   console.log(`Attempting to connect to socket server at: ${socketUrl}`);
@@ -31,17 +32,20 @@ export const initSocketClient = (userId: string) => {
     }
     console.log("✅ Socket connected successfully:", socket.id);
     socket.emit("join", userId);
-    setSocketStatus('connected');
+    setIsConnected(true);
+    setSocket(socket);
   });
 
   socket.on("disconnect", (reason) => {
     console.warn("Socket disconnected:", reason);
-    setSocketStatus('disconnected');
+    setIsConnected(false);
+    setSocket(null);
   });
 
   socket.on("connect_error", (error) => {
     console.error("❌ Socket connection error:", error.message, error.cause);
-    setSocketStatus('disconnected');
+    setIsConnected(false);
+    setSocket(null);
   });
 
   // Call-related event listeners
@@ -49,18 +53,22 @@ export const initSocketClient = (userId: string) => {
     // them to the store methods expected by `useCallStore`.
     socket.on("call:incoming", (payload: any) => {
       console.log('📞 Received incoming call (call:incoming):', payload);
-      const { receiveCall } = useCallStore.getState();
+      const { actions: { setCaller, setSignal, setIsReceivingCall } } = useCallStore.getState();
       // payload may contain { from, offer, callType }
-      if (payload && payload.from && payload.offer) {
-        receiveCall(payload.offer, payload.from, payload.callType);
+      if (payload && payload.from && payload.signal) {
+        setCaller(payload.from);
+        setSignal(payload.signal);
+        setIsReceivingCall(true);
       }
     });
 
     socket.on("incoming_call", (payload: any) => {
       console.log('📞 Received incoming call (incoming_call):', payload);
-      const { receiveCall } = useCallStore.getState();
-      if (payload && payload.from && payload.offer) {
-        receiveCall(payload.offer, payload.from, payload.callType);
+      const { actions: { setCaller, setSignal, setIsReceivingCall } } = useCallStore.getState();
+      if (payload && payload.from && payload.signal) {
+        setCaller(payload.from);
+        setSignal(payload.signal);
+        setIsReceivingCall(true);
       }
     });
 
@@ -123,7 +131,5 @@ export const initSocketClient = (userId: string) => {
 };
 
 export const getSocket = () => {
-  // Return the socket instance if present (may be null). Caller should check
-  // .connected if it requires an active connection.
-  return socket;
+  return useSocketStore.getState().socket;
 };

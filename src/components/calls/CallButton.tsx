@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { User } from '@/types/types';
 import { checkWebRTCSupport } from '@/lib/webrtc';
+import { useSocketStore } from '@/store/useSocketStore';
 
 interface CallButtonProps {
   targetUser: User;
@@ -14,7 +15,9 @@ interface CallButtonProps {
 }
 
 export function CallButton({ targetUser, callType, variant = 'icon' }: CallButtonProps) {
-  const { startCall, socketStatus } = useCallStore();
+  const { actions } = useCallStore();
+  const { startCall } = actions;
+  const { socket, isConnected } = useSocketStore();
 
   const handleCall = () => {
     const support = checkWebRTCSupport();
@@ -22,10 +25,12 @@ export function CallButton({ targetUser, callType, variant = 'icon' }: CallButto
       alert(support.error);
       return;
     }
-    startCall(targetUser, callType);
+    if (socket) {
+      startCall(targetUser, callType, socket);
+    }
   };
 
-  const isDisabled = socketStatus !== 'connected';
+  const isDisabled = !isConnected;
 
   if (variant === 'icon') {
     return (

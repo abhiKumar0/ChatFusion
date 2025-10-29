@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Eraser, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCallStore } from '@/store/useCallStore';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocketStore } from '@/store/useSocketStore';
 
 interface DrawPoint {
   x: number;
@@ -15,8 +15,8 @@ interface DrawPoint {
 }
 
 export function Whiteboard() {
-  const socket = useSocket();
-  const { isWhiteboardOpen, setIsWhiteboardOpen, remoteUser } = useCallStore();
+  const { socket } = useSocketStore();
+  const { isWhiteboardOpen, actions: { setIsWhiteboardOpen }, call: { remoteUser } } = useCallStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [color, setColor] = useState('#FFFFFF');
@@ -164,7 +164,7 @@ export function Whiteboard() {
                 onClick={() => setColor(c)}
                 className={`w-8 h-8 rounded-full border-2 ${
                   color === c ? 'border-white scale-110' : 'border-gray-600'
-                } transition-transform`}
+                }`}
                 style={{ backgroundColor: c }}
               />
             ))}
