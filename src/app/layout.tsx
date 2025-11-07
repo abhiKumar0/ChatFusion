@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "./provider";
-import { SocketProvider } from "@/lib/socket-provider";
+import { SocketProvider } from "@/lib/SocketProvider";
 import { CryptoProvider } from "@/lib/crypto-context";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
+import GlobalCallIndicator from "@/components/GlobalCallIndicator";
+import IncomingCall from "@/components/IncomingCall";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +36,8 @@ export default function RootLayout({
             <SocketProvider>
               <CryptoProvider>
                 {children}
+                <IncomingCall />
+                <GlobalCallIndicator />
               </CryptoProvider>
             </SocketProvider>
           </QueryProvider>

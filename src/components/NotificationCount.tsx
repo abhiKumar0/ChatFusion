@@ -1,4 +1,4 @@
-import { useSocket } from "@/lib/socket-provider";
+import { useSocket } from "@/lib/SocketProvider";
 import { useGetMe } from "@/lib/react-query/queries";
 import { useEffect, useState } from "react";
 

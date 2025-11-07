@@ -5,7 +5,7 @@ import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocket } from '@/lib/SocketProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
 import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
@@ -14,17 +14,18 @@ import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import EmojiPicker from 'emoji-picker-react'
-import { useCallStore } from "@/store/useCallStore";
+// import { useCallStore } from "@/store/useCallStore";
 import dynamic from "next/dynamic";
-import { CallButton } from './calls';
+import StartCallButton from './StartButton';
+// import { CallButton } from './calls';
 
 interface UIMessage extends Message {
   isOwn: boolean;
 }
 
 // Dynamically import call-related components
-const CallWindow = dynamic(() => import('./calls/CallWindow'), { ssr: false });
-const IncomingCall = dynamic(() => import('./calls/IncomingCall'), { ssr: false });
+// const CallWindow = dynamic(() => import('./calls/CallWindow'), { ssr: false });
+// const IncomingCall = dynamic(() => import('./calls/IncomingCall'), { ssr: false });
 
 // Typing indicator component
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
@@ -55,10 +56,10 @@ const ChatArea = () => {
   const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>("");
 
 
-  const ClientOnlyCallButton = dynamic(
-  () => import("./calls/ClientOnlyCallButton"),
-  { ssr: false }
-);
+//   const ClientOnlyCallButton = dynamic(
+//   () => import("./calls/ClientOnlyCallButton"),
+//   { ssr: false }
+// );
 
 
   // Current User
@@ -580,16 +581,15 @@ const ChatArea = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-  {currentParticipant && (
+   {currentParticipant && ( 
     <>
-      <CallButton
+      {/* <CallButton
         callType="audio"
         targetUser={currentParticipant}
-      />
+      />  */}
       
-      <CallButton
-        callType="video"
-        targetUser={currentParticipant}
+      <StartCallButton
+        recipientId={currentParticipant?.id}
       />
     </>
   )}
@@ -604,8 +604,8 @@ const ChatArea = () => {
         </div>
 
         {/* Call Interface */}
-        <CallWindow />
-        <IncomingCall />
+        {/* <CallWindow />
+        <IncomingCall /> */}
 
         {/* Error Display */}
         {error && (

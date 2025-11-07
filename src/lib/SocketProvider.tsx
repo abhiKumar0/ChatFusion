@@ -1,9 +1,9 @@
-"use client"
+'use client'
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { useGetMe } from "@/lib/react-query/queries";
-import { useCallStore } from "@/store/useCallStore";
+// import { useCallStore } from "@/store/useCallStore"; // Keep this commented if not used yet
 
 const SocketContext = createContext<Socket | null>(null);
 
@@ -15,18 +15,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { data: user, isLoading: userLoading } = useGetMe();
 
-  const setSocketStatus = useCallStore(state => state.setSocketStatus);
+  // const setSocketStatus = useCallStore(state => state.setSocketStatus);
 
+  // 👇 UNCOMMENT THIS ENTIRE BLOCK 👇
   useEffect(() => {
     // Only create socket connection when user data is available and we're in browser
     if (!user || userLoading || typeof window === 'undefined') return;
 
     // Get socket URL based on environment
     const getSocketUrl = () => {
-      return process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+      // Use localhost:3001 for dev, or your production URL
+      return process.env.NODE_ENV === 'production' 
+        ? (process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin)
+        : 'http://localhost:3000'; // Make sure this port matches your server!
     };
 
-    setSocketStatus('connecting');
+    // const setSocketStatus = 'connecting'; // Simplified for now
 
     const newSocket = io(getSocketUrl(), { 
       withCredentials: true,
@@ -35,12 +39,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
-      auth: { userId: user.id }
+      auth: { userId: user.id } // This sends the user.id on connection
     });
 
     newSocket.on('connect', () => {
       console.log('Socket connected:', newSocket.id);
-      setSocketStatus('connected');
+      // setSocketStatus('connected');
       if (user?.id) {
         newSocket.emit('join', user.id);
         console.log('Joined user room:', user.id);
@@ -49,7 +53,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     newSocket.on('disconnect', (reason) => {
       console.log('Socket disconnected:', reason);
-      setSocketStatus('disconnected');
+      // setSocketStatus('disconnected');
       if (reason === "io server disconnect") {
         newSocket.connect();
       }
@@ -59,16 +63,16 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Socket connection error:', error);
       console.error('Socket URL attempted:', getSocketUrl());
       console.error('Environment:', process.env.NODE_ENV);
-      setSocketStatus('disconnected');
+      // setSocketStatus('disconnected');
     });
 
     setSocket(newSocket);
 
     return () => {
-      setSocketStatus('disconnected');
+      // setSocketStatus('disconnected');
       newSocket.close();
     };
-  }, [user, userLoading, setSocketStatus]);
+  }, [user, userLoading]); // Removed setSocketStatus from dependencies for now
 
   return (
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/socket-provider';
+import { useSocket } from '@/lib/SocketProvider';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 
