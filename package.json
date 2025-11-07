@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.ts",
-    "build": "next build && tsc server.ts --outDir . --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
+    "build": "prisma generate && next build && tsc server.ts --outDir . --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
+    "postinstall": "prisma generate",
     "start": "NODE_ENV=production node server.js",
     "lint": "eslint"
   },
