@@ -180,13 +180,13 @@ export function initSocket(server: HTTPServer) {
     socket.on('webrtc-offer', ({ recipientId, offer }) => {
     // ✅ This is the new, efficient way
     ioInstance?.to(recipientId).emit('webrtc-offer', {
-      senderId: socket?.user?.id,
+      senderId: (socket as any)?.user?.id,
       offer,
     });
   });
     socket.on('webrtc-answer', ({ recipientId, answer }) => {
     ioInstance?.to(recipientId).emit('webrtc-answer', {
-      senderId: socket.user.id,
+      senderId: (socket as any).user?.id,
       answer,
     });
   });
@@ -194,7 +194,7 @@ export function initSocket(server: HTTPServer) {
   // Relays network candidates
   socket.on('webrtc-ice-candidate', ({ recipientId, candidate }) => {
     ioInstance?.to(recipientId).emit('webrtc-ice-candidate', {
-      senderId: socket.user.id,
+      senderId: (socket as any).user?.id,
       candidate,
     });
   });
