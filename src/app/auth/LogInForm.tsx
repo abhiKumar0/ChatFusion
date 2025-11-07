@@ -1,3 +1,4 @@
+'use client';
 
 import { CircleSlash } from "lucide-react";
 import { useState, FormEvent } from "react";

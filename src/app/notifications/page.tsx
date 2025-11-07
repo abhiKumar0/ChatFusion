@@ -7,7 +7,7 @@ import Loading from "@/components/Loading";
 import Welcome from "@/pages/Welcome";
 import { useGetMe } from "@/lib/react-query/queries";
 import { useState } from "react";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"; // Adjust import if needed
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 export default function NotificationsPage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -23,13 +23,22 @@ export default function NotificationsPage() {
   if (!user) return <Welcome />;
 
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel className="h-screen border-r border-border hidden lg:flex flex-col w-80">
+    <div className={`min-h-screen flex flex-col bg-background ${darkMode ? 'dark' : ''}`}>
+      <ResizablePanelGroup direction="horizontal" className="h-screen">
+        <ResizablePanel 
+          defaultSize={30} 
+          minSize={25} 
+          maxSize={40}
+          className="h-screen hidden lg:flex flex-col border-r border-border bg-background"
+        >
           <NotificationsList />
         </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel className="h-screen ">
+        <ResizableHandle withHandle className="hidden lg:flex" />
+        <ResizablePanel 
+          defaultSize={70} 
+          minSize={60}
+          className="h-screen bg-background"
+        >
           <ChatArea />
         </ResizablePanel>
       </ResizablePanelGroup>

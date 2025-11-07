@@ -9,8 +9,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useGetMe } from '@/lib/react-query/queries';
+import { useGetMe, useLogOut } from '@/lib/react-query/queries';
 import { NotificationCount } from './NotificationCount';
+import { useRouter } from 'next/navigation';
 
 interface SidebarProps {
   darkMode: boolean;
@@ -20,6 +21,14 @@ interface SidebarProps {
 
 const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProps) => {
   const { data: user } = useGetMe();
+  const router = useRouter();
+  const { mutate: logout } = useLogOut();
+
+  const toggleLogout = () => {
+    //clear cookie
+    logout();
+    router.push('/auth');
+  };
 
   return (
     <aside className="w-20 bg-card border-r border-border flex flex-col items-center py-6 hidden md:flex">
@@ -65,16 +74,6 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-xl">
-                <Link href="/friends"><Users className="w-5 h-5" /> </Link>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Friends</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-xl">
                 <Link href="/notifications"><Bell className="w-5 h-5" /> </Link>
                 <NotificationCount />
               </Button>
@@ -86,6 +85,18 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
         </div>
 
         <div className="mt-auto flex flex-col items-center gap-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-xl" onClick={toggleLogout}>
+                <LogOut className="w-5 h-5 text-destructive" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Logout</p>
+            </TooltipContent>
+          </Tooltip>
+
+
           {/* Dark Mode Toggle */}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -111,17 +122,6 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             </TooltipContent>
           </Tooltip>
 
-          {/* Logout */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-xl text-destructive hover:text-destructive">
-                <LogOut className="w-5 h-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Log Out</p>
-            </TooltipContent>
-          </Tooltip>
         </div>
       </TooltipProvider>
     </aside>

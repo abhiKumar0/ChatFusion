@@ -36,7 +36,7 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
         const userId = req.headers.get("x-user-id");
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
-        const {parentId, content, media, nonce} = await req.json();
+        const {parentId, content, media, nonce, type} = await req.json();
 
         if (!userId) {
             return NextResponse.json({message: "Unauthorize"}, {status: 401});
@@ -45,6 +45,10 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
         if (!(content || media)) {
             return NextResponse.json({message: "Message content cannot be empty"}, {status: 400});
         }
+
+        // Determine message type: IMAGE if media exists and no content (or empty content), TEXT otherwise
+        const hasContent = content && content.trim() !== '';
+        const messageType = type || (media && !hasContent ? 'IMAGE' : 'TEXT');
         console.log(convoId)
         // 1. Find the conversation and ensure the user is a participant
         const conversation = await prisma.conversation.findUnique({
@@ -71,11 +75,12 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
         const newMessage = await prisma.message.create({
             data: {
                 senderId: userId,
-                content,
+                content: content || '', // Empty string if no content (image-only)
                 media,
                 conversationId: convoId,
                 parentMessageId: parentId,
-                nonce: nonce || randomBytes(12).toString('base64'),
+                nonce: nonce || (content ? randomBytes(12).toString('base64') : ''), // Only generate nonce if content exists
+                type: messageType,
             },
             include: {
                 sender: true, // Optionally include sender details

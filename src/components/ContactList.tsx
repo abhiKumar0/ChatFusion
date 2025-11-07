@@ -1,9 +1,12 @@
+'use client';
+
 import React, { useCallback, useMemo, useState } from 'react'
 import { Button } from './ui/button'
-import { PlusCircle, Search, AlertCircle } from 'lucide-react'
+import { PlusCircle, Search, AlertCircle, MessageSquare, Clock } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
 import { useSocket } from '@/lib/SocketProvider';
@@ -29,42 +32,67 @@ interface ConversationItemProps {
 
 const ConversationItem = React.memo(({ conversation, contact, isSelected, onClick }: ConversationItemProps) => {
   return (
-    <div 
-      className={`p-3 flex items-center gap-3 hover:bg-secondary/50 cursor-pointer transition-colors ${
-        isSelected ? 'bg-secondary' : ''
+    <Card
+      className={`mx-2 my-1.5 rounded-xl border-border cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${
+        isSelected 
+          ? 'bg-primary/10 border-primary shadow-sm' 
+          : 'hover:border-primary/50 hover:bg-accent/50'
       }`}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyPress={(e) => e.key === 'Enter' && onClick()}
     >
-      <div className="relative">
-        <Avatar>
-          <AvatarImage src={contact?.avatar} />
-          <AvatarFallback>{contact?.fullName?.charAt(0) || '?'}</AvatarFallback>
-        </Avatar>
-        <span 
-          className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-            contact?.status === 'online' ? 'bg-green-500' : 
-            contact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-          }`}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-center">
-          <h3 className="font-medium truncate">{contact?.fullName || 'Unknown User'}</h3>
-          <span className="text-xs text-muted-foreground">{contact?.username || ''}</span>
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            <Avatar className="h-12 w-12 border-2 border-border">
+              <AvatarImage src={contact?.avatar} />
+              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                {contact?.fullName?.charAt(0)?.toUpperCase() || '?'}
+              </AvatarFallback>
+            </Avatar>
+            <span 
+              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background transition-all ${
+                contact?.status === 'online' ? 'bg-green-500 animate-pulse' : 
+                contact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
+              }`}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm truncate">{contact?.fullName || 'Unknown User'}</h3>
+                <p className="text-xs text-muted-foreground truncate">@{contact?.username || 'user'}</p>
+              </div>
+              {(conversation?.unreadCount ?? 0) > 0 && (
+                <Badge 
+                  variant="default" 
+                  className="rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 bg-primary text-primary-foreground font-semibold animate-pulse"
+                >
+                  {(conversation?.unreadCount ?? 0) > 99 ? '99+' : (conversation?.unreadCount ?? 0)}
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              {conversation?.lastMessage ? (
+                <>
+                  <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <p className="text-xs text-muted-foreground truncate flex-1">
+                    {conversation.lastMessage}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <p className="text-xs text-muted-foreground italic">No messages yet</p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground truncate">
-          {conversation?.lastMessage || 'No messages yet'}
-        </p>
-      </div>
-      {(conversation?.unreadCount ?? 0) > 0 && (
-        <Badge variant="default" className="rounded-full h-5 min-w-5 flex items-center justify-center p-1">
-          {conversation.unreadCount}
-        </Badge>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 });
 
@@ -113,9 +141,12 @@ const ContactList = () => {
 
   if (isLoading) {
     return (
-      <div className="w-full lg:w-80 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border">
-          <h2 className="text-xl font-bold mb-4">Messages</h2>
+      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background">
+        <div className="p-4 border-b border-border bg-card">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold">Messages</h2>
+          </div>
         </div>
         <ConversationSkeleton />
       </div>
@@ -124,15 +155,25 @@ const ContactList = () => {
 
   if (error) {
     return (
-      <div className="w-full lg:w-80 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border">
-          <h2 className="text-xl font-bold mb-4">Messages</h2>
+      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background">
+        <div className="p-4 border-b border-border bg-card">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold">Messages</h2>
+          </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-          <h3 className="font-medium mb-2">Failed to load conversations</h3>
-          <p className="text-sm text-muted-foreground mb-4">{error.message}</p>
-          <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+            <AlertCircle className="w-8 h-8 text-destructive" />
+          </div>
+          <h3 className="font-semibold text-lg mb-2">Failed to load conversations</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-xs">{error.message}</p>
+          <Button 
+            onClick={() => window.location.reload()} 
+            variant="outline" 
+            size="sm"
+            className="active:scale-95 transition-transform duration-150"
+          >
             Retry
           </Button>
         </div>
@@ -142,26 +183,31 @@ const ContactList = () => {
 
   return (
     <ComponentErrorBoundary>
-      <div className="w-full lg:w-80 border-r border-border flex flex-col">
-        <div className="p-4 border-b border-border">
+      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background h-full">
+        <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Messages</h2>
-            <Button variant="ghost" size="icon" className="rounded-full" title="New Conversation">
-              <PlusCircle className="w-5 h-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold">Messages</h2>
+              {filteredConversations.length > 0 && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {filteredConversations.length}
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
               placeholder="Search conversations..." 
-              className="pl-10 bg-secondary" 
+              className="pl-10 bg-secondary border-border focus:border-primary transition-colors" 
               value={searchTerm}
               onChange={handleSearchChange}
             />
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((convo: any) => (
               <ConversationItem
@@ -173,17 +219,28 @@ const ContactList = () => {
               />
             ))
           ) : searchTerm ? (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <Search className="w-12 h-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No conversations found</p>
-              <p className="text-sm text-muted-foreground">Try a different search term</p>
+            <div className="flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">No conversations found</h3>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Try a different search term or start a new conversation
+              </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center p-8 text-center">
-              <div className="text-4xl mb-4">💬</div>
-              <p className="text-muted-foreground mb-2">No conversations yet</p>
-              <p className="text-sm text-muted-foreground mb-4">Start a new conversation to get chatting</p>
-              <Button size="sm">
+            <div className="flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <MessageSquare className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">No conversations yet</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-xs">
+                Start a new conversation to get chatting with your friends
+              </p>
+              <Button 
+                size="sm"
+                className="active:scale-95 transition-transform duration-150 hover:scale-105"
+              >
                 <PlusCircle className="w-4 h-4 mr-2" />
                 New Chat
               </Button>

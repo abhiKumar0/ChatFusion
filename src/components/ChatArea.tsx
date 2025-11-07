@@ -1,8 +1,12 @@
+'use client';
+
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply, MessageSquare, Circle, Image as ImageIcon } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card } from './ui/card';
+import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
 import { useSocket } from '@/lib/SocketProvider';
@@ -32,14 +36,16 @@ const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
   if (!isVisible) return null;
   
   return (
-    <div className="flex justify-start mb-2">
-      <div className="max-w-[70%] bg-secondary rounded-2xl rounded-bl-none p-3 px-4">
-        <div className="flex items-center space-x-1">
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '0ms'}}></div>
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '150ms'}}></div>
-          <div className="w-2 h-2 rounded-full bg-muted-foreground/50 animate-bounce" style={{animationDelay: '300ms'}}></div>
+    <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <Card className="max-w-[70%] bg-secondary/80 border-border rounded-2xl rounded-bl-none shadow-sm">
+        <div className="p-3 px-4">
+          <div className="flex items-center space-x-1.5">
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '0ms'}}></div>
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '150ms'}}></div>
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '300ms'}}></div>
+          </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
@@ -52,8 +58,10 @@ const ChatArea = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>("");
+  const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
 
 
 //   const ClientOnlyCallButton = dynamic(
@@ -351,14 +359,70 @@ const ChatArea = () => {
     }, 1000);
   }, [socket, currentConversation]);
 
+  // Handle image selection
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size must be less than 10MB');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSelectedImage({
+        file,
+        preview: reader.result as string
+      });
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  // Convert image to base64
+  const convertImageToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        resolve(base64String);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  // Remove selected image
+  const handleRemoveImage = useCallback(() => {
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
   // Send new Message in current conversation (optimized)
   const handleSendMessage = useCallback(async () => {
-    if (!newMessage.trim() || !currentConversation || !user || !currentParticipant || !decryptedPrivateKey || !conversationData) {
+    if ((!newMessage.trim() && !selectedImage) || !currentConversation || !user || !currentParticipant || !decryptedPrivateKey || !conversationData) {
       return;
     }
 
     const messageText = newMessage.trim();
-    setNewMessage(''); // Clear input immediately
+    const imageToSend = selectedImage;
+    
+    // Clear input and image immediately
+    setNewMessage('');
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setError(null); // Clear any previous errors
     
     // Stop typing when sending message
@@ -371,15 +435,21 @@ const ChatArea = () => {
     if (!participant) {
       setError('Unable to find conversation participant');
       setNewMessage(messageText);
+      if (imageToSend) {
+        setSelectedImage(imageToSend);
+      }
       return;
     }
 
     // Create optimistic message
     const tempId = `temp-${Date.now()}`;
+    const messageType: 'TEXT' | 'IMAGE' = (imageToSend && !messageText) ? 'IMAGE' : 'TEXT';
     const optimisticMessage: UIMessage = {
       id: tempId,
       senderId: user.id,
-      content: messageText,
+      content: messageText || '',
+      media: imageToSend?.preview,
+      type: messageType,
       createdAt: new Date(),
       updatedAt: new Date(),
       sender: user,
@@ -391,8 +461,30 @@ const ChatArea = () => {
     setLocalMessages(prev => [...prev, optimisticMessage]);
 
     try {
-      // Encrypt message
-      const { ciphertext, nonce } = await encryptMessage(messageText, participant.publicKey, decryptedPrivateKey);
+      let ciphertext = '';
+      let nonce = '';
+      let mediaUrl = '';
+      let messageType: 'TEXT' | 'IMAGE' = 'TEXT';
+
+      // Determine message type
+      if (imageToSend && messageText) {
+        messageType = 'TEXT'; // Text with image is still TEXT type
+      } else if (imageToSend && !messageText) {
+        messageType = 'IMAGE'; // Image-only is IMAGE type
+      }
+
+      // If there's text, encrypt it
+      if (messageText) {
+        const encrypted = await encryptMessage(messageText, participant.publicKey, decryptedPrivateKey);
+        ciphertext = encrypted.ciphertext;
+        nonce = encrypted.nonce;
+      }
+      // If no text, don't encrypt (empty content for image-only messages)
+
+      // If there's an image, convert to base64
+      if (imageToSend) {
+        mediaUrl = await convertImageToBase64(imageToSend.file);
+      }
       
       // Update message status to sent
       setLocalMessages(prev =>
@@ -405,7 +497,9 @@ const ChatArea = () => {
       const serverMessage = await createMessageMutation.mutateAsync({ 
         conversationId: currentConversation, 
         content: ciphertext, 
-        nonce,
+        media: mediaUrl,
+        nonce: nonce || undefined,
+        type: messageType,
         parentId: replyingTo?.id
       });
       
@@ -440,10 +534,13 @@ const ChatArea = () => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
       setError(`Failed to send message: ${errorMessage}`);
       
-      // Restore message text for retry
+      // Restore message text and image for retry
       setNewMessage(messageText);
+      if (imageToSend) {
+        setSelectedImage(imageToSend);
+      }
     }
-  }, [newMessage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation, replyingTo, clearReplyingTo]);
+  }, [newMessage, selectedImage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation, replyingTo, clearReplyingTo, convertImageToBase64]);
 
 
   // Handle input change with typing indicator
@@ -513,9 +610,9 @@ const ChatArea = () => {
   // Loading states
   if (messagesLoading || cryptoLoading) {
     return (
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-background">
         {/* Chat Header Skeleton */}
-        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+        <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-card">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-muted rounded-full animate-pulse"></div>
             <div>
@@ -531,7 +628,7 @@ const ChatArea = () => {
         </div>
         <MessageSkeleton />
         {/* Input Skeleton */}
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border bg-background">
           <div className="bg-secondary rounded-full px-4 py-2 animate-pulse">
             <div className="h-10 bg-muted rounded-full"></div>
           </div>
@@ -543,19 +640,31 @@ const ChatArea = () => {
   // Error states
   if (!currentConversation) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground">
-        Select a conversation to start chatting
+      <div className="flex-1 flex items-center justify-center bg-background">
+        <div className="text-center p-8">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-10 h-10 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2 text-foreground">Select a conversation</h3>
+          <p className="text-sm text-muted-foreground">Choose a conversation from the sidebar to start chatting</p>
+        </div>
       </div>
     );
   }
 
   if (messagesError && !messages.length) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-        <h3 className="text-lg font-medium mb-2">Failed to load messages</h3>
-        <p className="text-muted-foreground mb-4">{messagesError.message}</p>
-        <Button onClick={() => window.location.reload()} variant="outline">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
+        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-8 h-8 text-destructive" />
+        </div>
+        <h3 className="text-lg font-semibold mb-2">Failed to load messages</h3>
+        <p className="text-sm text-muted-foreground mb-4 max-w-xs">{messagesError.message}</p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          variant="outline"
+          className="active:scale-95 transition-transform duration-150"
+        >
           Retry
         </Button>
       </div>
@@ -565,42 +674,55 @@ const ChatArea = () => {
   
   return (
     <ComponentErrorBoundary>
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-background h-full">
         {/* Chat Header */}
-        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+        <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-card sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarImage src={currentParticipant?.avatar} />
-              <AvatarFallback>{currentParticipant?.fullName?.charAt(0) || '?'}</AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="h-10 w-10 border-2 border-border">
+                <AvatarImage src={currentParticipant?.avatar} />
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                  {currentParticipant?.fullName?.charAt(0)?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </Avatar>
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
+                isTyping ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+              }`} />
+            </div>
             <div>
-              <h3 className="font-medium">{currentParticipant?.fullName || 'Unknown User'}</h3>
-              <p className="text-xs text-muted-foreground">
-                {isTyping ? 'typing...' : 'Online'}
-              </p>
+              <h3 className="font-semibold text-sm">{currentParticipant?.fullName || 'Unknown User'}</h3>
+              <div className="flex items-center gap-1.5">
+                {isTyping ? (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '0ms'}}></div>
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '150ms'}}></div>
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '300ms'}}></div>
+                    </div>
+                    <p className="text-xs text-primary font-medium">typing...</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Online</p>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-   {currentParticipant && ( 
-    <>
-      {/* <CallButton
-        callType="audio"
-        targetUser={currentParticipant}
-      />  */}
-      
-      <StartCallButton
-        recipientId={currentParticipant?.id}
-      />
-    </>
-  )}
-
-  <Button 
-    variant="outline"
-    className="h-8 w-8 p-0 rounded-full"
-  >
-    <MoreVertical className="h-4 w-4" />
-  </Button>
-</div>
+            {currentParticipant && ( 
+              <>
+                <StartCallButton
+                  recipientId={currentParticipant?.id}
+                />
+              </>
+            )}
+            <Button 
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Call Interface */}
@@ -609,24 +731,26 @@ const ChatArea = () => {
 
         {/* Error Display */}
         {error && (
-          <div className="px-6 py-2 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-800">
-            <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm">{error}</span>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setError(null)}
-                className="ml-auto h-auto p-1 text-red-700 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200"
-              >
-                ×
-              </Button>
-            </div>
+          <div className="px-6 py-3 bg-destructive/10 border-b border-destructive/20 animate-in slide-in-from-top duration-300">
+            <Card className="bg-destructive/5 border-destructive/20">
+              <div className="flex items-center gap-2 text-destructive px-3 py-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span className="text-sm flex-1">{error}</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setError(null)}
+                  className="h-6 w-6 p-0 rounded-full hover:bg-destructive/20 active:scale-95 transition-all duration-150"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-2" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           {messages && messages.length > 0 ? (
             <>
               {messages.map((message) => (
@@ -640,91 +764,163 @@ const ChatArea = () => {
               <TypingIndicator isVisible={isTyping} />
             </>
           ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <div className="text-center">
-                <div className="text-4xl mb-2">💬</div>
-                <p>Be the first to send a message</p>
+            <div className="h-full flex items-center justify-center min-h-[400px]">
+              <div className="text-center p-8">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-10 h-10 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No messages yet</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                  Be the first to send a message and start the conversation
+                </p>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Image Preview */}
+        {selectedImage && (
+          <div className="px-6 py-3 bg-accent/50 border-t border-border animate-in slide-in-from-bottom duration-300">
+            <Card className="bg-card border-border">
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-primary">Image Preview</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleRemoveImage}
+                    className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="relative rounded-lg overflow-hidden border border-border">
+                  <img 
+                    src={selectedImage.preview} 
+                    alt="Preview" 
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                    {(selectedImage.file.size / 1024 / 1024).toFixed(2)} MB
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Reply Preview */}
         {replyingTo && (
-          <div className="px-6 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Reply className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
-                </span>
-                <span className="text-xs text-gray-500 truncate max-w-[200px]">
-                  {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
-                </span>
+          <div className="px-6 py-3 bg-accent/50 border-t border-border animate-in slide-in-from-bottom duration-300">
+            <Card className="bg-card border-border">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Reply className="w-4 h-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-primary mb-0.5">
+                      Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
+                    </p>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={clearReplyingTo}
+                  className="h-7 w-7 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150 shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={clearReplyingTo}
-                className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+            </Card>
           </div>
         )}
 
         {/* Message Input */}
-        <div className="p-4 border-t border-border bg-background">
-          <div className="flex items-center gap-2 bg-secondary rounded-full px-4 py-2">
-            <Button variant="ghost" size="icon" className="rounded-full" title="Attach File">
-              <Paperclip className="w-5 h-5" />
-            </Button>
-            <Input
-              ref={inputRef}
-              placeholder={replyingTo ? `Reply to ${replyingTo.sender.fullName || replyingTo.sender.username}...` : "Type a message..."}
-              className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
-              value={newMessage}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-            />
-            <div className="relative" ref={emojiPickerRef}>
+        <div className="p-4 border-t border-border bg-background sticky bottom-0 z-10">
+          <Card className="bg-secondary/50 border-border shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
               <Button 
-                type="button"
                 variant="ghost" 
                 size="icon" 
-                className={`rounded-full cursor-pointer ${showEmojiPicker ? 'bg-accent' : ''}`} 
-                title="Emojis"
-                onClick={toggleEmojiPicker}
+                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150" 
+                title="Send Image"
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
               >
-                {showEmojiPicker ? <X className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
+                <ImageIcon className="w-5 h-5" />
               </Button>
-              {showEmojiPicker && (
-                <div className="absolute bottom-10 right-0 z-50">
-                  <EmojiPicker 
-                    onEmojiClick={onEmojiClick}
-                    width={300}
-                    height={350}
-                    searchPlaceholder="Search emojis..."
-                    previewConfig={{
-                      showPreview: false
-                    }}
-                    skinTonesDisabled
-                  />
-                </div>
-              )}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150" 
+                title="Attach File"
+              >
+                <Paperclip className="w-5 h-5" />
+              </Button>
+              <Input
+                ref={inputRef}
+                placeholder={replyingTo ? `Reply to ${replyingTo.sender.fullName || replyingTo.sender.username}...` : "Type a message..."}
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-muted-foreground"
+                value={newMessage}
+                onChange={handleInputChange}
+                onKeyPress={handleKeyPress}
+              />
+              <div className="relative" ref={emojiPickerRef}>
+                <Button 
+                  type="button"
+                  variant="ghost" 
+                  size="icon" 
+                  className={`rounded-full cursor-pointer hover:bg-accent active:scale-95 transition-all duration-150 ${
+                    showEmojiPicker ? 'bg-primary/10 text-primary' : ''
+                  }`} 
+                  title="Emojis"
+                  onClick={toggleEmojiPicker}
+                >
+                  {showEmojiPicker ? <X className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
+                </Button>
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 right-0 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <Card className="border-border shadow-lg">
+                      <EmojiPicker 
+                        onEmojiClick={onEmojiClick}
+                        width={300}
+                        height={350}
+                        searchPlaceholder="Search emojis..."
+                        previewConfig={{
+                          showPreview: false
+                        }}
+                        skinTonesDisabled
+                      />
+                    </Card>
+                  </div>
+                )}
+              </div>
+              <Button 
+                size="icon" 
+                className={`rounded-full transition-all duration-200 active:scale-95 ${
+                  (newMessage.trim() || selectedImage)
+                    ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg' 
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
+                }`}
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() && !selectedImage}
+                title="Send Message"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
-            <Button 
-              size="icon" 
-              className="rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 cursor-pointer" 
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim()}
-              title="Send Message"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
+          </Card>
         </div>
       </div>
     </ComponentErrorBoundary>

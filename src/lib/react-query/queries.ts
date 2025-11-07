@@ -7,6 +7,7 @@ import {
 import {
   signUp,
   logIn,
+  logOut,
   getMe,
   getUsers,
   getUserById,
@@ -57,6 +58,24 @@ export const useLogIn = () => {
     error: mutation.error,
   };
 };
+
+export const useLogOut = () => {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: logOut,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+    onError: (error) => {
+      console.error('Logout failed:', error);
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+}
 
 // User Queries
 export const useGetMe = () => {

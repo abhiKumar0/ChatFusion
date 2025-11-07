@@ -33,6 +33,11 @@ export const logIn = async (data: { email: string; password: string }) => {
   return response.data;
 };
 
+export const logOut = async () => {
+  const response = await api.get("/auth/logout");
+  return response.data;
+};
+
 // Users
 export const getMe = async () => {
   const response = await api.get("/users/me");
@@ -91,18 +96,21 @@ export const createMessage = async ({
   media,
   parentId,
   nonce,
+  type,
 }: {
   conversationId: string;
   content: string;
   media?: string;
   parentId?: string;
   nonce?: string;
+  type?: 'TEXT' | 'IMAGE' | 'STICKER' | 'AUDIO' | 'VIDEO' | 'FILE';
 }) => {
   const response = await api.post(`/conversations/${conversationId}/message`, {
     content,
     media,
     parentId,
     nonce,
+    type,
   });
   return response.data;
 };

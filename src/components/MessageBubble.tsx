@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { Message } from '@/types/types';
 import { useGetMe } from "@/lib/react-query/queries.ts";
@@ -230,8 +232,24 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
     useEffect(() => {
         let cancelled = false;
 
+        // Skip decryption for image-only messages (type IMAGE with no content)
+        const isImageOnly = message.type === 'IMAGE' && (!message.content || message.content.trim() === '');
+        
+        if (isImageOnly) {
+            setContent('');
+            setIsDecrypting(false);
+            return;
+        }
+
         if (!conversationData || !currentUser?.id || !message?.sender?.id || !participant) {
             setContent('[Unable to decrypt message]');
+            setIsDecrypting(false);
+            return;
+        }
+
+        // Skip decryption if there's no content to decrypt
+        if (!message.content || message.content.trim() === '') {
+            setContent('');
             setIsDecrypting(false);
             return;
         }
@@ -263,11 +281,14 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
 
                 const publicKey = isOwn ? currentUser?.publicKey : participant?.publicKey;
 
+                // Skip decryption if no nonce (image-only messages don't have nonce)
                 if (!publicKey || !message.nonce || !privateKey) {
-                    const errorMsg = '[Message could not be decrypted]';
+                    const errorMsg = message.type === 'IMAGE' ? '' : '[Message could not be decrypted]';
                     if (!cancelled) {
                         setContent(errorMsg);
-                        messageCache.set(cacheKey, errorMsg);
+                        if (message.nonce) {
+                            messageCache.set(cacheKey, errorMsg);
+                        }
                     }
                     return;
                 }
@@ -279,10 +300,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
                 }
             } catch (error) {
                 console.error('Error decrypting message:', error);
-                const errorMsg = '[Message could not be decrypted]';
+                const errorMsg = message.type === 'IMAGE' ? '' : '[Message could not be decrypted]';
                 if (!cancelled) {
                     setContent(errorMsg);
-                    messageCache.set(cacheKey, errorMsg);
+                    if (message.nonce) {
+                        messageCache.set(cacheKey, errorMsg);
+                    }
                 }
             } finally {
                 if (!cancelled) setIsDecrypting(false);
@@ -606,7 +629,24 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId }:
                         </div>
                     </div>
                 ) : (
-                    <p className="break-words">{content}</p>
+                    <>
+                        {/* Image Display */}
+                        {message.media && (
+                            <div className="mb-2 rounded-lg overflow-hidden border border-border/50 max-w-full">
+                                <img 
+                                    src={message.media} 
+                                    alt="Message attachment" 
+                                    className="max-w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(message.media, '_blank')}
+                                    loading="lazy"
+                                />
+                            </div>
+                        )}
+                        {/* Text Content - Show if there's decrypted content */}
+                        {content && content.trim() !== '' && (
+                            <p className="break-words">{content}</p>
+                        )}
+                    </>
                 )}
 
                 {/* Reactions Display */}

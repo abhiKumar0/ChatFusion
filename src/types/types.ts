@@ -33,6 +33,7 @@ export interface Message {
     parentMessage?: Message,
     nonce?: string,
     status: string,
+    type?: 'TEXT' | 'IMAGE' | 'STICKER' | 'AUDIO' | 'VIDEO' | 'FILE',
     reactions?: Reaction[],
 }
 

@@ -1,3 +1,5 @@
+'use client';
+
 import React from "react";
 // import { useGetFriends } from "@/lib/react-query/queries"; // You may need to implement this query
 

@@ -1,4 +1,5 @@
-import { useAuthStore } from "@/store/useAuthStore";
+'use client';
+
 import { CircleSlash } from "lucide-react";
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
