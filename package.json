@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nodemon server.ts",
-    "build": "prisma generate && next build && tsc server.ts --outDir . --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
-    "postinstall": "prisma generate",
-    "start": "NODE_ENV=production node server.js",
-    "lint": "eslint"
-  },
+  "dev": "nodemon server.ts",
+  "build": "prisma generate && next build && tsc server.ts --outDir .",
+  "start": "NODE_ENV=production node server.js",
+  "postinstall": "prisma generate"
+}
+,
   "dependencies": {
     "@prisma/client": "^6.16.3",
     "@radix-ui/react-avatar": "^1.1.10",
