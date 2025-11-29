@@ -9,7 +9,8 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/SocketProvider';
+import { createClient } from '@/lib/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
 import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
@@ -34,15 +35,15 @@ interface UIMessage extends Message {
 // Typing indicator component
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
   if (!isVisible) return null;
-  
+
   return (
     <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <Card className="max-w-[70%] bg-secondary/80 border-border rounded-2xl rounded-bl-none shadow-sm">
         <div className="p-3 px-4">
           <div className="flex items-center space-x-1.5">
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '0ms'}}></div>
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '150ms'}}></div>
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{animationDelay: '300ms'}}></div>
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
         </div>
       </Card>
@@ -64,10 +65,10 @@ const ChatArea = () => {
   const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
 
 
-//   const ClientOnlyCallButton = dynamic(
-//   () => import("./calls/ClientOnlyCallButton"),
-//   { ssr: false }
-// );
+  //   const ClientOnlyCallButton = dynamic(
+  //   () => import("./calls/ClientOnlyCallButton"),
+  //   { ssr: false }
+  // );
 
 
   // Current User
@@ -88,164 +89,33 @@ const ChatArea = () => {
   // Crypto context for cached private key
   const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
-  // Socket subscription with real-time updates
-  const socket = useSocket();
+  // Supabase Realtime subscription
+  const [supabase] = useState(() => createClient());
+  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
+
   useEffect(() => {
-    if (!socket || !currentConversation || !user) {
-      console.log('Socket setup skipped:', { socket: !!socket, currentConversation, user: !!user });
-      return;
-    }
+    if (!currentConversation || !user) return;
 
-    console.log('Setting up socket for conversation:', currentConversation);
+    const newChannel = supabase.channel(`chat:${currentConversation}`);
 
-    // Join conversation room
-    socket.emit('join_conversation', currentConversation);
-    console.log('Emitted join_conversation for:', currentConversation);
+    newChannel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+      })
+      .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
+      .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))
+      .on('broadcast', { event: 'reaction_update' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+      })
+      .subscribe();
 
-    const handler = (newMessage: Message) => {
-      console.log('ChatArea received socket message:', newMessage);
-      console.log('Current user ID:', user?.id, 'Message sender ID:', newMessage.senderId);
-
-      // Only add message if it's not from current user (to avoid duplicates)
-      if (newMessage.senderId === user?.id) {
-        console.log('Ignoring own message from socket');
-        return;
-      }
-
-      // Add message to query cache
-      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-        if (!oldData || typeof oldData !== 'object') return oldData;
-        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        if (data.pages.length === 0) return data;
-
-        // Check if message already exists to prevent duplicates
-        const firstPage = data.pages[0];
-        const messageExists = firstPage.messages.some(msg => msg.id === newMessage.id);
-        if (messageExists) {
-          console.log('Message already exists, skipping');
-          return data;
-        }
-
-        console.log('Adding new message to cache:', newMessage.id);
-        // Add to the first page (most recent messages)
-        return {
-          ...data,
-          pages: [
-            { ...firstPage, messages: [...firstPage.messages, newMessage] },
-            ...data.pages.slice(1)
-          ]
-        };
-      });
-    };
-
-    // Handle new messages
-    socket.on('receive_message', handler);
-    console.log('Added receive_message listener');
-
-    // Handle message updates
-    const handleMessageUpdate = (updatedMessage: Message) => {
-      console.log('ChatArea received message update:', updatedMessage);
-      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-        if (!oldData || typeof oldData !== 'object') return oldData;
-        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        if (data.pages.length === 0) return data;
-
-        const pages = data.pages.map((page) => ({
-          ...page,
-          messages: page.messages.map((msg) => 
-            msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
-          )
-        }));
-        return { ...data, pages };
-      });
-    };
-
-    // Handle message deletions
-    const handleMessageDelete = ({ messageId }: { messageId: string }) => {
-      console.log('ChatArea received message deletion:', messageId);
-      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-        if (!oldData || typeof oldData !== 'object') return oldData;
-        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        if (data.pages.length === 0) return data;
-
-        const pages = data.pages.map((page) => ({
-          ...page,
-          messages: page.messages.filter((msg) => msg.id !== messageId)
-        }));
-        return { ...data, pages };
-      });
-    };
-
-    // Handle reaction additions
-    const handleReactionAdd = (reaction: { id: string; emoji: string; messageId: string; userId: string; user: { id: string; fullName: string; username: string } }) => {
-      console.log('ChatArea received reaction addition:', reaction);
-      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-        if (!oldData || typeof oldData !== 'object') return oldData;
-        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        if (data.pages.length === 0) return data;
-
-        const pages = data.pages.map((page) => ({
-          ...page,
-          messages: page.messages.map((msg) => {
-            if (msg.id === reaction.messageId) {
-              const existingReactions = msg.reactions || [];
-              const reactionExists = existingReactions.some(
-                (r: { userId: string; emoji: string }) => r.userId === reaction.userId && r.emoji === reaction.emoji
-              );
-              
-              if (!reactionExists) {
-                return {
-                  ...msg,
-                  reactions: [...existingReactions, reaction]
-                };
-              }
-            }
-            return msg;
-          })
-        }));
-        return { ...data, pages };
-      });
-    };
-
-    // Handle reaction removals
-    const handleReactionRemove = ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      console.log('ChatArea received reaction removal:', { messageId, emoji });
-      queryClient.setQueryData(['messages', currentConversation], (oldData: unknown) => {
-        if (!oldData || typeof oldData !== 'object') return oldData;
-        const data = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        if (data.pages.length === 0) return data;
-
-        const pages = data.pages.map((page) => ({
-          ...page,
-          messages: page.messages.map((msg) => {
-            if (msg.id === messageId) {
-              return {
-                ...msg,
-                reactions: (msg.reactions || []).filter((r: { emoji: string }) => r.emoji !== emoji)
-              };
-            }
-            return msg;
-          })
-        }));
-        return { ...data, pages };
-      });
-    };
-
-    // Add all socket listeners
-    socket.on('message_updated', handleMessageUpdate);
-    socket.on('message_deleted', handleMessageDelete);
-    socket.on('reaction_added', handleReactionAdd);
-    socket.on('reaction_removed', handleReactionRemove);
+    setChannel(newChannel);
 
     return () => {
-      console.log('Cleaning up socket listeners for conversation:', currentConversation);
-      socket.off('receive_message', handler);
-      socket.off('message_updated', handleMessageUpdate);
-      socket.off('message_deleted', handleMessageDelete);
-      socket.off('reaction_added', handleReactionAdd);
-      socket.off('reaction_removed', handleReactionRemove);
+      supabase.removeChannel(newChannel);
+      setChannel(null);
     };
-  }, [socket, currentConversation, queryClient, user]);
+  }, [currentConversation, user, queryClient, supabase]);
 
 
   // Auto-scroll to bottom when new messages arrive
@@ -322,42 +192,32 @@ const ChatArea = () => {
     }
   }, [userError, conversationError, messagesError]);
 
-  // Socket typing events
-  useEffect(() => {
-    if (!socket || !currentConversation) return;
 
-    const handleTyping = () => setIsTyping(true);
-    const handleStopTyping = () => setIsTyping(false);
-
-    socket.on('user_typing', handleTyping);
-    socket.on('user_stop_typing', handleStopTyping);
-
-    return () => {
-      socket.off('user_typing', handleTyping);
-      socket.off('user_stop_typing', handleStopTyping);
-    };
-  }, [socket, currentConversation]);
 
   // Typing timeout ref
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle typing events
   const handleTyping = useCallback(() => {
-    if (!socket || !currentConversation) return;
+    if (!channel || !currentConversation) return;
 
     // Emit typing event
-    socket.emit('typing', { conversationId: currentConversation });
-    
+    channel.send({ type: 'broadcast', event: 'typing' });
+
     // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // Set timeout to stop typing
     typingTimeoutRef.current = setTimeout(() => {
-      socket.emit('stop_typing', { conversationId: currentConversation });
+      channel.send({ type: 'broadcast', event: 'stop_typing' });
     }, 1000);
-  }, [socket, currentConversation]);
+  }, [channel, currentConversation]);
+
+  const handleBroadcastReaction = useCallback(() => {
+    channel?.send({ type: 'broadcast', event: 'reaction_update' });
+  }, [channel]);
 
   // Handle image selection
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,7 +276,7 @@ const ChatArea = () => {
 
     const messageText = newMessage.trim();
     const imageToSend = selectedImage;
-    
+
     // Clear input and image immediately
     setNewMessage('');
     setSelectedImage(null);
@@ -424,11 +284,11 @@ const ChatArea = () => {
       fileInputRef.current.value = '';
     }
     setError(null); // Clear any previous errors
-    
+
     // Stop typing when sending message
-    if (socket && typingTimeoutRef.current) {
+    if (channel && typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
-      socket.emit('stop_typing', { conversationId: currentConversation });
+      channel.send({ type: 'broadcast', event: 'stop_typing' });
     }
 
     const participant = conversationData.participants.find((p: { user: { id: string } }) => p.user.id !== user.id)?.user;
@@ -457,7 +317,7 @@ const ChatArea = () => {
       isOwn: true,
       status: "sending"
     };
-    
+
     setLocalMessages(prev => [...prev, optimisticMessage]);
 
     try {
@@ -485,62 +345,55 @@ const ChatArea = () => {
       if (imageToSend) {
         mediaUrl = await convertImageToBase64(imageToSend.file);
       }
-      
+
       // Update message status to sent
       setLocalMessages(prev =>
         prev.map(msg =>
           msg.id === tempId ? { ...msg, status: 'sent' } : msg
         )
       );
-      
+
       // Send message to server
-      const serverMessage = await createMessageMutation.mutateAsync({ 
-        conversationId: currentConversation, 
-        content: ciphertext, 
+      const serverMessage = await createMessageMutation.mutateAsync({
+        conversationId: currentConversation,
+        content: ciphertext,
         media: mediaUrl,
         nonce: nonce || undefined,
         type: messageType,
         parentId: replyingTo?.id
       });
-      
-      // Emit message via socket for real-time updates
-      if (socket && currentConversation) {
-        console.log('Emitting message via client socket:', serverMessage);
-        socket.emit('send_message', {
-          conversationId: currentConversation,
-          message: serverMessage
-        });
-      }
-      
+
+
+
       // Remove optimistic message and let the server message take over
       setLocalMessages(prev => prev.filter(msg => msg.id !== tempId));
-      
+
       // Clear reply state after successful send
       if (replyingTo) {
         clearReplyingTo();
       }
-      
+
     } catch (error) {
       console.error('Error sending message:', error);
-      
+
       // Update message status to error
       setLocalMessages(prev =>
         prev.map(msg =>
           msg.id === tempId ? { ...msg, status: 'error' } : msg
         )
       );
-      
+
       // Set error message
       const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
       setError(`Failed to send message: ${errorMessage}`);
-      
+
       // Restore message text and image for retry
       setNewMessage(messageText);
       if (imageToSend) {
         setSelectedImage(imageToSend);
       }
     }
-  }, [newMessage, selectedImage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, socket, createMessageMutation, replyingTo, clearReplyingTo, convertImageToBase64]);
+  }, [newMessage, selectedImage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, channel, createMessageMutation, replyingTo, clearReplyingTo, convertImageToBase64]);
 
 
   // Handle input change with typing indicator
@@ -579,7 +432,7 @@ const ChatArea = () => {
   }, []);
 
   // console.log("replying to", replyingTo)
-  const handleDecryptedReplyingMessage =  async () => {
+  const handleDecryptedReplyingMessage = async () => {
     if (replyingTo) {
       let privateKey, publicKey;
 
@@ -592,7 +445,7 @@ const ChatArea = () => {
         privateKey = decryptPrivateKey(currentParticipant?.encryptedPrivateKey || "", currentParticipant?.email || "");
       }
 
-      const text = await decryptMessage(replyingTo.content, replyingTo?.nonce || "", publicKey, privateKey||"");
+      const text = await decryptMessage(replyingTo.content, replyingTo?.nonce || "", publicKey, privateKey || "");
       // console.log("Text", text)
       setDecryptedReplyingMessage(text);
 
@@ -660,8 +513,8 @@ const ChatArea = () => {
         </div>
         <h3 className="text-lg font-semibold mb-2">Failed to load messages</h3>
         <p className="text-sm text-muted-foreground mb-4 max-w-xs">{messagesError.message}</p>
-        <Button 
-          onClick={() => window.location.reload()} 
+        <Button
+          onClick={() => window.location.reload()}
           variant="outline"
           className="active:scale-95 transition-transform duration-150"
         >
@@ -671,7 +524,7 @@ const ChatArea = () => {
     );
   }
 
-  
+
   return (
     <ComponentErrorBoundary>
       <div className="flex-1 flex flex-col bg-background h-full">
@@ -685,9 +538,8 @@ const ChatArea = () => {
                   {currentParticipant?.fullName?.charAt(0)?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${
-                isTyping ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
-              }`} />
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${isTyping ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+                }`} />
             </div>
             <div>
               <h3 className="font-semibold text-sm">{currentParticipant?.fullName || 'Unknown User'}</h3>
@@ -695,9 +547,9 @@ const ChatArea = () => {
                 {isTyping ? (
                   <>
                     <div className="flex items-center gap-1">
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '0ms'}}></div>
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '150ms'}}></div>
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{animationDelay: '300ms'}}></div>
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
                     <p className="text-xs text-primary font-medium">typing...</p>
                   </>
@@ -708,14 +560,14 @@ const ChatArea = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {currentParticipant && ( 
+            {currentParticipant && (
               <>
                 <StartCallButton
                   recipientId={currentParticipant?.id}
                 />
               </>
             )}
-            <Button 
+            <Button
               variant="ghost"
               size="icon"
               className="h-9 w-9 rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
@@ -736,9 +588,9 @@ const ChatArea = () => {
               <div className="flex items-center gap-2 text-destructive px-3 py-2">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span className="text-sm flex-1">{error}</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setError(null)}
                   className="h-6 w-6 p-0 rounded-full hover:bg-destructive/20 active:scale-95 transition-all duration-150"
                 >
@@ -754,11 +606,12 @@ const ChatArea = () => {
           {messages && messages.length > 0 ? (
             <>
               {messages.map((message) => (
-                <MessageBubble 
-                  key={message.id} 
-                  message={message} 
+                <MessageBubble
+                  key={message.id}
+                  message={message}
                   conversationData={conversationData}
                   conversationId={currentConversation}
+                  onBroadcastReaction={handleBroadcastReaction}
                 />
               ))}
               <TypingIndicator isVisible={isTyping} />
@@ -786,9 +639,9 @@ const ChatArea = () => {
               <div className="px-3 py-2">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-medium text-primary">Image Preview</p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleRemoveImage}
                     className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
                   >
@@ -796,9 +649,9 @@ const ChatArea = () => {
                   </Button>
                 </div>
                 <div className="relative rounded-lg overflow-hidden border border-border">
-                  <img 
-                    src={selectedImage.preview} 
-                    alt="Preview" 
+                  <img
+                    src={selectedImage.preview}
+                    alt="Preview"
                     className="w-full h-48 object-cover"
                   />
                   <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
@@ -826,9 +679,9 @@ const ChatArea = () => {
                     </p>
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={clearReplyingTo}
                   className="h-7 w-7 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150 shrink-0"
                 >
@@ -850,20 +703,20 @@ const ChatArea = () => {
                 onChange={handleImageSelect}
                 className="hidden"
               />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150" 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
                 title="Send Image"
                 onClick={() => fileInputRef.current?.click()}
                 type="button"
               >
                 <ImageIcon className="w-5 h-5" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150" 
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
                 title="Attach File"
               >
                 <Paperclip className="w-5 h-5" />
@@ -877,13 +730,12 @@ const ChatArea = () => {
                 onKeyPress={handleKeyPress}
               />
               <div className="relative" ref={emojiPickerRef}>
-                <Button 
+                <Button
                   type="button"
-                  variant="ghost" 
-                  size="icon" 
-                  className={`rounded-full cursor-pointer hover:bg-accent active:scale-95 transition-all duration-150 ${
-                    showEmojiPicker ? 'bg-primary/10 text-primary' : ''
-                  }`} 
+                  variant="ghost"
+                  size="icon"
+                  className={`rounded-full cursor-pointer hover:bg-accent active:scale-95 transition-all duration-150 ${showEmojiPicker ? 'bg-primary/10 text-primary' : ''
+                    }`}
                   title="Emojis"
                   onClick={toggleEmojiPicker}
                 >
@@ -892,7 +744,7 @@ const ChatArea = () => {
                 {showEmojiPicker && (
                   <div className="absolute bottom-12 right-0 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                     <Card className="border-border shadow-lg">
-                      <EmojiPicker 
+                      <EmojiPicker
                         onEmojiClick={onEmojiClick}
                         width={300}
                         height={350}
@@ -906,13 +758,12 @@ const ChatArea = () => {
                   </div>
                 )}
               </div>
-              <Button 
-                size="icon" 
-                className={`rounded-full transition-all duration-200 active:scale-95 ${
-                  (newMessage.trim() || selectedImage)
-                    ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg' 
-                    : 'bg-muted text-muted-foreground cursor-not-allowed'
-                }`}
+              <Button
+                size="icon"
+                className={`rounded-full transition-all duration-200 active:scale-95 ${(newMessage.trim() || selectedImage)
+                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+                  }`}
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() && !selectedImage}
                 title="Send Message"

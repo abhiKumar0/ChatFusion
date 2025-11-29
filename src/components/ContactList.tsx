@@ -9,7 +9,8 @@ import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
-import { useSocket } from '@/lib/SocketProvider';
+import { createClient } from '@/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 
@@ -33,11 +34,10 @@ interface ConversationItemProps {
 const ConversationItem = React.memo(({ conversation, contact, isSelected, onClick }: ConversationItemProps) => {
   return (
     <Card
-      className={`mx-2 my-1.5 rounded-xl border-border cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${
-        isSelected 
-          ? 'bg-primary/10 border-primary shadow-sm' 
-          : 'hover:border-primary/50 hover:bg-accent/50'
-      }`}
+      className={`mx-2 my-1.5 rounded-xl border-border cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${isSelected
+        ? 'bg-primary/10 border-primary shadow-sm'
+        : 'hover:border-primary/50 hover:bg-accent/50'
+        }`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -52,11 +52,10 @@ const ConversationItem = React.memo(({ conversation, contact, isSelected, onClic
                 {contact?.fullName?.charAt(0)?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
-            <span 
-              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background transition-all ${
-                contact?.status === 'online' ? 'bg-green-500 animate-pulse' : 
+            <span
+              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background transition-all ${contact?.status === 'online' ? 'bg-green-500 animate-pulse' :
                 contact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-              }`}
+                }`}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -66,8 +65,8 @@ const ConversationItem = React.memo(({ conversation, contact, isSelected, onClic
                 <p className="text-xs text-muted-foreground truncate">@{contact?.username || 'user'}</p>
               </div>
               {(conversation?.unreadCount ?? 0) > 0 && (
-                <Badge 
-                  variant="default" 
+                <Badge
+                  variant="default"
                   className="rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 bg-primary text-primary-foreground font-semibold animate-pulse"
                 >
                   {(conversation?.unreadCount ?? 0) > 99 ? '99+' : (conversation?.unreadCount ?? 0)}
@@ -100,16 +99,30 @@ ConversationItem.displayName = 'ConversationItem';
 
 const ContactList = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const { data: conversations, isLoading, error } = useGetConversations();
   const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore();
-  const socket = useSocket();
   const { data: user } = useGetMe();
+  const [supabase] = useState(() => createClient());
+  const queryClient = useQueryClient();
+
+  // Listen for new messages to update conversation list
+  React.useEffect(() => {
+    const channel = supabase.channel('conversations_list')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, queryClient]);
 
   // Process and filter conversations
   const processedConversations = useMemo(() => {
     if (!conversations || !user) return [];
-    
+
     return conversations.map((convo: any) => {
       const contact = convo.participants.find((participant: any) => participant.user.id !== user.id)?.user;
       return { ...convo, contact };
@@ -119,9 +132,9 @@ const ContactList = () => {
   // Filter conversations based on search term
   const filteredConversations = useMemo(() => {
     if (!searchTerm.trim()) return processedConversations;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    return processedConversations.filter((convo: any) => 
+    return processedConversations.filter((convo: any) =>
       convo.contact.fullName?.toLowerCase().includes(searchLower) ||
       convo.contact.username?.toLowerCase().includes(searchLower)
     );
@@ -131,8 +144,7 @@ const ContactList = () => {
   const handleConversationClick = useCallback((convo: { id: string; contact: any }) => {
     setCurrentConversation(convo.id);
     setCurrentParticipant(convo.contact);
-    socket?.emit('join_conversation', convo.id);
-  }, [setCurrentConversation, setCurrentParticipant, socket]);
+  }, [setCurrentConversation, setCurrentParticipant]);
 
   // Handle search input change
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,9 +180,9 @@ const ContactList = () => {
           </div>
           <h3 className="font-semibold text-lg mb-2">Failed to load conversations</h3>
           <p className="text-sm text-muted-foreground mb-4 max-w-xs">{error.message}</p>
-          <Button 
-            onClick={() => window.location.reload()} 
-            variant="outline" 
+          <Button
+            onClick={() => window.location.reload()}
+            variant="outline"
             size="sm"
             className="active:scale-95 transition-transform duration-150"
           >
@@ -198,15 +210,15 @@ const ContactList = () => {
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input 
-              placeholder="Search conversations..." 
-              className="pl-10 bg-secondary border-border focus:border-primary transition-colors" 
+            <Input
+              placeholder="Search conversations..."
+              className="pl-10 bg-secondary border-border focus:border-primary transition-colors"
               value={searchTerm}
               onChange={handleSearchChange}
             />
           </div>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((convo: any) => (
@@ -237,7 +249,7 @@ const ContactList = () => {
               <p className="text-sm text-muted-foreground mb-4 max-w-xs">
                 Start a new conversation to get chatting with your friends
               </p>
-              <Button 
+              <Button
                 size="sm"
                 className="active:scale-95 transition-transform duration-150 hover:scale-105"
               >

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "./provider";
-import { SocketProvider } from "@/lib/SocketProvider";
+import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { CryptoProvider } from "@/lib/crypto-context";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
 import GlobalCallIndicator from "@/components/GlobalCallIndicator";
@@ -33,13 +33,13 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
         <AppErrorBoundary>
           <QueryProvider>
-            <SocketProvider>
+            <RealtimeProvider>
               <CryptoProvider>
                 {children}
                 <IncomingCall />
                 <GlobalCallIndicator />
               </CryptoProvider>
-            </SocketProvider>
+            </RealtimeProvider>
           </QueryProvider>
         </AppErrorBoundary>
       </body>

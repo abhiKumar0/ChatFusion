@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getIO } from "@/lib/socket-server";
+
 import { NextResponse } from "next/server";
 
 // Update a message (only by its sender)
@@ -46,12 +46,7 @@ export const PATCH = async (
     });
 
     // Emit socket event for real-time updates
-    try {
-      const io = getIO();
-      io.to(`convo:${conversationsId}`).emit("message_updated", updated);
-    } catch (error) {
-      console.error("Failed to emit message_updated event:", error);
-    }
+
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -82,12 +77,7 @@ export const DELETE = async (
     await prisma.message.delete({ where: { id: messageId } });
 
     // Emit socket event for real-time updates
-    try {
-      const io = getIO();
-      io.to(`convo:${conversationsId}`).emit("message_deleted", { messageId });
-    } catch (error) {
-      console.error("Failed to emit message_deleted event:", error);
-    }
+
 
     return NextResponse.json({ ok: true });
   } catch (error) {
