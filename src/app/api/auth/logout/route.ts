@@ -1,19 +1,18 @@
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-import { serialize } from "cookie";
 
 export const GET = async (request: Request) => {
     try {
-        const serializeCookie = serialize('authToken', '', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 0,
-            path: '/',
-        });
-        const response = NextResponse.json({ message: "Logged out successfully" }, { status: 200 });
-        response.headers.set('Set-Cookie', serializeCookie);
-        return response;
+        const supabase = await createClient();
+        const { error } = await supabase.auth.signOut();
+
+        if (error) {
+            return NextResponse.json({ message: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ message: "Logged out successfully" }, { status: 200 });
     } catch (error) {
-        return NextResponse.json({ message: "Error while logging out" }, { status: 500 });
+        console.error("Logout error:", error);
+        return NextResponse.json({ message: "Internal server error" }, { status: 500 });
     }
 }

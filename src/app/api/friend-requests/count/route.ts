@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 
 export async function GET(req: Request) {
+  const supabase = await createClient();
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 
@@ -9,12 +10,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
 
-  const count = await prisma.friendRequest.count({
-    where: {
-      receiverId: userId,
-      status: "PENDING",
-    },
-  });
+  const { count, error } = await supabase
+    .from('FriendRequest')
+    .select('*', { count: 'exact', head: true })
+    .eq('receiverId', userId)
+    .eq('status', 'PENDING');
+
+  if (error) {
+    return NextResponse.json({ error: "Error fetching count" }, { status: 500 });
+  }
 
   return NextResponse.json({ count });
 }

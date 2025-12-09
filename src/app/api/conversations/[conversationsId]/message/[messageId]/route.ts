@@ -1,5 +1,4 @@
-import { prisma } from "@/lib/prisma";
-
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 // Update a message (only by its sender)
@@ -8,7 +7,10 @@ export const PATCH = async (
   { params }: { params: Promise<{ conversationsId: string; messageId: string }> }
 ) => {
   try {
-    const userId = req.headers.get("x-user-id");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const { conversationsId, messageId } = await params;
@@ -23,30 +25,33 @@ export const PATCH = async (
     }
 
     // Ensure message exists in conversation and user is the sender
-    const message = await prisma.message.findFirst({
-      where: { id: messageId, conversationId: conversationsId, senderId: userId },
-    });
+    const { data: message } = await supabase
+        .from('Message')
+        .select('id')
+        .eq('id', messageId)
+        .eq('conversationId', conversationsId)
+        .eq('senderId', userId)
+        .single();
+
     if (!message) {
       return NextResponse.json({ message: "Message not found" }, { status: 404 });
     }
 
-    const updated = await prisma.message.update({
-      where: { id: messageId },
-      data: { content, nonce },
-      include: { 
-        sender: true,
-        reactions: {
-          include: {
-            user: {
-              select: { id: true, fullName: true, username: true }
-            }
-          }
-        }
-      },
-    });
+    const { data: updated, error } = await supabase
+      .from('Message')
+      .update({ content, nonce, updatedAt: new Date().toISOString() })
+      .eq('id', messageId)
+      .select(`
+        *,
+        sender:User(*),
+        reactions:Reaction(
+          *,
+          user:User(id, fullName, username)
+        )
+      `)
+      .single();
 
-    // Emit socket event for real-time updates
-
+    if (error) throw error;
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -61,23 +66,33 @@ export const DELETE = async (
   { params }: { params: Promise<{ conversationsId: string; messageId: string }> }
 ) => {
   try {
-    const userId = req.headers.get("x-user-id");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
     const { conversationsId, messageId } = await params;
 
     // Ensure message exists in conversation and user is the sender
-    const message = await prisma.message.findFirst({
-      where: { id: messageId, conversationId: conversationsId, senderId: userId },
-    });
+    const { data: message } = await supabase
+        .from('Message')
+        .select('id')
+        .eq('id', messageId)
+        .eq('conversationId', conversationsId)
+        .eq('senderId', userId)
+        .single();
+
     if (!message) {
       return NextResponse.json({ message: "Message not found" }, { status: 404 });
     }
 
-    await prisma.message.delete({ where: { id: messageId } });
+    const { error } = await supabase
+      .from('Message')
+      .delete()
+      .eq('id', messageId);
 
-    // Emit socket event for real-time updates
-
+    if (error) throw error;
 
     return NextResponse.json({ ok: true });
   } catch (error) {

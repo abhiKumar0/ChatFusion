@@ -13,6 +13,7 @@ export const signUp = async (
   email: string,
   password: string
 ) => {
+  //Generating 
   const { publicKey, privateKey } = await generateUserKeys();
   const encryptedKey_base64 = encryptPrivateKey(privateKey, email);
   console.log(publicKey, privateKey, encryptedKey_base64);
@@ -27,6 +28,7 @@ export const signUp = async (
   const response = await api.post("/auth/signup", data);
   return response.data;
 };
+
 
 export const logIn = async (data: { email: string; password: string }) => {
   const response = await api.post("/auth/login", data);
@@ -74,6 +76,8 @@ export const getFriendRequests = async () => {
   return response.data;
 };
 
+
+// Conversations
 export const getConversations = async () => {
   const response = await api.get("/conversations");
   return response.data;
@@ -166,19 +170,21 @@ export const addReaction = async ({
   messageId: string;
   emoji: string;
 }) => {
-  const { data } = await api.post(`/conversations/${conversationId}/message/${messageId}/reactions`, { emoji });
+  console.log("Infos", conversationId, messageId, emoji);
+  const { data } = await api.post(`/message/${messageId}/reactions`, { conversationId, emoji });
   return data;
 };
 
 export const removeReaction = async ({
   conversationId,
   messageId,
-  emoji,
+  reactionId,
 }: {
   conversationId: string;
   messageId: string;
-  emoji: string;
+  reactionId: string;
 }) => {
-  const { data } = await api.delete(`/conversations/${conversationId}/message/${messageId}/reactions`, { data: { emoji } });
+
+  const { data } = await api.delete(`/message/${messageId}/reactions`, { data: { conversationId, reactionId } });
   return data;
 };

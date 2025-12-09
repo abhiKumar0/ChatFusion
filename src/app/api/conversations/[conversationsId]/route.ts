@@ -1,21 +1,25 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-
 
 export const GET = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
+        const supabase = await createClient();
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
 
-        console.log("Convo ",convoId)
-        const conversation = await prisma.conversation.findUnique({
-            where: {id : convoId},
-            include: {
-                participants: {include: {user: {select: {id: true, email: true, username: true, fullName: true, avatar: true, publicKey: true,encryptedPrivateKey: true}}}},
-            }
-        });
+        const { data: conversation, error } = await supabase
+            .from('Conversation')
+            .select(`
+                *,
+                participants:ConversationParticipant(
+                    *,
+                    user:User(id, email, username, fullName, avatar, publicKey, encryptedPrivateKey)
+                )
+            `)
+            .eq('id', convoId)
+            .single();
 
-        if (!conversation) {
+        if (error || !conversation) {
             return NextResponse.json({message: "Conversation doesn't exist"}, {status: 404});
         }
 

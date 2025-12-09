@@ -299,6 +299,7 @@ export const useDeleteMessage = () => {
   });
 };
 
+
 // Reactions mutations
 export const useAddReaction = () => {
   const queryClient = useQueryClient();
@@ -353,7 +354,7 @@ export const useRemoveReaction = () => {
             if (msg.id === variables.messageId) {
               return {
                 ...msg,
-                reactions: (msg.reactions || []).filter((r: any) => r.emoji !== variables.emoji)
+                reactions: (msg.reactions || []).filter((r: any) => r.id !== variables.reactionId)
               };
             }
             return msg;

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 
 export const GET = async (req: Request) => {
     try {
-        const userId = req.headers.get("x-user-id");
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
 
         if (!userId) {
             return NextResponse.json(
@@ -12,19 +14,33 @@ export const GET = async (req: Request) => {
             );
         }
         
-        const conversations = await prisma.conversation.findMany({
-            where: {
-                participants: {some : {userId}}
-            },
-            include: {
-                participants: {
-                    include: {
-                        user: {select: { id: true, username: true, email: true, fullName: true, avatar: true, publicKey: true }}
-                    }
-                }
-            }
-        })
-        
+        // 1. Get conversation IDs where the user is a participant
+        const { data: participantRows, error: participantError } = await supabase
+            .from('ConversationParticipant')
+            .select('conversationId')
+            .eq('userId', userId);
+
+        if (participantError) throw participantError;
+
+        const conversationIds = participantRows.map(r => r.conversationId);
+
+        if (conversationIds.length === 0) {
+            return NextResponse.json([]);
+        }
+
+        // 2. Fetch conversations with details
+        const { data: conversations, error: conversationError } = await supabase
+            .from('Conversation')
+            .select(`
+                *,
+                participants:ConversationParticipant(
+                    *,
+                    user:User(id, username, email, fullName, avatar, publicKey)
+                )
+            `)
+            .in('id', conversationIds);
+
+        if (conversationError) throw conversationError;
 
         return NextResponse.json(conversations);
         
@@ -39,8 +55,11 @@ export const GET = async (req: Request) => {
 
 export const POST = async (request : Request) => {
     try {
-        const userId = request.headers.get("x-user-id");
-        const {recipientId } = await request.json();
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        
+        const { recipientId } = await request.json();
         if (!userId) {
             return NextResponse.json(
                 { message: "Unauthorized" },
@@ -48,41 +67,78 @@ export const POST = async (request : Request) => {
             );
         }
 
-        const chat = await prisma.conversation.findFirst({
-            where: {
-                AND: [
-                    {participants : {some: {userId}}},
-                    {participants : {some: {userId: recipientId}}},
-                ]
-            }
-        });
+        // Check if conversation already exists
+        // Fetch user's conversations
+        const { data: userConversations } = await supabase
+            .from('ConversationParticipant')
+            .select('conversationId')
+            .eq('userId', userId);
+            
+        const userConversationIds = userConversations?.map(c => c.conversationId) || [];
 
-        if (chat) {
-            return NextResponse.json(chat);
+        if (userConversationIds.length > 0) {
+            // Check if recipient is in any of these conversations
+            const { data: existingChat } = await supabase
+                .from('ConversationParticipant')
+                .select('conversationId')
+                .eq('userId', recipientId)
+                .in('conversationId', userConversationIds)
+                .limit(1)
+                .single();
+
+            if (existingChat) {
+                // Fetch full conversation details
+                const { data: chat } = await supabase
+                    .from('Conversation')
+                    .select(`
+                        *,
+                        participants:ConversationParticipant(
+                            *,
+                            user:User(id, username, email, fullName, avatar)
+                        )
+                    `)
+                    .eq('id', existingChat.conversationId)
+                    .single();
+                    
+                return NextResponse.json(chat);
+            }
         }
 
-        const newChat = await prisma.conversation.create({
-            data: {
-                participants: {
-                    create: [
-                        {userId},
-                        {userId: recipientId}
-                    ]
-                },
-                messages: {
-                    create: []
-                }
-            },
-            include: {
-                participants: {
-                    include: {
-                        user: {select: { id: true, username: true, email: true, fullName: true, avatar: true }}
-                    }
-                }
-            }
-        });
+        // Create new conversation
+        const { data: newChat, error: createError } = await supabase
+            .from('Conversation')
+            .insert({})
+            .select()
+            .single();
 
-        return NextResponse.json(newChat);
+        if (createError) throw createError;
+
+        // Add participants
+        const { error: participantsError } = await supabase
+            .from('ConversationParticipant')
+            .insert([
+                { userId: userId, conversationId: newChat.id },
+                { userId: recipientId, conversationId: newChat.id }
+            ]);
+
+        if (participantsError) throw participantsError;
+
+        // Fetch the newly created conversation with participants
+        const { data: fullChat, error: fetchError } = await supabase
+            .from('Conversation')
+            .select(`
+                *,
+                participants:ConversationParticipant(
+                    *,
+                    user:User(id, username, email, fullName, avatar)
+                )
+            `)
+            .eq('id', newChat.id)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        return NextResponse.json(fullChat);
     } catch (error) {
         console.error('[CONVERSATIONS_POST]', error);
         return new NextResponse('Internal Error while creating convo', { status: 500 });

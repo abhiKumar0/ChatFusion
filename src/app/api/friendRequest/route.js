@@ -1,30 +1,36 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 
 // Send a friend request
 export async function POST(request) {
   try {
+    const supabase = await createClient();
+    
+    //Fetch Logged in user from Supabase Authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    const senderId = user?.id;
+    
+    //Receiver id from body
     const { receiverId } = await request.json();
-    const senderId = request.headers.get("x-user-id");
+    
     if (!senderId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    //If requesting to itself
     if (senderId === receiverId) { 
       return NextResponse.json(
         { error: "You cannot send a friend request to yourself" },
         { status: 400 }
       );
     }
-
-    const existingRequest = await prisma.friendRequest.findFirst({
-      where: {
-        OR: [
-          { senderId, receiverId },
-          { senderId: receiverId, receiverId: senderId },
-        ],
-      },
-    });
+ 
+    //If already requested once
+    const { data: existingRequest } = await supabase
+      .from('FriendRequest')
+      .select('*')
+      .or(`and(senderId.eq.${senderId},receiverId.eq.${receiverId}),and(senderId.eq.${receiverId},receiverId.eq.${senderId})`)
+      .single();
 
     if (existingRequest) {
       return NextResponse.json(
@@ -33,13 +39,20 @@ export async function POST(request) {
       );
     }
 
-    const friendRequest = await prisma.friendRequest.create({
-      data: {
+    //Insert into FriendRequest table
+    const { data: friendRequest, error } = await supabase
+      .from('FriendRequest')
+      .insert({
         senderId,
         receiverId,
-        status: "PENDING", // Ensure status is set
-      },
-    });
+        status: "PENDING",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
 
     return NextResponse.json(friendRequest);
   } catch (error) {
@@ -54,15 +67,21 @@ export async function POST(request) {
 // Accept or decline a friend request
 export async function PUT(request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     const { friendRequestId, status } = await request.json();
-    const userId = request.headers.get("x-user-id");
+    
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const friendRequest = await prisma.friendRequest.findUnique({
-      where: { id: friendRequestId },
-    });
+    const { data: friendRequest } = await supabase
+      .from('FriendRequest')
+      .select('*')
+      .eq('id', friendRequestId)
+      .single();
 
     if (!friendRequest || friendRequest.receiverId !== userId) {
       return NextResponse.json(
@@ -75,25 +94,40 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const updatedRequest = await prisma.friendRequest.update({
-      where: { id: friendRequestId },
-      data: { status },
-    });
+    const { data: updatedRequest, error: updateError } = await supabase
+      .from('FriendRequest')
+      .update({ status, updatedAt: new Date() })
+      .eq('id', friendRequestId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
 
     let conversation = null;
     if (status === "ACCEPTED") {
       // Create a new conversation for the one-to-one chat
-      conversation = await prisma.conversation.create({
-        data: {
+      const { data: newChat, error: createError } = await supabase
+        .from('Conversation')
+        .insert({ 
           type: "ONE_TO_ONE",
-          participants: {
-            create: [
-              { userId: friendRequest.senderId },
-              { userId: friendRequest.receiverId },
-            ],
-          },
-        },
-      });
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      const { error: participantsError } = await supabase
+        .from('ConversationParticipant')
+        .insert([
+          { userId: friendRequest.senderId, conversationId: newChat.id },
+          { userId: friendRequest.receiverId, conversationId: newChat.id },
+        ]);
+
+      if (participantsError) throw participantsError;
+      
+      conversation = newChat;
     }
 
     return NextResponse.json({ updatedRequest, conversation });
@@ -109,26 +143,24 @@ export async function PUT(request) {
 // Get all friend requests for the logged-in user
 export async function GET(request) {
   try {
-    const userId = request.headers.get("x-user-id");
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const friendRequests = await prisma.friendRequest.findMany({
-      where: {
-        receiverId: userId,
-        status: "PENDING",
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-          },
-        },
-      },
-    });
+    const { data: friendRequests, error } = await supabase
+    .from('FriendRequest')
+    .select(`
+      *,
+      sender:User!FriendRequest_senderId_fkey(id, username, avatar) // ⬅️ FIX
+    `)
+    .eq('receiverId', userId)
+    .eq('status', 'PENDING');
+
+    if (error) throw error;
 
     return NextResponse.json(friendRequests, { status: 200 });
   } catch (error) {

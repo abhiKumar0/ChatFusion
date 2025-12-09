@@ -26,14 +26,16 @@
 //   Conversation Conversation[]
 // }
 
-import { prisma } from "@/lib/prisma";
-
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 
 export const POST = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
-        const userId = req.headers.get("x-user-id");
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
         const {parentId, content, media, nonce, type} = await req.json();
@@ -46,61 +48,50 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
             return NextResponse.json({message: "Message content cannot be empty"}, {status: 400});
         }
 
-        // Determine message type: IMAGE if media exists and no content (or empty content), TEXT otherwise
+        // Determine message type
         const hasContent = content && content.trim() !== '';
         const messageType = type || (media && !hasContent ? 'IMAGE' : 'TEXT');
-        console.log(convoId)
-        // 1. Find the conversation and ensure the user is a participant
-        const conversation = await prisma.conversation.findUnique({
-            where: {
-                id: convoId,
-                participants: {
-                    some: {
-                        userId: userId
-                    }
-                }
-            },
-            include: {
-                participants: true // Include participants to validate
-            }
-        });
-        console.log("Convo", conversation)
 
-        // 2. If conversation doesn't exist or user is not a part of it, return error
-        if (!conversation) {
+        // 1. Find the conversation and ensure the user is a participant
+        const { data: participant } = await supabase
+            .from('ConversationParticipant')
+            .select('conversationId')
+            .eq('conversationId', convoId)
+            .eq('userId', userId)
+            .single();
+
+        if (!participant) {
             return NextResponse.json({ message: "Conversation not found or you are not a participant" }, { status: 404 });
         }
 
         // 3. Create the new message
-        const newMessage = await prisma.message.create({
-            data: {
+        const { data: newMessage, error: createError } = await supabase
+            .from('Message')
+            .insert({
                 senderId: userId,
-                content: content || '', // Empty string if no content (image-only)
+                content: content || '',
                 media,
                 conversationId: convoId,
                 parentMessageId: parentId,
-                nonce: nonce || (content ? randomBytes(12).toString('base64') : ''), // Only generate nonce if content exists
+                nonce: nonce || (content ? randomBytes(12).toString('base64') : ''),
                 type: messageType,
-            },
-            include: {
-                sender: true, // Optionally include sender details
-                parentMessage: true // Optionally include replied-to message
-            }
-        });
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+            .select(`
+                *,
+                sender:User(*),
+                parentMessage:Message(*)
+            `)
+            .single();
 
-        // 4. (Optional but recommended) Update the conversation's updatedAt timestamp
-        await prisma.conversation.update({
-            where: {
-                id: convoId,
-            },
-            data: {
-                // This implicitly updates the updatedAt field if your schema is configured for it.
-                // If not, you can manually set it: updatedAt: new Date()
-            }
-        });
+        if (createError) throw createError;
 
-        // Note: Real-time updates are handled client-side via socket emission
-        // This avoids the Socket.IO initialization issue in API routes
+        // 4. Update the conversation's updatedAt timestamp
+        await supabase
+            .from('Conversation')
+            .update({ updatedAt: new Date().toISOString() })
+            .eq('id', convoId);
 
         return NextResponse.json(newMessage, {status: 201});
         
@@ -110,19 +101,17 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
     }
 }
 
-
-
-//Get convoId from param
-//Get messages in decs order based on date
-//Send in chunk, last message per call
-
 const MESSAGE_BATCH_SIZE = 50;
 
 export const GET = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
     try {
-        const userId = req.headers.get("x-user-id");
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
+        
         if (!userId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
@@ -133,58 +122,54 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
 
         //Search Params
         const { searchParams } = new URL(req.url);
-        const cursor = searchParams.get('cursor');//id of last message
+        const cursor = searchParams.get('cursor');
 
-        //Query
-        const messages = await prisma.message.findMany({
+        let query = supabase
+            .from('Message')
+            .select(`
+                *,
+                sender:User(id, fullName, username, encryptedPrivateKey, publicKey, email),
+                parentMessage:Message(
+                    *,
+                    sender:User(id, fullName, username)
+                ),
+                reactions:Reaction(
+                    *,
+                    user:User(id, fullName, username)
+                )
+            `)
+            .eq('conversationId', convoId)
+            .order('createdAt', { ascending: false })
+            .limit(MESSAGE_BATCH_SIZE);
 
-            //How many to fetch
-            take: MESSAGE_BATCH_SIZE,
-
-            //If cursor is not null, Skip the message with that id
-            skip: cursor ? 1 : 0,
-
-            //Fetch from cursor's position
-            cursor: cursor ? {id: cursor} : undefined,
+        if (cursor) {
+            // Fetch the createdAt of the cursor message to paginate efficiently
+            // Or if IDs are time-sortable (CUIDs are), we can use lt
+            // Assuming CUIDs/UUIDs, let's try to fetch the cursor message first
+            const { data: cursorMsg } = await supabase
+                .from('Message')
+                .select('createdAt')
+                .eq('id', cursor)
+                .single();
             
-            where: {
-                conversationId: convoId,
-            },
-
-            include: {
-                sender: {
-                    select: {fullName: true, id: true, username: true, encryptedPrivateKey: true, publicKey: true, email: true},
-                },
-                parentMessage: {
-                    include: {
-                        sender: {
-                            select: {fullName: true, id: true, username: true}
-                        }
-                    }
-                },
-                reactions: {
-                    include: {
-                        user: {
-                            select: {id: true, fullName: true, username: true}
-                        }
-                    }
-                }
-            },
-            
-            //sort messages in descending order based on createdAt
-            orderBy: {
-                createdAt: "desc"
+            if (cursorMsg) {
+                query = query.lt('createdAt', cursorMsg.createdAt);
             }
-        });
+        }
+
+        const { data: messages, error } = await query;
+
+        if (error) throw error;
 
         let nextCursor = null;
 
-        if (messages.length === MESSAGE_BATCH_SIZE) {
+        if (messages && messages.length === MESSAGE_BATCH_SIZE) {
             nextCursor = messages[MESSAGE_BATCH_SIZE-1].id;
         }
 
         return NextResponse.json({
-            messages, nextCursor
+            messages: messages || [], 
+            nextCursor
         }, {status: 201});
     } catch (error) {
         console.error(error);

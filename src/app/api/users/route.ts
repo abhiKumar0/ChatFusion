@@ -1,11 +1,14 @@
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 export const GET = async () => {
     try {
-        const users = await prisma.user.findMany();
+        const supabase = await createClient();
+        const { data: users, error } = await supabase
+            .from('User')
+            .select('*');
 
-        if (!users) {
+        if (error) {
             return NextResponse.json({message: "Users not found"}, { status: 404 });
         }
 

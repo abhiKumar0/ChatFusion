@@ -47,6 +47,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [alowEdit, setAlowEdit] = useState<boolean>(true);
     const updateMessageMutation = useUpdateMessage();
     const deleteMessageMutation = useDeleteMessage();
     const addReactionMutation = useAddReaction();
@@ -157,12 +158,13 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             reaction => reaction.userId === currentUser?.id && reaction.emoji === emojiData.emoji
         );
 
+        console.log("Existing reaction", existingReaction);
         if (existingReaction) {
             // Remove existing reaction
             removeReactionMutation.mutate({
                 conversationId,
                 messageId: message.id,
-                emoji: emojiData.emoji
+                reactionId: existingReaction.id
             }, {
                 onSuccess: () => onBroadcastReaction?.()
             });
@@ -419,7 +421,28 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         }
     };
 
-    //Update
+    //Allow edit
+    useEffect(() => {
+        // 1. Define the 48-hour window in milliseconds (The limit)
+        // 48 hours * 60 min * 60 sec * 1000 ms = 172,800,000 ms
+        const FORTY_EIGHT_HOURS_MS = 172800000;
+
+        // 2. Get the current time and the creation time
+        const now = Date.now(); // Current timestamp in ms
+        const createdTime = new Date(message.createdAt).getTime(); // Message timestamp in ms
+
+        // 3. Calculate the difference
+        const timeElapsed = now - createdTime;
+        
+        // 4. Set permission based on the comparison
+        if (timeElapsed > FORTY_EIGHT_HOURS_MS) {
+            // If the elapsed time is greater than 48 hours, editing is disabled.
+            setAlowEdit(false);
+        } else {
+            // If the elapsed time is less than 48 hours, editing is allowed.
+            setAlowEdit(true);
+        }
+    }, [message, setAlowEdit]);
 
 
 
@@ -484,7 +507,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                     <Reply className="w-3 h-3 mr-2" />
                                     Reply
                                 </Button>
-                                <Button
+                                {alowEdit && <Button
                                     variant="ghost"
                                     size="sm"
                                     className="w-full justify-start h-8 text-sm"
@@ -499,7 +522,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                     ) : (
                                         'Edit'
                                     )}
-                                </Button>
+                                </Button>}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -562,7 +585,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                     }`}
             >
                 {/* Parent Message Display */}
-                {message.parentMessage && (
+                {message.parentMessageId && (
                     <div className={`mb-2 p-2 rounded-lg border-l-2 ${message.isOwn
                             ? 'bg-white/10 border-white/30'
                             : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
@@ -710,6 +733,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                 </div>
 
             </div>
+
+            {/*Emoji picker*/}
             <div className={`ml-2 flex items-end space-x-2 ${showOptions && !message.isOwn ? 'flex' : 'hidden'}`}>
                 <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
                     <div className="relative">
