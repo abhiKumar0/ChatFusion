@@ -18,7 +18,7 @@ const NotificationsList = () => {
 
   if (isLoading) {
     return (
-      <div className="border-r border-border hidden lg:flex flex-col h-full">
+      <div className="border-r border-border flex flex-col h-full">
         <div className="p-4 border-b border-border">
           <h2 className="text-xl font-bold">Notifications</h2>
         </div>
@@ -31,7 +31,7 @@ const NotificationsList = () => {
 
   if (error) {
     return (
-      <div className="border-r border-border hidden lg:flex flex-col h-full">
+      <div className="border-r border-border flex flex-col h-full">
         <div className="p-4 border-b border-border">
           <h2 className="text-xl font-bold">Notifications</h2>
         </div>
@@ -46,7 +46,7 @@ const NotificationsList = () => {
   }
 
   return (
-    <div className="border-r border-border hidden lg:flex flex-col h-full bg-background">
+    <div className="border-r border-border flex flex-col h-full bg-background">
       <div className="p-4 border-b border-border bg-card">
         <div className="flex items-center gap-2">
           <Bell className="w-5 h-5 text-primary" />

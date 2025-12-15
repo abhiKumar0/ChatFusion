@@ -18,12 +18,20 @@ import {
   getMessages,
   getConversations,
   getFriendRequests,
-  respondToFriendRequest,
+  respondFriendRequest,
   updateMessage,
   deleteMessage,
   addReaction,
   removeReaction,
+  getFriends,
+  updateUser,
+  uploadAvatar,
+  checkUsername,
+  cancelFriendRequest,
+  getUserFriends,
 } from './api';
+
+
 import { Message } from '@/types/types';
 
 // QueryClient is now provided by the provider.tsx
@@ -117,7 +125,70 @@ export const useGetUserById = (id: string) => {
   };
 };
 
+export const useGetFriends = () => {
+    const query = useQuery({
+        queryKey: ['friends'],
+        queryFn: getFriends,
+        staleTime: 5 * 60 * 1000,
+    });
+    return {
+        ...query,
+        isLoading: query.isLoading,
+        error: query.error,
+    };
+};
+
+export const useGetUserFriends = (userId: string) => {
+    return useQuery({
+        queryKey: ['user-friends', userId],
+        queryFn: () => getUserFriends(userId),
+        enabled: !!userId,
+    });
+};
+
+// Check Username Query
+export const useCheckUsername = (username: string) => {
+    return useQuery({
+        queryKey: ['check-username', username],
+        queryFn: () => checkUsername(username),
+        enabled: false, // Manual trigger or handle in component
+        retry: false,
+    });
+};
+
+// Update User Mutation
+export const useUpdateUser = () => {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: updateUser,
+        onSuccess: (data) => {
+            queryClient.setQueryData(['me'], data);
+            queryClient.invalidateQueries({ queryKey: ['users'] }); // Invalidate users list as info might have changed
+        },
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
+};
+
+
+
+export const useUploadAvatar = () => {
+    const mutation = useMutation({
+        mutationFn: uploadAvatar,
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
+};
+
 // Friend Request Mutations
+
+
 export const useSendFriendRequest = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation({
@@ -136,9 +207,11 @@ export const useSendFriendRequest = () => {
 export const useRespondToFriendRequest = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({ friendRequestId, status }: { friendRequestId: string; status: 'ACCEPTED' | 'REJECTED' }) => respondToFriendRequest(friendRequestId, status),
+    mutationFn: respondFriendRequest,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
     },
   });
   return {
@@ -146,6 +219,22 @@ export const useRespondToFriendRequest = () => {
     isLoading: mutation.isPending,
     error: mutation.error,
   };
+};
+
+export const useCancelFriendRequest = () => {
+    const queryClient = useQueryClient();
+    const mutation = useMutation({
+        mutationFn: cancelFriendRequest,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+        },
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
 };
 
 export const useGetFriendRequests = () => {

@@ -7,6 +7,7 @@ import { CryptoProvider } from "@/lib/crypto-context";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
 import GlobalCallIndicator from "@/components/GlobalCallIndicator";
 import IncomingCall from "@/components/IncomingCall";
+import { Toaster } from "@/components/ui/Toaster";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             <RealtimeProvider>
               <CryptoProvider>
                 {children}
+                <Toaster />
                 <IncomingCall />
                 <GlobalCallIndicator />
               </CryptoProvider>

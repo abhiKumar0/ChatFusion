@@ -51,7 +51,7 @@ const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
   );
 };
 
-const ChatArea = () => {
+const ChatArea = ({ conversationId }: { conversationId: string }) => {
   const [newMessage, setNewMessage] = useState('');
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -74,13 +74,26 @@ const ChatArea = () => {
   // Current User
   const { data: user, error: userError } = useGetMe();
 
-  // Current Conversation's ID
-  const { currentConversation, currentParticipant, replyingTo, clearReplyingTo } = useChatStore();
+  const { replyingTo, clearReplyingTo, setCurrentConversation } = useChatStore();
+  const currentConversation = conversationId;
+
+  // Sync with store for "last visited" functionality
+  useEffect(() => {
+    if (conversationId) {
+      setCurrentConversation(conversationId);
+    }
+  }, [conversationId, setCurrentConversation]);
 
   const { data: conversationData, error: conversationError } = useGetConversationById(currentConversation || "");
 
+  const currentParticipant = useMemo(() => {
+    if (!conversationData || !user) return null;
+    return conversationData.participants.find((p: any) => p.user.id !== user.id)?.user;
+  }, [conversationData, user]);
+
   // Messages in Current Conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
+  console.log(messagePages)
 
   // Instance for message creation
   const createMessageMutation = useCreateMessage();
@@ -291,7 +304,8 @@ const ChatArea = () => {
       channel.send({ type: 'broadcast', event: 'stop_typing' });
     }
 
-    const participant = conversationData.participants.find((p: { user: { id: string } }) => p.user.id !== user.id)?.user;
+    const participant = conversationData?.participants?.find((p: { user: { id: string } }) => p.user.id !== user.id)?.user;
+
     if (!participant) {
       setError('Unable to find conversation participant');
       setNewMessage(messageText);
@@ -315,7 +329,9 @@ const ChatArea = () => {
       sender: user,
       nonce: '',
       isOwn: true,
-      status: "sending"
+      status: "sending",
+      parentMessage: replyingTo || undefined,
+      parentMessageId: replyingTo?.id
     };
 
     setLocalMessages(prev => [...prev, optimisticMessage]);

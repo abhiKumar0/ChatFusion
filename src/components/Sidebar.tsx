@@ -63,7 +63,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             <TooltipTrigger asChild>
               <Link href="/users">
                 <Button variant="ghost" size="icon" className="rounded-xl">
-                  <UserRoundSearch className="w-5 h-5" /> 
+                  <UserRoundSearch className="w-5 h-5" />
                 </Button>
               </Link>
             </TooltipTrigger>
@@ -112,10 +112,12 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
           {/* User Avatar */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Avatar className="cursor-pointer border-2 border-primary hover:scale-110 transition-transform">
-                <AvatarImage src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}`} />
-                <AvatarFallback>{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
-              </Avatar>
+              <Link href="/profile">
+                <Avatar className="cursor-pointer border-2 border-primary hover:scale-110 transition-transform">
+                  <AvatarImage src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}`} />
+                  <AvatarFallback>{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+              </Link>
             </TooltipTrigger>
             <TooltipContent side="right">
               <p>{user?.fullName}</p>
@@ -124,7 +126,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
 
         </div>
       </TooltipProvider>
-    </aside>
+    </aside >
   );
 };
 

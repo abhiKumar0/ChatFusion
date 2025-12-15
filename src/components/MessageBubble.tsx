@@ -230,6 +230,13 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         return conversationData.participants.find(p => p.user.id !== currentUser.id)?.user;
     }, [conversationData, currentUser?.id]);
 
+    // if (message.parentMessageId) console.log(message);
+    // Handle both object and single-element array for parentMessage
+    const parentMsg = useMemo(() => {
+        if (!message.parentMessage) return null;
+        return Array.isArray(message.parentMessage) ? message.parentMessage[0] : message.parentMessage;
+    }, [message.parentMessage]);
+
     // Create cache key for this message
     const cacheKey = useMemo(() =>
         `${message.id}-${message.content}-${message.nonce}`,
@@ -330,7 +337,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
     useEffect(() => {
         let cancelled = false;
 
-        if (!message.parentMessage || !conversationData || !currentUser?.id || !participant) {
+        if (!parentMsg || !conversationData || !currentUser?.id || !participant) {
             setParentContent('');
             setIsDecryptingParent(false);
             return;
@@ -338,15 +345,23 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
         // Debug logging for parentMessage
         // console.log('Parent message debug:', {
-        //     parentMessage: message.parentMessage,
-        //     sender: message.parentMessage?.sender,
-        //     senderId: message.parentMessage?.senderId
+        //     parentMessage: parentMsg,
+        //     sender: parentMsg?.sender,
+        //     senderId: parentMsg?.senderId
         // });
 
-        const parentCacheKey = `${message.parentMessage.id}-${message.parentMessage.content}-${message.parentMessage.nonce}`;
+        const parentCacheKey = `${parentMsg.id}-${parentMsg.content}-${parentMsg.nonce}`;
         const cachedParent = messageCache.get(parentCacheKey);
         if (cachedParent) {
             setParentContent(cachedParent);
+            setIsDecryptingParent(false);
+            return;
+        }
+
+        // Check for image-only parent message
+        const isParentImageOnly = (parentMsg.type === 'IMAGE' || parentMsg.media) && (!parentMsg.content || parentMsg.content.trim() === '');
+        if (isParentImageOnly) {
+            setParentContent('📷 Photo');
             setIsDecryptingParent(false);
             return;
         }
@@ -356,7 +371,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                 setIsDecryptingParent(true);
                 setParentContent("");
 
-                const isParentOwn = message.parentMessage!.senderId === currentUser.id;
+                const isParentOwn = parentMsg.senderId === currentUser.id;
                 let privateKey;
                 if (decryptedPrivateKey && !isParentOwn) {
                     privateKey = decryptedPrivateKey;
@@ -368,7 +383,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
                 const publicKey = isParentOwn ? currentUser?.publicKey : participant?.publicKey;
 
-                if (!publicKey || !message.parentMessage!.nonce || !privateKey) {
+                if (!publicKey || !parentMsg.nonce || !privateKey) {
                     const errorMsg = '[Parent message could not be decrypted]';
                     if (!cancelled) {
                         setParentContent(errorMsg);
@@ -377,7 +392,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                     return;
                 }
 
-                const decrypted = await decryptMessage(message.parentMessage!.content, message.parentMessage!.nonce, publicKey, privateKey);
+                const decrypted = await decryptMessage(parentMsg.content, parentMsg.nonce, publicKey, privateKey);
                 if (!cancelled) {
                     setParentContent(decrypted);
                     messageCache.set(parentCacheKey, decrypted);
@@ -399,7 +414,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         return () => {
             cancelled = true;
         };
-    }, [message.parentMessage, currentUser, participant, decryptedPrivateKey, conversationData]);
+    }, [parentMsg, currentUser, participant, decryptedPrivateKey, conversationData]);
 
     // Status icon component
     const StatusIcon = ({ status }: { status?: string }) => {
@@ -433,7 +448,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
         // 3. Calculate the difference
         const timeElapsed = now - createdTime;
-        
+
         // 4. Set permission based on the comparison
         if (timeElapsed > FORTY_EIGHT_HOURS_MS) {
             // If the elapsed time is greater than 48 hours, editing is disabled.
@@ -443,7 +458,6 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             setAlowEdit(true);
         }
     }, [message, setAlowEdit]);
-
 
 
 
@@ -586,14 +600,18 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             >
                 {/* Parent Message Display */}
                 {message.parentMessageId && (
+
+
+
                     <div className={`mb-2 p-2 rounded-lg border-l-2 ${message.isOwn
-                            ? 'bg-white/10 border-white/30'
-                            : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                        ? 'bg-white/10 border-white/30'
+                        : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
                         }`}>
+
                         <div className="flex items-center gap-2 mb-1">
                             <Reply className="w-3 h-3 opacity-70" />
                             <span className="text-xs font-medium opacity-70">
-                                {message.parentMessage?.sender?.fullName || message.parentMessage?.sender?.username || "Unknown sender"}
+                                {parentMsg?.sender?.fullName || parentMsg?.sender?.username || "Unknown sender"}
                             </span>
                         </div>
                         <div className="text-sm opacity-80">

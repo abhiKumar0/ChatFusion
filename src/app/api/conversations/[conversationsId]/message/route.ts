@@ -81,7 +81,10 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
             .select(`
                 *,
                 sender:User(*),
-                parentMessage:Message(*)
+                parentMessage:Message!parentMessageId(
+                    *,
+                    sender:User(*)
+                )
             `)
             .single();
 
@@ -129,7 +132,7 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
             .select(`
                 *,
                 sender:User(id, fullName, username, encryptedPrivateKey, publicKey, email),
-                parentMessage:Message(
+                parentMessage:Message!parentMessageId(
                     *,
                     sender:User(id, fullName, username)
                 ),

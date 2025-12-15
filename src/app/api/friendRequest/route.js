@@ -171,3 +171,43 @@ export async function GET(request) {
     );
   }
 }
+
+// Cancel or Delete a friend request
+export async function DELETE(request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { targetUserId, requestId } = await request.json();
+
+    let query = supabase.from('FriendRequest').delete();
+
+    if (requestId) {
+        query = query.eq('id', requestId);
+    } else if (targetUserId) {
+         // Find request between these two where current user is sender (Cancel) or receiver (Reject? No, just delete)
+         // To be safe, ensure we only delete if we are part of it
+         query = query.or(`and(senderId.eq.${userId},receiverId.eq.${targetUserId}),and(senderId.eq.${targetUserId},receiverId.eq.${userId})`);
+    } else {
+        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+    }
+
+    const { error } = await query;
+
+    if (error) throw error;
+
+    return NextResponse.json({ message: "Request cancelled/deleted" }, { status: 200 });
+
+  } catch (error) {
+    console.error("Error deleting friend request:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

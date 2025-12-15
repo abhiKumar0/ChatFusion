@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
+import { useRouter } from 'next/navigation';
 
 interface ConversationItemProps {
   conversation: {
@@ -97,11 +98,18 @@ const ConversationItem = React.memo(({ conversation, contact, isSelected, onClic
 
 ConversationItem.displayName = 'ConversationItem';
 
-const ContactList = () => {
+interface ContactListProps {
+  onContactSelect?: () => void;
+  selectedConversationId?: string | null;
+}
+
+const ContactList = ({ onContactSelect, selectedConversationId }: ContactListProps) => {
+
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: conversations, isLoading, error } = useGetConversations();
-  const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore();
+  // const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore(); // Not needed for selection anymore
+  const { setCurrentConversation, setCurrentParticipant } = useChatStore();
   const { data: user } = useGetMe();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
@@ -141,10 +149,16 @@ const ContactList = () => {
   }, [processedConversations, searchTerm]);
 
   // Handle conversation selection
+  const router = useRouter();
+
   const handleConversationClick = useCallback((convo: { id: string; contact: any }) => {
-    setCurrentConversation(convo.id);
-    setCurrentParticipant(convo.contact);
-  }, [setCurrentConversation, setCurrentParticipant]);
+    // setCurrentConversation(convo.id);
+    // setCurrentParticipant(convo.contact);
+    router.push(`/chat/${convo.id}`);
+    if (onContactSelect) {
+      onContactSelect();
+    }
+  }, [router, onContactSelect]);
 
   // Handle search input change
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -226,7 +240,7 @@ const ContactList = () => {
                 key={convo.id}
                 conversation={convo}
                 contact={convo.contact}
-                isSelected={currentConversation === convo.id}
+                isSelected={selectedConversationId === convo.id}
                 onClick={() => handleConversationClick(convo)}
               />
             ))

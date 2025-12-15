@@ -46,14 +46,50 @@ export const getMe = async () => {
   return response.data.user;
 };
 
+
+export const updateUser = async (updates: Partial<User>) => {
+  const response = await api.put("/users/me", updates);
+  return response.data.user;
+};
+
+
 export const getUsers = async (): Promise<User[]> => {
   const { data } = await api.get("/users");
   return data.users;
 };
 
-export const getUserById = async (id: string): Promise<User> => {
-  const { data } = await api.get(`/users/${id}`);
-  return data;
+export const getFriends = async (): Promise<User[]> => {
+  const { data } = await api.get("/users/friends");
+  return data.friends;
+};
+
+export const uploadAvatar = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const headers = {
+    'Content-Type': 'multipart/form-data',
+  };
+
+  const response = await api.post("/upload", formData, { headers });
+  return response.data.url;
+};
+
+
+
+export const checkUsername = async (username: string): Promise<boolean> => {
+  const response = await api.post("/users/check-username", { username });
+  return response.data.available;
+};
+
+export const getUserById = async (userId: string) => {
+    const response = await axios.get(`/api/users/${userId}`);
+    return response.data;
+};
+
+export const getUserFriends = async (userId: string) => {
+    const response = await axios.get(`/api/users/${userId}/friends`);
+    return response.data;
 };
 
 // Friend Requests
@@ -62,11 +98,18 @@ export const sendFriendRequest = async (receiverId: string) => {
   return response.data;
 };
 
-export const respondToFriendRequest = async (
-  friendRequestId: string,
-  status: "ACCEPTED" | "REJECTED"
-) => {
+export const respondFriendRequest = async ({ friendRequestId, status }: { friendRequestId: string, status: 'ACCEPTED' | 'DECLINED' }) => {
   const response = await api.put("/friendRequest", { friendRequestId, status });
+  return response.data;
+};
+
+export const cancelFriendRequest = async ({ targetUserId, requestId }: { targetUserId?: string, requestId?: string }) => {
+  // Use data property for DELETE body in axios/standard api wrappers if needed, 
+  // but standard fetch uses body. 
+  // Api wrapper likely uses axios.delete(url, { data: ... })
+  const response = await api.delete("/friendRequest", { 
+    data: { targetUserId, requestId } 
+  });
   return response.data;
 };
 

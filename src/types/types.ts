@@ -7,7 +7,9 @@ export interface User {
     bio: string,
     status: string,
     publicKey?: string,
-    encryptedPrivateKey?: string
+    encryptedPrivateKey?: string,
+    friendshipStatus?: 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE',
+    friendshipId?: string
 }
 
 export interface Reaction {
