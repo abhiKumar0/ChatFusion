@@ -20,7 +20,10 @@ import { Skeleton } from '@/components/ui/skeleton'; // Assuming skeleton exists
 // I'll stick to Input for bio for now if Textarea not confirmed, but Textarea is better.
 // Actually, let's just use standard HTML textarea with tailwind classes if component missing.
 
+import { useRouter } from 'next/navigation';
+
 const ProfilePage = () => {
+    const router = useRouter();
     const { data: user, isLoading: isUserLoading } = useGetMe();
     const { data: friends, isLoading: isFriendsLoading } = useGetFriends();
     const { mutate: updateUser, isPending: isUpdating } = useUpdateUser();
@@ -322,7 +325,7 @@ const ProfilePage = () => {
                         </div>
                         <h3 className="font-semibold mb-1">No friends yet</h3>
                         <p className="text-sm">Connect with other users to see them here.</p>
-                        <Button variant="link" className="mt-2" onClick={() => window.location.href = '/users'}>
+                        <Button variant="link" className="mt-2" onClick={() => router.push('/users')}>
                             Find Friends
                         </Button>
                     </div>

@@ -9,12 +9,13 @@ export default function ChatPage() {
     const { currentConversation } = useChatStore();
     const router = useRouter();
 
-    useEffect(() => {
-        // If we have a stored conversation ID, redirect to it
-        if (currentConversation) {
-            router.replace(`/chat/${currentConversation}`);
-        }
-    }, [currentConversation, router]);
+    // useEffect(() => {
+    //     // If we have a stored conversation ID, redirect to it
+    //     if (currentConversation) {
+    //         router.replace(`/chat/${currentConversation}`);
+    //     }
+
+    // }, [currentConversation, router]);
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-secondary/30 h-full">

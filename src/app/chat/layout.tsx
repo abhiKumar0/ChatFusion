@@ -56,8 +56,6 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
             <div className={`${conversationId ? 'hidden' : 'block'}`}>
                 <MobileNav
-                    activeView={conversationId ? 'chat' : 'contacts'} // Actually irrelevant if hidden
-                    setActiveView={() => { }} // Navigation handled by router now
                     darkMode={darkMode}
                     toggleDarkMode={toggleDarkMode}
                 />

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply, MessageSquare, Circle, Image as ImageIcon } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply, MessageSquare, Circle, Image as ImageIcon, ArrowLeftSquare, ArrowLeft } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from './ui/card';
@@ -22,6 +22,7 @@ import EmojiPicker from 'emoji-picker-react'
 // import { useCallStore } from "@/store/useCallStore";
 import dynamic from "next/dynamic";
 import StartCallButton from './StartButton';
+import Link from 'next/link';
 // import { CallButton } from './calls';
 
 interface UIMessage extends Message {
@@ -547,7 +548,8 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
         {/* Chat Header */}
         <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-card sticky top-0 z-10 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
+              <Link className='md:hidden' href="/chat"><ArrowLeft className="w-6 h-6" /></Link>
               <Avatar className="h-10 w-10 border-2 border-border">
                 <AvatarImage src={currentParticipant?.avatar} />
                 <AvatarFallback className="bg-primary/10 text-primary font-semibold">
