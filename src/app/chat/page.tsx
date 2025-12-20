@@ -4,10 +4,17 @@ import React, { useEffect } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useRouter } from 'next/navigation';
+import { useGetMe } from '@/lib/react-query/queries';
+import Welcome from '@/pages/Welcome';
 
 export default function ChatPage() {
     const { currentConversation } = useChatStore();
     const router = useRouter();
+    const {data: user} = useGetMe();
+
+    if (!user) {
+        return <Welcome />;
+    }
 
     // useEffect(() => {
     //     // If we have a stored conversation ID, redirect to it

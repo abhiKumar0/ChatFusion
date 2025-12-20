@@ -14,6 +14,8 @@ interface CallState {
   incomingCallData: any | null;
   supabase: SupabaseClient | null;
   isVideo: boolean;
+  isMicOn: boolean;
+  isCameraOn: boolean;
   callSubscription: any | null;
   pendingIceCandidates: RTCIceCandidateInit[]; // Buffer for incoming candidates
   bufferedIceCandidates: RTCIceCandidateInit[]; // Buffer for outgoing candidates
@@ -25,6 +27,8 @@ interface CallState {
   rejectCall: () => Promise<void>;
   endCall: () => void;
   resetCall: () => void;
+  toggleMic: () => void;
+  toggleCamera: () => void;
   subscribeToCall: (callId: string) => void;
   handleRemoteAnswer: (answerSdp: RTCSessionDescriptionInit) => Promise<void>;
   handleRemoteIceCandidate: (candidate: RTCIceCandidate) => Promise<void>;
@@ -46,12 +50,34 @@ export const useCallStore = create<CallState>((set, get) => ({
   incomingCallData: null,
   supabase: null,
   isVideo: true,
+  isMicOn: true,
+  isCameraOn: true,
   callSubscription: null,
   pendingIceCandidates: [], // Incoming candidates buffer
   bufferedIceCandidates: [], // Outgoing candidates buffer
   isPeerOnline: false,
 
   setSupabase: (supabase) => set({ supabase }),
+
+  toggleMic: () => {
+    const { localStream, isMicOn } = get();
+    if (localStream) {
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !isMicOn;
+      });
+      set({ isMicOn: !isMicOn });
+    }
+  },
+
+  toggleCamera: () => {
+    const { localStream, isCameraOn } = get();
+    if (localStream) {
+      localStream.getVideoTracks().forEach(track => {
+        track.enabled = !isCameraOn;
+      });
+      set({ isCameraOn: !isCameraOn });
+    }
+  },
 
   // --- Realtime Subscription Listener ---
   subscribeToCall: (callId) => {

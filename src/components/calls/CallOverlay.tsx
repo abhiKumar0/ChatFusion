@@ -17,7 +17,11 @@ const CallOverlay = () => {
         endCall,
         localStream,
         remoteStream,
-        isVideo
+        isVideo,
+        isMicOn,
+        isCameraOn,
+        toggleMic,
+        toggleCamera
     } = useCallStore();
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -146,8 +150,13 @@ const CallOverlay = () => {
                     </div>
 
                     <div className="absolute bottom-8 left-0 right-0 z-30 flex justify-center items-center gap-6">
-                        <Button variant="secondary" size="icon" className="h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border-none text-white">
-                            <Mic className="w-6 h-6" />
+                        <Button
+                            variant={isMicOn ? "secondary" : "destructive"}
+                            size="icon"
+                            className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${isMicOn ? "bg-white/10 hover:bg-white/20" : ""}`}
+                            onClick={toggleMic}
+                        >
+                            {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
                         </Button>
 
                         <Button
@@ -159,8 +168,13 @@ const CallOverlay = () => {
                             <PhoneOff className="w-8 h-8" />
                         </Button>
 
-                        <Button variant="secondary" size="icon" className="h-14 w-14 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border-none text-white">
-                            <Video className="w-6 h-6" />
+                        <Button
+                            variant={isCameraOn ? "secondary" : "destructive"}
+                            size="icon"
+                            className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${isCameraOn ? "bg-white/10 hover:bg-white/20" : ""}`}
+                            onClick={toggleCamera}
+                        >
+                            {isCameraOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
                         </Button>
                     </div>
                 </div>

@@ -49,7 +49,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
             On mobile, EmptyState is usually not shown. User sees ContactList.
             So we should hide children on mobile if conversationId is missing.
         */}
-                <div className={`flex-1 flex flex-col h-full overflow-hidden ${!conversationId ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`flex-1 flex flex-col h-[100vh] overflow-hidden ${!conversationId ? 'hidden md:flex' : 'flex'}`}>
                     {children}
                 </div>
             </div>

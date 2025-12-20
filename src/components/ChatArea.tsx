@@ -22,7 +22,8 @@ import EmojiPicker from 'emoji-picker-react'
 // import { useCallStore } from "@/store/useCallStore";
 import dynamic from "next/dynamic";
 import StartCallButton from './StartButton';
-import Link from 'next/link';
+import Link from 'next/link'; 
+import {TopRightChatButton} from './smaller';
 // import { CallButton } from './calls';
 
 interface UIMessage extends Message {
@@ -585,13 +586,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                 />
               </>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
+            <TopRightChatButton />
           </div>
         </div>
 
