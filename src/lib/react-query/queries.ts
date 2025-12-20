@@ -29,6 +29,9 @@ import {
   checkUsername,
   cancelFriendRequest,
   getUserFriends,
+  initiateCall,
+  updateCallStatus,
+  answerCall,
 } from './api';
 
 
@@ -453,4 +456,37 @@ export const useRemoveReaction = () => {
       });
     },
   });
+};
+// Call Hooks
+export const useInitiateCall = () => {
+    const mutation = useMutation({
+        mutationFn: initiateCall,
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
+};
+
+export const useUpdateCallStatus = () => {
+    const mutation = useMutation({
+        mutationFn: ({ callId, status }: { callId: string; status: string }) => updateCallStatus(callId, status),
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
+};
+
+export const useAnswerCall = () => {
+    const mutation = useMutation({
+        mutationFn: ({ callId, answerSdp }: { callId: string; answerSdp: any }) => answerCall(callId, answerSdp),
+    });
+    return {
+        ...mutation,
+        isLoading: mutation.isPending,
+        error: mutation.error,
+    };
 };

@@ -46,6 +46,31 @@ interface Conversation {
     createdAt: Date
 }
 
+export enum CallStatus {
+    PENDING = 'PENDING',
+    RINGING = 'RINGING',
+    CONNECTED = 'CONNECTED',
+    ENDED = 'ENDED',
+    REJECTED = 'REJECTED'
+}
+
+export interface Call {
+    id: string;
+    caller_id: string;
+    receiver_id: string;
+    status: CallStatus;
+    offer_sdp: any;
+    answer_sdp: any;
+    created_at: string;
+    // Computed or mapped properties
+    callerId?: string;
+    receiverId?: string;
+    offerSdp?: any;
+    answerSdp?: any;
+    createdAt?: string;
+    isVideo?: boolean;
+}
+
 
 
 export interface AuthStore {

@@ -94,7 +94,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   // Messages in Current Conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
-  console.log(messagePages)
+  // console.log(messagePages)
 
   // Instance for message creation
   const createMessageMutation = useCreateMessage();

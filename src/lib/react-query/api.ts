@@ -231,3 +231,19 @@ export const removeReaction = async ({
   const { data } = await api.delete(`/message/${messageId}/reactions`, { data: { conversationId, reactionId } });
   return data;
 };
+
+// Call API
+export const initiateCall = async (data: { receiverId: string; offerSdp: any; isVideo: boolean }) => {
+    const response = await api.post('/call/initiate', data);
+    return response.data;
+};
+
+export const updateCallStatus = async (callId: string, status: string) => {
+    const response = await api.patch(`/call/${callId}`, { status });
+    return response.data;
+};
+
+export const answerCall = async (callId: string, answerSdp: any) => {
+    const response = await api.patch(`/call/${callId}/answer`, { answerSdp });
+    return response.data;
+};

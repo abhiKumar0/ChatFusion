@@ -8,6 +8,7 @@ import { AppErrorBoundary } from "@/components/ErrorBoundary";
 import GlobalCallIndicator from "@/components/GlobalCallIndicator";
 import IncomingCall from "@/components/IncomingCall";
 import { Toaster } from "@/components/ui/Toaster";
+import CallOverlay from "@/components/calls/CallOverlay";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +39,9 @@ export default function RootLayout({
               <CryptoProvider>
                 {children}
                 <Toaster />
-                <IncomingCall />
                 <GlobalCallIndicator />
+                <CallOverlay />
+
               </CryptoProvider>
             </RealtimeProvider>
           </QueryProvider>

@@ -1,0 +1,37 @@
+import { createClient } from "@/lib/supabase-server";
+import { NextResponse } from "next/server";
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { receiverId, offerSdp, isVideo } = await request.json();
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: call, error } = await supabase
+      .from('calls')
+      .insert({
+        caller_id: user.id,
+        receiver_id: receiverId,
+        status: 'PENDING',
+        offer_sdp: offerSdp,
+        is_video: isVideo ?? true, // Default to true if not provided
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating call:", error);
+      return NextResponse.json({ error: "Failed to create call" }, { status: 500 });
+    }
+
+    return NextResponse.json(call);
+  } catch (error) {
+    console.error("Internal server error in call initiation:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
