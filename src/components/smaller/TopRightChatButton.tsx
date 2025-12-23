@@ -7,8 +7,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useRouter } from "next/navigation"
 
 const TopRigthChatButton = () => {
+    const router = useRouter();
+
+    const handleLeaveConversation = () => {
+        router.replace('/chat');
+    }
+
     return (
         <div>
             <Popover>
@@ -23,10 +30,10 @@ const TopRigthChatButton = () => {
             </PopoverTrigger>
             <PopoverContent>
                 <div className="flex flex-col space-y-1">
-                    <Button variant="outline">Leave Conversation</Button>
-                    <Button variant="outline">Report User</Button>
-                    <Button variant="outline">Block User</Button>
-                    <Button variant="destructive">Clear Conversation</Button>
+                    <Button className="cursor-pointer" onClick={handleLeaveConversation} variant="outline">Leave Conversation</Button>
+                    <Button className="cursor-pointer" variant="outline">Report User</Button>
+                    <Button className="cursor-pointer" variant="outline">Block User</Button>
+                    <Button className="cursor-pointer" variant="destructive">Clear Conversation</Button>
                 </div>
             </PopoverContent>
             </Popover>

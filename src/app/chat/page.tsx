@@ -13,7 +13,7 @@ export default function ChatPage() {
     const {data: user} = useGetMe();
 
     if (!user) {
-        return <Welcome />;
+        router.replace('/');
     }
 
     // useEffect(() => {
