@@ -5,7 +5,7 @@ import { Message } from '@/types/types';
 import { useGetMe } from "@/lib/react-query/queries.ts";
 import { decryptMessage, decryptPrivateKey } from "@/lib/crypto.ts";
 import { useCrypto } from "@/lib/crypto-context.tsx";
-import { Ellipsis, Smile, Check, X, Reply } from 'lucide-react';
+import { Ellipsis, Smile, Check, X, Reply, Image } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDeleteMessage, useUpdateMessage, useAddReaction, useRemoveReaction } from '@/lib/react-query/queries';
 import { Button } from '@/components/ui/button';
@@ -230,12 +230,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         return conversationData.participants.find(p => p.user.id !== currentUser.id)?.user;
     }, [conversationData, currentUser?.id]);
 
-    // if (message.parentMessageId) console.log(message);
     // Handle both object and single-element array for parentMessage
     const parentMsg = useMemo(() => {
         if (!message.parentMessage) return null;
         return Array.isArray(message.parentMessage) ? message.parentMessage[0] : message.parentMessage;
     }, [message.parentMessage]);
+
 
     // Create cache key for this message
     const cacheKey = useMemo(() =>
@@ -599,10 +599,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                     }`}
             >
                 {/* Parent Message Display */}
-                {message.parentMessageId && (
-
-
-
+                {parentMsg && (
                     <div className={`mb-2 p-2 rounded-lg border-l-2 ${message.isOwn
                         ? 'bg-white/10 border-white/30'
                         : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
@@ -614,7 +611,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 {parentMsg?.sender?.fullName || parentMsg?.sender?.username || "Unknown sender"}
                             </span>
                         </div>
-                        <div className="text-sm opacity-80">
+                        {parentMsg?.type === 'IMAGE' ? (
+                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                <Image className="w-4 h-4 text-primary shrink-0" /> Photo
+                            </p>
+                        ) : parentMsg?.type === 'TEXT' ? (
+                            <div className="text-sm opacity-80">
                             {isDecryptingParent ? (
                                 <div className="flex items-center space-x-1">
                                     <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
@@ -625,6 +627,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 <p className="truncate">{parentContent}</p>
                             )}
                         </div>
+                        ) : (
+                            <p className="text-sm opacity-80">
+                                <p className='text-xs opacity-70'>Unknown Type</p>
+                            </p>
+                        )}
+                        
                     </div>
                 )}
 

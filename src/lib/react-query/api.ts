@@ -152,6 +152,8 @@ export const createMessage = async ({
   nonce?: string;
   type?: 'TEXT' | 'IMAGE' | 'STICKER' | 'AUDIO' | 'VIDEO' | 'FILE';
 }) => {
+
+
   const response = await api.post(`/conversations/${conversationId}/message`, {
     content,
     media,

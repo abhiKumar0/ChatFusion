@@ -23,3 +23,8 @@ export default function HomePage() {
 
   return null; // Redirecting
 }
+
+/*
+    1. Parent message thing
+    2. Producting Signing in bug 
+*/
