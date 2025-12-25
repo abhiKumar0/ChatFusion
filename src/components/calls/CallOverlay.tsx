@@ -24,6 +24,8 @@ const CallOverlay = () => {
         toggleCamera
     } = useCallStore();
 
+    console.log("Incoming call data:", incomingCallData);
+
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
@@ -45,20 +47,23 @@ const CallOverlay = () => {
     if (callStatus === 'idle') return null;
 
     if (callStatus === 'receiving') {
+        const caller = incomingCallData?.caller;
+        // console.log("Caller data:", caller);
+
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                 <div className="bg-background border border-border p-6 rounded-2xl shadow-xl w-full max-w-sm flex flex-col items-center gap-6 animate-in zoom-in-50 duration-300">
                     <div className="relative">
                         <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
-                            <AvatarImage src="" />
-                            <AvatarFallback>C</AvatarFallback>
+                            <AvatarImage src={caller?.avatar || ''} />
+                            <AvatarFallback>{caller?.fullName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
                         <div className="absolute inset-0 rounded-full animate-ping bg-primary/20 pointer-events-none"></div>
                     </div>
 
                     <div className="text-center">
                         <h3 className="text-xl font-semibold">Incoming Call...</h3>
-                        <p className="text-muted-foreground">User {incomingCallData?.caller_id?.slice(0, 8)}...</p>
+                        <p className="text-muted-foreground">{caller?.fullName || caller?.username || 'Unknown User'}</p>
                     </div>
 
                     <div className="flex w-full gap-4 mt-2">
@@ -85,6 +90,8 @@ const CallOverlay = () => {
     }
 
     if (callStatus === 'calling' || callStatus === 'connecting') {
+        const receiver = incomingCallData?.receiver;
+
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-hidden">
                 {/* Local Video Preview (Background) */}
@@ -99,13 +106,15 @@ const CallOverlay = () => {
                 <div className="relative z-10 flex flex-col items-center gap-8 text-white">
                     <div className="relative">
                         <Avatar className="h-32 w-32 border-4 border-white/10 shadow-2xl">
-                            <AvatarFallback className="bg-primary/20 text-4xl">C</AvatarFallback>
+                            <AvatarImage src={receiver?.avatar || ''} />
+                            <AvatarFallback className="bg-primary/20 text-4xl">{receiver?.fullName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
                         <div className="absolute inset-0 rounded-full animate-pulse ring-4 ring-primary/40 pointer-events-none"></div>
                     </div>
 
                     <div className="text-center space-y-2">
-                        <h2 className="text-3xl font-light">
+                        <h2 className="text-3xl font-light">{receiver?.fullName || receiver?.username || 'Unknown User'}</h2>
+                        <h2 className="text-2xl font-light">
                             {callStatus === 'calling' ? 'Calling...' : 'Connecting...'}
                         </h2>
                         <p className="text-white/60">

@@ -33,7 +33,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 // console.log('📞 Polling for pending calls for:', user);
                 const { data, error } = await supabase
                     .from('calls')
-                    .select('*')
+                    .select(`
+                        *,
+                        caller:User!calls_caller_id_fkey(id, username, fullName, email, avatar),
+                        receiver:User!calls_receiver_id_fkey(id, username, fullName, email, avatar)
+                    `)
                     .eq('receiver_id', user.id)
                     .eq('status', 'PENDING')
                     .order('created_at', { ascending: false })
@@ -42,7 +46,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 // console.log('📞 Poll result:', { data, error });
 
                 if (data && data.length > 0) {
-                    const pendingCall = data[0] as Call;
+                    const pendingCall: Call = data[0];
                     const store = useCallStore.getState();
 
                     // console.log('📞 🔥 PENDING CALL FOUND!', pendingCall);
@@ -53,7 +57,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                             callStatus: 'receiving',
                             incomingCallData: pendingCall,
                         });
-                        console.log('📞 ✅ Store updated:', useCallStore.getState());
+                        // console.log('📞 ✅ Store updated:', useCallStore.getState());
                     }
                 }
             } catch (err) {
@@ -76,14 +80,36 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                     filter: `receiver_id=eq.${user.id}`,
                 },
                 (payload: any) => {
-                    console.log('📞 🔴 REALTIME INSERT!', payload);
+                    // console.log('📞 🔴 REALTIME INSERT!', payload);
                     const newCall = payload.new as Call;
 
                     if (newCall.status === 'PENDING') {
-                        useCallStore.setState({
-                            callStatus: 'receiving',
-                            incomingCallData: newCall,
-                        });
+                        console.log('📞 Refetching call with user data...');
+
+                        // Refetch the call with joined user data
+                        supabase
+                            .from('calls')
+                            .select(`
+                                *,
+                                caller:User!calls_caller_id_fkey(id, username, fullName, email, avatar),
+                                receiver:User!calls_receiver_id_fkey(id, username, fullName, email, avatar)
+                            `)
+                            .eq('id', newCall.id)
+                            .single()
+                            .then(({ data, error }) => {
+                                if (error) {
+                                    console.error('📞 Error refetching call:', error);
+                                    return;
+                                }
+
+                                if (data) {
+                                    console.log('📞 ✅ Refetched call with user data:', data);
+                                    useCallStore.setState({
+                                        callStatus: 'receiving',
+                                        incomingCallData: data,
+                                    });
+                                }
+                            });
                     }
                 }
             )

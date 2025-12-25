@@ -32,7 +32,11 @@ const CallListener = () => {
                 console.log('CallListener: Checking for pending calls...');
                 const { data, error } = await supabase
                     .from('calls')
-                    .select('*')
+                    .select(`
+                        *,
+                        caller:User!calls_caller_id_fkey(*),
+                        receiver:User!calls_receiver_id_fkey(*)
+                    `)
                     .eq('receiver_id', user.id)
                     .eq('status', 'PENDING')
                     .order('created_at', { ascending: false })
@@ -90,11 +94,32 @@ const CallListener = () => {
                     const newCall = payload.new as Call;
 
                     if (newCall.status === 'PENDING') {
-                        console.log('CallListener: Incoming PENDING call detected, updating store');
-                        useCallStore.setState({
-                            callStatus: 'receiving',
-                            incomingCallData: newCall,
-                        });
+                        console.log('CallListener: Incoming PENDING call detected, refetching with user data');
+
+                        // Refetch the call with joined user data
+                        supabase
+                            .from('calls')
+                            .select(`
+                                *,
+                                caller:User!calls_caller_id_fkey(*),
+                                receiver:User!calls_receiver_id_fkey(*)
+                            `)
+                            .eq('id', newCall.id)
+                            .single()
+                            .then(({ data, error }) => {
+                                if (error) {
+                                    console.error('CallListener: Error refetching call:', error);
+                                    return;
+                                }
+
+                                if (data) {
+                                    // console.log('CallListener: Refetched call with user data:', data);
+                                    useCallStore.setState({
+                                        callStatus: 'receiving',
+                                        incomingCallData: data,
+                                    });
+                                }
+                            });
                     }
                 }
             )

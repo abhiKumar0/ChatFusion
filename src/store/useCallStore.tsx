@@ -236,7 +236,9 @@ export const useCallStore = create<CallState>((set, get) => ({
       set({
         connection: pc,
         localStream,
-        callId: callData.id
+        callId: callData.id,
+        incomingCallData: callData, // Store call data with receiver info
+        otherUserId: callData.receiver_id
       });
 
     } catch (e) {
@@ -448,7 +450,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   rejectCall: async () => {
     const { incomingCallData } = get();
     if (incomingCallData?.id) {
-      await updateCallStatus(incomingCallData.id, 'REJECTED');
+      await updateCallStatus(incomingCallData.id, 'ENDED');
     }
     get().resetCall();
   },

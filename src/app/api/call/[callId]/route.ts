@@ -14,7 +14,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
       .from('calls')
       .update({ status })
       .eq('id', callId)
-      .select()
+      .select(`
+        *,
+        caller:User!calls_caller_id_fkey(*),
+        receiver:User!calls_receiver_id_fkey(*)
+      `)
       .single();
 
     if (error) throw error;
