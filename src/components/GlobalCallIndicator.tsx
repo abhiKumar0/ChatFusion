@@ -20,7 +20,10 @@ export default function GlobalCallIndicator() {
     return null;
   }
 
-  const otherUser = incomingCallData?.receiver || incomingCallData?.caller;
+  // Get the OTHER user (the remote person we're talking to)
+  const otherUser = otherUserId === incomingCallData?.caller?.id
+    ? incomingCallData?.caller
+    : incomingCallData?.receiver;
   const userName = otherUser?.fullName || otherUser?.username || 'User';
 
   return (

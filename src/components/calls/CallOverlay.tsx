@@ -21,6 +21,7 @@ const CallOverlay = () => {
         isMicOn,
         isCameraOn,
         isCallMinimized,
+        otherUserId,
         toggleMic,
         toggleCamera,
         toggleVideo,
@@ -95,7 +96,10 @@ const CallOverlay = () => {
     }
 
     if (callStatus === 'calling' || callStatus === 'connecting') {
-        const receiver = incomingCallData?.receiver;
+        // Get the OTHER user (the person we're calling or connecting to)
+        const otherUser = otherUserId === incomingCallData?.caller?.id
+            ? incomingCallData?.caller
+            : incomingCallData?.receiver;
 
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md overflow-hidden">
@@ -111,14 +115,14 @@ const CallOverlay = () => {
                 <div className="relative z-10 flex flex-col items-center gap-8 text-white">
                     <div className="relative">
                         <Avatar className="h-32 w-32 border-4 border-white/10 shadow-2xl">
-                            <AvatarImage src={receiver?.avatar || ''} />
-                            <AvatarFallback className="bg-primary/20 text-4xl">{receiver?.fullName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                            <AvatarImage src={otherUser?.avatar || ''} />
+                            <AvatarFallback className="bg-primary/20 text-4xl">{otherUser?.fullName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                         </Avatar>
                         <div className="absolute inset-0 rounded-full animate-pulse ring-4 ring-primary/40 pointer-events-none"></div>
                     </div>
 
                     <div className="text-center space-y-2">
-                        <h2 className="text-3xl font-light">{receiver?.fullName || receiver?.username || 'Unknown User'}</h2>
+                        <h2 className="text-3xl font-light">{otherUser?.fullName || otherUser?.username || 'Unknown User'}</h2>
                         <h2 className="text-2xl font-light">
                             {callStatus === 'calling' ? 'Calling...' : 'Connecting...'}
                         </h2>
@@ -141,7 +145,12 @@ const CallOverlay = () => {
     }
 
     if (callStatus === 'in-progress') {
-        const otherUser = incomingCallData?.receiver || incomingCallData?.caller;
+        // Get the OTHER user (the remote person we're talking to)
+        // otherUserId is set correctly in the store based on who initiated the call
+        const otherUser = otherUserId === incomingCallData?.caller?.id
+            ? incomingCallData?.caller
+            : incomingCallData?.receiver;
+
         const hasRemoteVideo = remoteStream && remoteStream.getVideoTracks().some(track => track.enabled);
         const hasLocalVideo = isVideo && isCameraOn && localStream && localStream.getVideoTracks().some(track => track.enabled);
 
