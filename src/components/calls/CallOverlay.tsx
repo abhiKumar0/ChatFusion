@@ -23,7 +23,6 @@ const CallOverlay = () => {
         isCallMinimized,
         otherUserId,
         toggleMic,
-        toggleCamera,
         toggleVideo,
         minimizeCall
     } = useCallStore();

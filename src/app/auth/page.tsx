@@ -1,24 +1,24 @@
 'use client';
 
 import { ArrowBigLeft, CircleSlash } from 'lucide-react';
-import {useEffect, useState} from 'react';
+import { useEffect, useState } from 'react';
 import SignUpForm from './SignUpForm';
 import LoginForm from './LogInForm';
-import {useGetMe} from "@/lib/react-query/queries.ts";
-import {useRouter} from "next/navigation";
+import { useGetMe } from "@/lib/react-query/queries.ts";
+import { useRouter } from "next/navigation";
 import Link from 'next/link';
 
 
 
 const Auth = () => {
   const [isSignUpActive, setIsSignUpActive] = useState(false);
-  const {data:user} = useGetMe();
+  const { data: user } = useGetMe();
   const router = useRouter();
   useEffect(() => {
     if (user) {
-      router.push("/");
+      router.push("/chat");
     }
-  }, [user]);
+  }, [user, router]);
 
 
   return (
@@ -29,8 +29,8 @@ const Auth = () => {
         <div className="absolute bottom-[-10%] left-[20%] h-80 w-80 animate-[blob_12s_infinite_4s] rounded-full bg-purple-300/40 opacity-60 blur-3xl filter"></div>
       </div>
 
-    {/* Left arrow button */}
-    <Link href="/" className="absolute left-10 top-10"><ArrowBigLeft /></Link>
+      {/* Left arrow button */}
+      <Link href="/" className="absolute left-10 top-10"><ArrowBigLeft /></Link>
 
       <div className="relative w-full max-w-4xl min-h-[500px] overflow-hidden rounded-2xl bg-card/60 shadow-2xl backdrop-blur-md">
         <div className={`absolute top-0 z-10 h-full w-1/2 opacity-0 transition-all duration-700 ease-in-out ${isSignUpActive ? 'translate-x-full opacity-100 z-50 animate-show' : ''}`}>

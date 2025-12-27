@@ -29,17 +29,12 @@ interface CallState {
   endCall: () => void;
   resetCall: () => void;
   toggleMic: () => void;
-  toggleCamera: () => void;
   toggleVideo: () => Promise<void>;
   minimizeCall: () => void;
   restoreCall: () => void;
   subscribeToCall: (callId: string) => void;
   handleRemoteAnswer: (answerSdp: RTCSessionDescriptionInit) => Promise<void>;
   handleRemoteIceCandidate: (candidate: RTCIceCandidate) => Promise<void>;
-  onIncomingOffer: (senderId: string, offer: RTCSessionDescriptionInit) => void;
-  onIncomingAnswer: (senderId: string, answer: RTCSessionDescriptionInit) => void;
-  onIceCandidate: (candidate: RTCIceCandidate) => void;
-  onCallEnded: () => void;
 }
 
 
@@ -74,15 +69,6 @@ export const useCallStore = create<CallState>((set, get) => ({
     }
   },
 
-  toggleCamera: () => {
-    const { localStream, isCameraOn } = get();
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !isCameraOn;
-      });
-      set({ isCameraOn: !isCameraOn });
-    }
-  },
 
   toggleVideo: async () => {
     const { localStream, isCameraOn } = get();
@@ -136,7 +122,6 @@ export const useCallStore = create<CallState>((set, get) => ({
         { event: 'UPDATE', schema: 'public', table: 'calls', filter: `id=eq.${callId}` },
         async (payload) => {
           const newCallData = payload.new;
-          const oldCallData = payload.old;
           const currentStatus = get().callStatus;
           const connection = get().connection;
 
@@ -558,8 +543,4 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
   },
 
-  onIncomingOffer: () => { },
-  onIncomingAnswer: () => { },
-  onIceCandidate: () => { },
-  onCallEnded: () => { },
 }));

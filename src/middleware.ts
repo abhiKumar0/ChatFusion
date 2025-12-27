@@ -43,6 +43,28 @@ export async function middleware(request: NextRequest) {
     cookies: request.cookies.getAll().map(c => c.name)
   })
 
+  // Define public routes that don't require authentication
+  const publicRoutes = ['/', '/auth', '/api/auth']
+  const isPublicRoute = publicRoutes.some(route => 
+    request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
+  )
+
+  // Redirect to home page if user is not authenticated and trying to access protected route
+  if (!user && !isPublicRoute) {
+    console.log('🚫 [MIDDLEWARE] Redirecting unauthenticated user to home')
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/'
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  // Redirect to chat if user is authenticated and trying to access auth pages
+  if (user && (request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/auth')) {
+    console.log('✅ [MIDDLEWARE] Redirecting authenticated user to chat')
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = '/chat'
+    return NextResponse.redirect(redirectUrl)
+  }
+
   if (user) {
     response.headers.set('x-user-id', user.id)
   }
