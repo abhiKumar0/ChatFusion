@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useCallStore } from '@/store/useCallStore';
 import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff } from 'lucide-react';
+import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Minimize2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VideoPlayer from './VideoPlayer';
 
@@ -20,8 +20,11 @@ const CallOverlay = () => {
         isVideo,
         isMicOn,
         isCameraOn,
+        isCallMinimized,
         toggleMic,
-        toggleCamera
+        toggleCamera,
+        toggleVideo,
+        minimizeCall
     } = useCallStore();
 
     console.log("Incoming call data:", incomingCallData);
@@ -44,7 +47,7 @@ const CallOverlay = () => {
         }
     }, [remoteStream]);
 
-    if (callStatus === 'idle') return null;
+    if (callStatus === 'idle' || isCallMinimized) return null;
 
     if (callStatus === 'receiving') {
         const caller = incomingCallData?.caller;
@@ -62,7 +65,9 @@ const CallOverlay = () => {
                     </div>
 
                     <div className="text-center">
-                        <h3 className="text-xl font-semibold">Incoming Call...</h3>
+                        <h3 className="text-xl font-semibold">
+                            {incomingCallData?.is_video || incomingCallData?.isVideo ? 'Incoming Video Call...' : 'Incoming Voice Call...'}
+                        </h3>
                         <p className="text-muted-foreground">{caller?.fullName || caller?.username || 'Unknown User'}</p>
                     </div>
 
@@ -136,26 +141,71 @@ const CallOverlay = () => {
     }
 
     if (callStatus === 'in-progress') {
-        // Debug helper
-        // const { pendingIceCandidates, bufferedIceCandidates, isPeerOnline } = useCallStore.getState(); 
+        const otherUser = incomingCallData?.receiver || incomingCallData?.caller;
+        const hasRemoteVideo = remoteStream && remoteStream.getVideoTracks().some(track => track.enabled);
+        const hasLocalVideo = isVideo && isCameraOn && localStream && localStream.getVideoTracks().some(track => track.enabled);
 
         return (
-            <div className="fixed inset-0 z-50 bg-black flex flex-col">
+            <div className="fixed inset-0 z-50 bg-gradient-to-br from-gray-900 via-black to-gray-900 flex flex-col">
                 <div className="flex-1 relative overflow-hidden">
-                    {/* Remote Video */}
-                    <VideoPlayer
-                        stream={remoteStream}
-                        className="w-full h-full object-cover"
-                    />
-
-                    {/* Local Video (PiP) */}
-                    <div className="absolute top-4 right-4 w-32 h-48 md:w-48 md:h-72 bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-white/10 z-20">
+                    {/* Remote Video or Avatar */}
+                    {hasRemoteVideo && remoteStream ? (
                         <VideoPlayer
-                            stream={localStream}
-                            muted
-                            className="w-full h-full object-cover scale-x-[-1]"
+                            stream={remoteStream}
+                            className="w-full h-full object-cover"
                         />
-                        <div className="absolute bottom-2 left-2 text-[10px] text-white/70 bg-black/40 px-2 py-1 rounded">You</div>
+                    ) : (
+                        // Audio-only view - show avatar
+                        <div className="w-full h-full flex items-center justify-center">
+                            <div className="relative">
+                                <Avatar className="h-40 w-40 border-4 border-white/10 shadow-2xl">
+                                    <AvatarImage src={otherUser?.avatar || ''} />
+                                    <AvatarFallback className="bg-primary/20 text-6xl">
+                                        {otherUser?.fullName?.charAt(0).toUpperCase() || 'U'}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="absolute inset-0 rounded-full animate-pulse ring-4 ring-primary/20 pointer-events-none"></div>
+                            </div>
+                            <div className="absolute bottom-1/3 text-center text-white">
+                                <h2 className="text-3xl font-light mb-2">{otherUser?.fullName || otherUser?.username || 'User'}</h2>
+                                <p className="text-white/60">{isVideo ? 'Video paused' : 'Voice call'}</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Local Video (PiP) - Only show if we have video */}
+                    {hasLocalVideo && (
+                        <div className="absolute top-4 right-4 w-32 h-48 md:w-48 md:h-72 bg-gray-900 rounded-xl overflow-hidden shadow-2xl border border-white/10 z-20">
+                            <VideoPlayer
+                                stream={localStream}
+                                muted
+                                className="w-full h-full object-cover scale-x-[-1]"
+                            />
+                            <div className="absolute bottom-2 left-2 text-[10px] text-white/70 bg-black/40 px-2 py-1 rounded">You</div>
+                        </div>
+                    )}
+
+                    {/* Local Avatar (PiP) - Show when video is off */}
+                    {!hasLocalVideo && (
+                        <div className="absolute top-4 right-4 w-24 h-24 bg-gray-900/80 rounded-full overflow-hidden shadow-2xl border-2 border-white/10 z-20 backdrop-blur-sm flex items-center justify-center">
+                            <div className="text-white/70 text-center">
+                                <VideoOff className="w-8 h-8 mx-auto mb-1" />
+                                <div className="text-[10px]">You</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Top left minimize button */}
+                    <div className="absolute top-4 left-4 z-30">
+                        <Button
+                            variant="secondary"
+                            size="icon"
+                            className="h-10 w-10 rounded-full backdrop-blur-md bg-white/10 hover:bg-white/20 border-none text-white"
+                            onClick={minimizeCall}
+                            title="Minimize call"
+                        >
+                            <Minimize2 className="w-5 h-5" />
+                        </Button>
                     </div>
 
                     <div className="absolute bottom-8 left-0 right-0 z-30 flex justify-center items-center gap-6">
@@ -164,6 +214,7 @@ const CallOverlay = () => {
                             size="icon"
                             className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${isMicOn ? "bg-white/10 hover:bg-white/20" : ""}`}
                             onClick={toggleMic}
+                            title={isMicOn ? "Mute microphone" : "Unmute microphone"}
                         >
                             {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
                         </Button>
@@ -173,17 +224,19 @@ const CallOverlay = () => {
                             size="icon"
                             className="h-16 w-16 rounded-full bg-red-500 hover:bg-red-600 shadow-xl border-none"
                             onClick={() => endCall()}
+                            title="End call"
                         >
                             <PhoneOff className="w-8 h-8" />
                         </Button>
 
                         <Button
-                            variant={isCameraOn ? "secondary" : "destructive"}
+                            variant={isVideo && isCameraOn ? "secondary" : "destructive"}
                             size="icon"
-                            className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${isCameraOn ? "bg-white/10 hover:bg-white/20" : ""}`}
-                            onClick={toggleCamera}
+                            className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${isVideo && isCameraOn ? "bg-white/10 hover:bg-white/20" : ""}`}
+                            onClick={toggleVideo}
+                            title={isVideo ? (isCameraOn ? "Turn off camera" : "Turn on camera") : "Switch to video"}
                         >
-                            {isCameraOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+                            {isVideo && isCameraOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
                         </Button>
                     </div>
                 </div>

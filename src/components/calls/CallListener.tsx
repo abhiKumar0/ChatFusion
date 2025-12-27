@@ -80,7 +80,12 @@ const CallListener = () => {
 
         // Subscribe to Realtime changes
         const channel = supabase
-            .channel('calls-listener')
+            .channel('calls-listener', {
+                config: {
+                    broadcast: { self: true },
+                    presence: { key: user.id }
+                }
+            })
             .on(
                 'postgres_changes',
                 {
@@ -89,37 +94,42 @@ const CallListener = () => {
                     table: 'calls',
                     filter: `receiver_id=eq.${user.id}`,
                 },
-                (payload: any) => {
-                    console.log('CallListener: INSERT event received:', payload);
+                async (payload: any) => {
+                    console.log('🔔 CallListener: INSERT event received:', payload);
                     const newCall = payload.new as Call;
 
                     if (newCall.status === 'PENDING') {
-                        console.log('CallListener: Incoming PENDING call detected, refetching with user data');
+                        console.log('🔔 CallListener: Incoming PENDING call detected, refetching with user data');
 
                         // Refetch the call with joined user data
-                        supabase
-                            .from('calls')
-                            .select(`
-                                *,
-                                caller:User!calls_caller_id_fkey(*),
-                                receiver:User!calls_receiver_id_fkey(*)
-                            `)
-                            .eq('id', newCall.id)
-                            .single()
-                            .then(({ data, error }) => {
-                                if (error) {
-                                    console.error('CallListener: Error refetching call:', error);
-                                    return;
-                                }
+                        try {
+                            const { data, error } = await supabase
+                                .from('calls')
+                                .select(`
+                                    *,
+                                    caller:User!calls_caller_id_fkey(*),
+                                    receiver:User!calls_receiver_id_fkey(*)
+                                `)
+                                .eq('id', newCall.id)
+                                .single();
 
-                                if (data) {
-                                    // console.log('CallListener: Refetched call with user data:', data);
-                                    useCallStore.setState({
-                                        callStatus: 'receiving',
-                                        incomingCallData: data,
-                                    });
-                                }
-                            });
+                            if (error) {
+                                console.error('❌ CallListener: Error refetching call:', error);
+                                return;
+                            }
+
+                            if (data) {
+                                console.log('✅ CallListener: Setting incoming call state');
+                                useCallStore.setState({
+                                    callStatus: 'receiving',
+                                    incomingCallData: data,
+                                });
+
+                                // Play notification sound or show browser notification here if needed
+                            }
+                        } catch (err) {
+                            console.error('❌ CallListener: Exception in INSERT handler:', err);
+                        }
                     }
                 }
             )
@@ -131,7 +141,7 @@ const CallListener = () => {
                     table: 'calls',
                 },
                 (payload: any) => {
-                    console.log('CallListener: UPDATE event received:', payload);
+                    console.log('📝 CallListener: UPDATE event received:', payload);
                     const updatedCall = payload.new as Call;
                     const store = useCallStore.getState();
                     const currentCallId = store.callId;
@@ -143,7 +153,7 @@ const CallListener = () => {
                         updatedCall.answer_sdp &&
                         updatedCall.caller_id === user.id
                     ) {
-                        console.log('CallListener: Answer received, connecting...');
+                        console.log('📞 CallListener: Answer received, connecting...');
                         handleRemoteAnswer(JSON.parse(updatedCall.answer_sdp));
                     }
 
@@ -151,7 +161,7 @@ const CallListener = () => {
                         updatedCall.status === 'ENDED' ||
                         updatedCall.status === 'REJECTED'
                     ) {
-                        console.log('CallListener: Call ended/rejected');
+                        console.log('📞 CallListener: Call ended/rejected');
                         if (
                             currentCallId === updatedCall.id ||
                             updatedCall.receiver_id === user.id
@@ -161,12 +171,19 @@ const CallListener = () => {
                     }
                 }
             )
-            .subscribe((status) => {
-                console.log('CallListener: Subscription status:', status);
+            .subscribe((status, err) => {
+                console.log('📡 CallListener: Subscription status:', status);
+                if (err) {
+                    console.error('❌ CallListener: Subscription error:', err);
+                }
+                if (status === 'SUBSCRIBED') {
+                    console.log('✅ CallListener: Successfully subscribed to realtime updates');
+                }
             });
 
-        // Polling - check every 2 seconds
-        const pollInterval = setInterval(checkForPendingCalls, 2000);
+        // Faster polling - check every 500ms (reduced from 2000ms)
+        // This is a fallback in case realtime fails
+        const pollInterval = setInterval(checkForPendingCalls, 500);
 
         // Expose debug function to window
         (window as any).debugCallListener = {
@@ -176,7 +193,7 @@ const CallListener = () => {
         };
 
         return () => {
-            console.log('CallListener: Cleaning up subscriptions');
+            console.log('🧹 CallListener: Cleaning up subscriptions');
             supabase.removeChannel(channel);
             clearInterval(pollInterval);
             delete (window as any).debugCallListener;
