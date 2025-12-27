@@ -1,46 +1,52 @@
 'use client';
 
 import { useCallStore } from '@/store/useCallStore';
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
+import { Phone, Video, Maximize2 } from 'lucide-react';
 
 export default function GlobalCallIndicator() {
-// normalize whatever shape the call store currently exposes
-const callStore = useCallStore();
-const callStatus: string | undefined =
-    // try known/legacy keys, fall back to nested call object
-    (callStore as any).callStatus ??
-    (callStore as any).status ??
-    (callStore as any).call?.status;
-const callId: string | undefined =
-    (callStore as any).callId ??
-    (callStore as any).currentCallId ??
-    (callStore as any).call?.id;
-  const pathname = usePathname();
+  const {
+    callStatus,
+    isCallMinimized,
+    isVideo,
+    otherUserId,
+    incomingCallData,
+    restoreCall
+  } = useCallStore();
 
-  // Show the pill IF a call is in progress AND we are NOT on the call page
-  const showPill = callStatus === 'in-progress' && !pathname?.startsWith(`/call/`);
+  // Show indicator when call is in progress and minimized
+  const shouldShow = (callStatus === 'in-progress' || callStatus === 'calling' || callStatus === 'connecting') && isCallMinimized;
 
-  if (!showPill) {
+  if (!shouldShow) {
     return null;
   }
 
+  // Get the OTHER user (the remote person we're talking to)
+  const otherUser = otherUserId === incomingCallData?.caller?.id
+    ? incomingCallData?.caller
+    : incomingCallData?.receiver;
+  const userName = otherUser?.fullName || otherUser?.username || 'User';
+
   return (
-    <Link href={`/call/${callId}`}>
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        padding: '10px 20px',
-        background: 'green',
-        color: 'white',
-        borderRadius: '20px',
-        zIndex: 1000,
-        cursor: 'pointer'
-      }}>
-        Tap to return to call
+    <div
+      onClick={restoreCall}
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] cursor-pointer group"
+    >
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 hover:from-green-600 hover:to-emerald-700 transition-all duration-300 border-2 border-white/20 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          {isVideo ? (
+            <Video className="w-5 h-5 animate-pulse" />
+          ) : (
+            <Phone className="w-5 h-5 animate-pulse" />
+          )}
+          <span className="font-medium">
+            {callStatus === 'calling' ? 'Calling' : callStatus === 'connecting' ? 'Connecting' : 'In call with'} {userName}
+          </span>
+        </div>
+        <Maximize2 className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
       </div>
-    </Link>
+
+      {/* Animated ring */}
+      <div className="absolute inset-0 rounded-full bg-green-500/20 animate-ping pointer-events-none"></div>
+    </div>
   );
 }

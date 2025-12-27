@@ -62,7 +62,11 @@ export interface Call {
     offer_sdp: any;
     answer_sdp: any;
     created_at: string;
-    // Computed or mapped properties
+    is_video?: boolean;
+    // Joined User data from foreign keys
+    caller: User;
+    receiver: User;
+    // Deprecated: use snake_case or joined data instead
     callerId?: string;
     receiverId?: string;
     offerSdp?: any;
@@ -92,4 +96,12 @@ export interface ChatStore {
     setCurrentParticipant: (participant: User) => void;
     setReplyingTo: (message: Message | null) => void;
     clearReplyingTo: () => void;
+}
+
+export interface SearchedUser {
+    id: string;
+    email: string;
+    username: string;
+    fullName: string;
+    avatar: string;
 }

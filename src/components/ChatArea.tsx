@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Button } from './ui/button'
-import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply, MessageSquare, Circle, Image as ImageIcon, ArrowLeftSquare, ArrowLeft } from 'lucide-react'
+import { MoreVertical, Paperclip, Phone, Send, Smile, Video, AlertTriangle, X, Reply, MessageSquare, Circle, Image as ImageIcon, ArrowLeftSquare, ArrowLeft, Image } from 'lucide-react'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from './ui/card';
@@ -687,9 +687,23 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                     <p className="text-xs font-medium text-primary mb-0.5">
                       Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
-                    </p>
+                    {replyingTo?.type === 'TEXT' ? (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
+                      </p>
+                    ) : replyingTo?.type === 'IMAGE' ? (
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <Image className="w-4 h-4 text-primary shrink-0" /> Photo
+                      </p>
+                    ) : replyingTo?.type === 'VIDEO' ? (
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <Video className="w-4 h-4 text-primary shrink-0" /> Video
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground truncate">
+                        Unknown Type
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Button

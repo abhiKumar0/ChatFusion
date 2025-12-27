@@ -32,7 +32,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                 />
 
                 {/* Desktop Layout: Always show ContactList */}
-                <div className="hidden md:flex w-80 border-r border-border h-full">
+                <div className="hidden md:flex w-80 md:max-w-96 xl:w-1/3 border-r border-border h-full">
                     <ContactList selectedConversationId={conversationId} />
                 </div>
 

@@ -21,7 +21,11 @@ export async function POST(request: Request) {
         offer_sdp: offerSdp,
         is_video: isVideo ?? true, // Default to true if not provided
       })
-      .select()
+      .select(`
+        *,
+        caller:User!calls_caller_id_fkey(*),
+        receiver:User!calls_receiver_id_fkey(*)
+      `)
       .single();
 
     if (error) {

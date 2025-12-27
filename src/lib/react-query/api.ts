@@ -1,11 +1,40 @@
 import axios from "axios";
-import { User } from "@/types/types";
+import { SearchedUser, User } from "@/types/types";
 import { encryptPrivateKey, generateUserKeys } from "../crypto";
 
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
 });
+
+// Add response interceptor to handle errors properly
+api.interceptors.response.use(
+  (response) => response, // Pass through successful responses
+  (error) => {
+    // Extract error message from backend response
+    if (error.response?.data?.message) {
+      // Backend sent a custom error message
+      const customError = new Error(error.response.data.message);
+      (customError as any).status = error.response.status;
+      (customError as any).data = error.response.data;
+      throw customError;
+    } else if (error.response?.data?.error) {
+      // Alternative error format
+      const customError = new Error(error.response.data.error);
+      (customError as any).status = error.response.status;
+      (customError as any).data = error.response.data;
+      throw customError;
+    } else if (error.message) {
+      // Use axios error message as fallback
+      throw error;
+    } else {
+      // Generic error
+      const customError = new Error('An unexpected error occurred');
+      (customError as any).status = error.response?.status || 500;
+      throw customError;
+    }
+  }
+);
 
 // Auth
 export const signUp = async (
@@ -78,17 +107,22 @@ export const uploadAvatar = async (file: File) => {
 
 
 export const checkUsername = async (username: string): Promise<boolean> => {
-  const response = await api.post("/users/check-username", { username });
+  const response = await api.post("/users/checkUsername", { username });
   return response.data.available;
 };
 
 export const getUserById = async (userId: string) => {
-    const response = await axios.get(`/api/users/${userId}`);
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+};
+
+export const getUserByEmail = async (email: string): Promise<{user: SearchedUser}> => {
+    const response = await api.post(`/users/getUserByEmail`, { email });
     return response.data;
 };
 
 export const getUserFriends = async (userId: string) => {
-    const response = await axios.get(`/api/users/${userId}/friends`);
+    const response = await api.get(`/users/${userId}/friends`);
     return response.data;
 };
 
@@ -152,6 +186,8 @@ export const createMessage = async ({
   nonce?: string;
   type?: 'TEXT' | 'IMAGE' | 'STICKER' | 'AUDIO' | 'VIDEO' | 'FILE';
 }) => {
+
+
   const response = await api.post(`/conversations/${conversationId}/message`, {
     content,
     media,

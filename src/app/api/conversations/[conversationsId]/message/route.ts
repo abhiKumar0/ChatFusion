@@ -132,7 +132,7 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
             .select(`
                 *,
                 sender:User(id, fullName, username, encryptedPrivateKey, publicKey, email),
-                parentMessage:Message!parentMessageId(
+                parentMessage:parentMessageId(
                     *,
                     sender:User(id, fullName, username)
                 ),

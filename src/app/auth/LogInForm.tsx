@@ -1,70 +1,100 @@
 'use client';
 
-import { CircleSlash } from "lucide-react";
+import { LogIn, Loader2 } from "lucide-react";
 import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useLogIn } from "@/lib/react-query/queries";
+import Link from "next/link";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
-  const {mutateAsync: login, isLoading: loading} = useLogIn();
-  
-    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!email || !password) return;
-      try {
-        await login({ email, password });
-        router.push("/");
-      } catch (error) {
-        console.error("Sign up failed:", error);
-      }
-    };
+  const { mutateAsync: login, isPending: loading, error } = useLogIn();
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      return;
+    }
+
+    try {
+      await login({ email, password });
+      // Redirect to chat on successful login
+      router.push("/chat");
+    } catch (err) {
+      // Error is already handled by react-query and displayed below
+      console.error("Login failed:", err);
+    }
+  };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-card/0 flex h-full flex-col items-center justify-center px-10 text-center"
+      className="space-y-4"
     >
-      <h1 className="mb-4 text-3xl font-bold">Sign In</h1>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="mb-4 h-12 w-12 rounded-full p-3"
-      >
-        <CircleSlash />
-      </Button>
-      <span className="mb-4 text-sm">or use your account</span>
-      <Input
-        type="email"
-        placeholder="Email"
-        className="my-2 border-none bg-secondary p-3"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <Input
-        type="password"
-        placeholder="Password"
-        className="my-2 border-none bg-secondary p-3"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <Button
-        variant="link"
-        className="my-4 h-auto p-0 text-xs text-foreground hover:underline"
+      <div className="text-center mb-6">
+        <h1 className="text-3xl font-bold mb-2 text-gray-100">Welcome Back</h1>
+        <p className="text-sm text-gray-300">
+          Sign in to continue to ChatFusion
+        </p>
+      </div>
+
+      {/* Error message display */}
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+          {error.message || "Login failed. Please try again."}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        <Input
+          type="email"
+          placeholder="Email"
+          className="border-none bg-secondary p-3"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={loading}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="Password"
+          className="border-none bg-secondary p-3"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={loading}
+          required
+        />
+      </div>
+
+      <Link
+        href="/auth/forgot-password"
+        className="block text-xs text-primary hover:underline text-right"
       >
         Forgot your password?
-      </Button>
+      </Link>
+
       <Button
         type="submit"
-        className="mt-4 transform rounded-full px-12 py-3 text-xs font-bold uppercase tracking-wider transition-transform duration-75 ease-in hover:scale-105"
+        disabled={loading}
+        className="w-full transform rounded-full px-12 py-3 text-xs font-bold uppercase tracking-wider transition-transform duration-75 ease-in hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Signing in..." : "Sign In"}
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Signing in...
+          </>
+        ) : (
+          <>
+            <LogIn className="mr-2 h-4 w-4" />
+            Sign In
+          </>
+        )}
       </Button>
     </form>
   );

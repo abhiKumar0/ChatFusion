@@ -16,6 +16,7 @@ interface CallState {
   isVideo: boolean;
   isMicOn: boolean;
   isCameraOn: boolean;
+  isCallMinimized: boolean;
   callSubscription: any | null;
   pendingIceCandidates: RTCIceCandidateInit[]; // Buffer for incoming candidates
   bufferedIceCandidates: RTCIceCandidateInit[]; // Buffer for outgoing candidates
@@ -28,14 +29,12 @@ interface CallState {
   endCall: () => void;
   resetCall: () => void;
   toggleMic: () => void;
-  toggleCamera: () => void;
+  toggleVideo: () => Promise<void>;
+  minimizeCall: () => void;
+  restoreCall: () => void;
   subscribeToCall: (callId: string) => void;
   handleRemoteAnswer: (answerSdp: RTCSessionDescriptionInit) => Promise<void>;
   handleRemoteIceCandidate: (candidate: RTCIceCandidate) => Promise<void>;
-  onIncomingOffer: (senderId: string, offer: RTCSessionDescriptionInit) => void;
-  onIncomingAnswer: (senderId: string, answer: RTCSessionDescriptionInit) => void;
-  onIceCandidate: (candidate: RTCIceCandidate) => void;
-  onCallEnded: () => void;
 }
 
 
@@ -52,6 +51,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   isVideo: true,
   isMicOn: true,
   isCameraOn: true,
+  isCallMinimized: false,
   callSubscription: null,
   pendingIceCandidates: [], // Incoming candidates buffer
   bufferedIceCandidates: [], // Outgoing candidates buffer
@@ -69,14 +69,38 @@ export const useCallStore = create<CallState>((set, get) => ({
     }
   },
 
-  toggleCamera: () => {
+
+  toggleVideo: async () => {
     const { localStream, isCameraOn } = get();
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !isCameraOn;
-      });
-      set({ isCameraOn: !isCameraOn });
+
+    if (!localStream) {
+      console.error('toggleVideo: No local stream');
+      return;
     }
+
+    // Since we always have video tracks now, just toggle them on/off
+    const videoTracks = localStream.getVideoTracks();
+
+    if (videoTracks.length === 0) {
+      console.error('toggleVideo: No video tracks available');
+      return;
+    }
+
+    const newCameraState = !isCameraOn;
+    videoTracks.forEach(track => {
+      track.enabled = newCameraState;
+    });
+
+    set({ isCameraOn: newCameraState });
+    console.log(`📹 Camera ${newCameraState ? 'enabled' : 'disabled'}`);
+  },
+
+  minimizeCall: () => {
+    set({ isCallMinimized: true });
+  },
+
+  restoreCall: () => {
+    set({ isCallMinimized: false });
   },
 
   // --- Realtime Subscription Listener ---
@@ -101,8 +125,7 @@ export const useCallStore = create<CallState>((set, get) => ({
           const currentStatus = get().callStatus;
           const connection = get().connection;
 
-          // Only process answer if we're the caller and haven't connected yet
-          // We check 'calling' status. Even if connection is null momentarily, we'll handle it in handleRemoteAnswer
+          // Handle incoming answer (for initial call setup)
           if (newCallData.answer_sdp && currentStatus === 'calling') {
             console.log('subscribeToCall: Processing remote answer');
             await handleRemoteAnswer(JSON.parse(newCallData.answer_sdp));
@@ -168,7 +191,8 @@ export const useCallStore = create<CallState>((set, get) => ({
   startCall: async (recipientId, isVideo) => {
     set({
       callStatus: 'calling',
-      isVideo,
+      isVideo: true, // Always true - we always get video capability
+      isCameraOn: isVideo, // Camera on only if video call
       otherUserId: recipientId,
       isPeerOnline: false,
       bufferedIceCandidates: [],
@@ -176,7 +200,20 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
 
     try {
-      const localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
+      // ALWAYS request video permission (even for audio calls)
+      // This way we can toggle video on/off without renegotiation
+      const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+      // For "audio calls", disable video track immediately
+      if (!isVideo) {
+        localStream.getVideoTracks().forEach(track => {
+          track.enabled = false;
+        });
+        console.log('🎤 Audio call - video track disabled');
+      } else {
+        console.log('📹 Video call - video track enabled');
+      }
+
       set({ localStream }); // Set immediately for UI feedback
 
       const pc = new RTCPeerConnection({
@@ -223,11 +260,11 @@ export const useCallStore = create<CallState>((set, get) => ({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // Initialize call in DB
+      // Initialize call in DB - store initial camera state preference
       const callData = await initiateCall({
         receiverId: recipientId,
         offerSdp: JSON.stringify(offer),
-        isVideo
+        isVideo: isVideo // Store the original preference (camera on/off initially)
       });
 
       // Subscribe and Track Presence
@@ -236,7 +273,9 @@ export const useCallStore = create<CallState>((set, get) => ({
       set({
         connection: pc,
         localStream,
-        callId: callData.id
+        callId: callData.id,
+        incomingCallData: callData, // Store call data with receiver info
+        otherUserId: callData.receiver_id
       });
 
     } catch (e) {
@@ -258,9 +297,29 @@ export const useCallStore = create<CallState>((set, get) => ({
         pendingIceCandidates: []
       });
 
-      const isVideo = incomingCallData.is_video ?? incomingCallData.isVideo ?? true;
-      const localStream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true });
-      set({ localStream }); // Set immediately
+      // Check if caller started with camera on or off
+      // Since we now always send isVideo: true in DB, we need another way to know
+      // For now, always get video but check the incomingCallData
+      const callerHasVideo = incomingCallData.is_video ?? incomingCallData.isVideo ?? true;
+
+      // ALWAYS request video permission (even for audio calls)
+      const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+      // Match the caller's video state - if they started with camera off, we start with camera off too
+      // But we'll default to camera on since the UI will show the toggle
+      // Actually, let's always start with camera matching the call type
+      const shouldEnableCamera = callerHasVideo;
+
+      if (!shouldEnableCamera) {
+        localStream.getVideoTracks().forEach(track => {
+          track.enabled = false;
+        });
+        console.log('🎤 Accepting audio call - video track disabled');
+      } else {
+        console.log('📹 Accepting video call - video track enabled');
+      }
+
+      set({ localStream, isCameraOn: shouldEnableCamera, isVideo: true }); // Always have video capability
 
 
       const pc = new RTCPeerConnection({
@@ -308,8 +367,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         connection: pc,
         localStream,
         callId: incomingCallData.id,
-        otherUserId: incomingCallData.caller_id,
-        isVideo
+        otherUserId: incomingCallData.caller_id
       });
 
       // Handle Remote Offer
@@ -448,7 +506,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   rejectCall: async () => {
     const { incomingCallData } = get();
     if (incomingCallData?.id) {
-      await updateCallStatus(incomingCallData.id, 'REJECTED');
+      await updateCallStatus(incomingCallData.id, 'ENDED');
     }
     get().resetCall();
   },
@@ -478,14 +536,11 @@ export const useCallStore = create<CallState>((set, get) => ({
       incomingCallData: null,
       callSubscription: null,
       isVideo: false,
+      isCallMinimized: false,
       pendingIceCandidates: [],
       bufferedIceCandidates: [],
       isPeerOnline: false
     });
   },
 
-  onIncomingOffer: () => { },
-  onIncomingAnswer: () => { },
-  onIceCandidate: () => { },
-  onCallEnded: () => { },
 }));

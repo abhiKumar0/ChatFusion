@@ -21,9 +21,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ChatFusion",
+  title: "ChatFusion - Premium E2E Encrypted Chat Application",
   description: "Premium E2E Encrypted Chat Application",
 };
+
+
 
 export default function RootLayout({
   children,
