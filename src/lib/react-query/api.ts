@@ -1,5 +1,5 @@
 import axios from "axios";
-import { User } from "@/types/types";
+import { SearchedUser, User } from "@/types/types";
 import { encryptPrivateKey, generateUserKeys } from "../crypto";
 
 const api = axios.create({
@@ -107,17 +107,22 @@ export const uploadAvatar = async (file: File) => {
 
 
 export const checkUsername = async (username: string): Promise<boolean> => {
-  const response = await api.post("/users/check-username", { username });
+  const response = await api.post("/users/checkUsername", { username });
   return response.data.available;
 };
 
 export const getUserById = async (userId: string) => {
-    const response = await axios.get(`/api/users/${userId}`);
+    const response = await api.get(`/users/${userId}`);
+    return response.data;
+};
+
+export const getUserByEmail = async (email: string): Promise<{user: SearchedUser}> => {
+    const response = await api.post(`/users/getUserByEmail`, { email });
     return response.data;
 };
 
 export const getUserFriends = async (userId: string) => {
-    const response = await axios.get(`/api/users/${userId}/friends`);
+    const response = await api.get(`/users/${userId}/friends`);
     return response.data;
 };
 

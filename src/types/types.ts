@@ -97,3 +97,11 @@ export interface ChatStore {
     setReplyingTo: (message: Message | null) => void;
     clearReplyingTo: () => void;
 }
+
+export interface SearchedUser {
+    id: string;
+    email: string;
+    username: string;
+    fullName: string;
+    avatar: string;
+}

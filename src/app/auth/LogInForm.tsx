@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useLogIn } from "@/lib/react-query/queries";
+import Link from "next/link";
 
 const LoginForm = () => {
   const [email, setEmail] = useState("");
@@ -72,12 +73,9 @@ const LoginForm = () => {
         disabled={loading}
         required
       />
-      <Button
-        variant="link"
-        className="my-4 h-auto p-0 text-xs text-foreground hover:underline"
-      >
+      <Link href="/auth/forgot-password" className="my-4 text-xs text-foreground hover:underline">
         Forgot your password?
-      </Button>
+      </Link>
       <Button
         type="submit"
         disabled={loading}

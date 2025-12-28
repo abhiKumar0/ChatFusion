@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
   })
 
   // Define public routes that don't require authentication
-  const publicRoutes = ['/', '/auth', '/api/auth']
+  const publicRoutes = ['/', '/auth', '/auth/forgot-password', '/auth/update-password', '/api/auth', '/api/users/getUserByEmail']
   const isPublicRoute = publicRoutes.some(route => 
     request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(route + '/')
   )

@@ -167,7 +167,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
   if (isLoading) {
     return (
-      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background">
+      <div className="w-full border-r border-border flex flex-col bg-background">
         <div className="p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
@@ -181,7 +181,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
   if (error) {
     return (
-      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background">
+      <div className="w-full  border-r border-border flex flex-col bg-background">
         <div className="p-4 border-b border-border bg-card">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-primary" />
@@ -209,7 +209,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
   return (
     <ComponentErrorBoundary>
-      <div className="w-full lg:w-80 border-r border-border flex flex-col bg-background h-full">
+      <div className="w-full border-r border-border flex flex-col bg-background h-full">
         <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">

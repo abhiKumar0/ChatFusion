@@ -32,6 +32,7 @@ import {
   initiateCall,
   updateCallStatus,
   answerCall,
+  getUserByEmail,
 } from './api';
 
 
@@ -128,6 +129,19 @@ export const useGetUserById = (id: string) => {
   };
 };
 
+export const useGetUserByEmail = (email: string) => {
+  const query = useQuery({
+    queryKey: ['user', email],
+    queryFn: () => getUserByEmail(email),
+    enabled: false, // Only fetch manually when refetch() is called
+  });
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
 export const useGetFriends = () => {
     const query = useQuery({
         queryKey: ['friends'],
@@ -152,7 +166,7 @@ export const useGetUserFriends = (userId: string) => {
 // Check Username Query
 export const useCheckUsername = (username: string) => {
     return useQuery({
-        queryKey: ['check-username', username],
+        queryKey: ['checkUsername', username],
         queryFn: () => checkUsername(username),
         enabled: false, // Manual trigger or handle in component
         retry: false,
