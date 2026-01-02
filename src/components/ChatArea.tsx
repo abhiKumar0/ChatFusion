@@ -72,6 +72,8 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   //   { ssr: false }
   // );
 
+  
+
 
   // Current User
   const { data: user, error: userError } = useGetMe();

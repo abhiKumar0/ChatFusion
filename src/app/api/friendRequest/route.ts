@@ -1,23 +1,35 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 
+interface FriendRequestBody {
+  receiverId?: string;
+  friendRequestId?: string;
+  status?: "ACCEPTED" | "DECLINED";
+  targetUserId?: string;
+  requestId?: string;
+}
+
 // Send a friend request
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
     const supabase = await createClient();
     
-    //Fetch Logged in user from Supabase Authentication
+    // Fetch Logged in user from Supabase Authentication
     const { data: { user } } = await supabase.auth.getUser();
     const senderId = user?.id;
     
-    //Receiver id from body
-    const { receiverId } = await request.json();
+    // Receiver id from body
+    const { receiverId }: FriendRequestBody = await request.json();
     
     if (!senderId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    //If requesting to itself
+    if (!receiverId) {
+      return NextResponse.json({ error: "Receiver ID is required" }, { status: 400 });
+    }
+
+    // If requesting to itself
     if (senderId === receiverId) { 
       return NextResponse.json(
         { error: "You cannot send a friend request to yourself" },
@@ -25,7 +37,7 @@ export async function POST(request) {
       );
     }
  
-    //If already requested once
+    // If already requested once
     const { data: existingRequest } = await supabase
       .from('FriendRequest')
       .select('*')
@@ -39,15 +51,15 @@ export async function POST(request) {
       );
     }
 
-    //Insert into FriendRequest table
+    // Insert into FriendRequest table
     const { data: friendRequest, error } = await supabase
       .from('FriendRequest')
       .insert({
         senderId,
         receiverId,
         status: "PENDING",
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .select()
       .single();
@@ -65,16 +77,20 @@ export async function POST(request) {
 }
 
 // Accept or decline a friend request
-export async function PUT(request) {
+export async function PUT(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
 
-    const { friendRequestId, status } = await request.json();
+    const { friendRequestId, status }: FriendRequestBody = await request.json();
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!friendRequestId) {
+      return NextResponse.json({ error: "Friend request ID is required" }, { status: 400 });
     }
 
     const { data: friendRequest } = await supabase
@@ -96,7 +112,7 @@ export async function PUT(request) {
 
     const { data: updatedRequest, error: updateError } = await supabase
       .from('FriendRequest')
-      .update({ status, updatedAt: new Date() })
+      .update({ status, updatedAt: new Date().toISOString() })
       .eq('id', friendRequestId)
       .select()
       .single();
@@ -110,8 +126,8 @@ export async function PUT(request) {
         .from('Conversation')
         .insert({ 
           type: "ONE_TO_ONE",
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         })
         .select()
         .single();
@@ -141,7 +157,7 @@ export async function PUT(request) {
 }
 
 // Get all friend requests for the logged-in user
-export async function GET(request) {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -151,18 +167,38 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: friendRequests, error } = await supabase
-    .from('FriendRequest')
-    .select(`
-      *,
-      sender:User!FriendRequest_senderId_fkey(id, username, avatar) // ⬅️ FIX
-    `)
-    .eq('receiverId', userId)
-    .eq('status', 'PENDING');
+    // First, fetch the friend requests
+    const { data: friendRequests, error: requestError } = await supabase
+      .from('FriendRequest')
+      .select('*')
+      .eq('receiverId', userId)
+      .eq('status', 'PENDING');
 
-    if (error) throw error;
+    if (requestError) throw requestError;
 
-    return NextResponse.json(friendRequests, { status: 200 });
+    // If there are no friend requests, return empty array
+    if (!friendRequests || friendRequests.length === 0) {
+      return NextResponse.json([], { status: 200 });
+    }
+
+    // Extract sender IDs
+    const senderIds = friendRequests.map(req => req.senderId);
+
+    // Fetch sender information
+    const { data: senders, error: senderError } = await supabase
+      .from('User')
+      .select('id, username, avatar')
+      .in('id', senderIds);
+
+    if (senderError) throw senderError;
+
+    // Combine the data
+    const enrichedRequests = friendRequests.map(request => ({
+      ...request,
+      sender: senders?.find(sender => sender.id === request.senderId) || null
+    }));
+
+    return NextResponse.json(enrichedRequests, { status: 200 });
   } catch (error) {
     console.error("Error fetching friend requests:", error);
     return NextResponse.json(
@@ -173,7 +209,7 @@ export async function GET(request) {
 }
 
 // Cancel or Delete a friend request
-export async function DELETE(request) {
+export async function DELETE(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -183,31 +219,53 @@ export async function DELETE(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { targetUserId, requestId } = await request.json();
+    const { targetUserId, requestId }: FriendRequestBody = await request.json();
+    
+    console.log("DELETE friend request - userId:", userId);
+    console.log("DELETE friend request - targetUserId:", targetUserId);
+    console.log("DELETE friend request - requestId:", requestId);
 
-    let query = supabase.from('FriendRequest').delete();
-
+    // First, let's find the request to delete
+    let findQuery = supabase.from('FriendRequest').select('*');
+    
     if (requestId) {
-        query = query.eq('id', requestId);
+      findQuery = findQuery.eq('id', requestId);
     } else if (targetUserId) {
-         // Find request between these two where current user is sender (Cancel) or receiver (Reject? No, just delete)
-         // To be safe, ensure we only delete if we are part of it
-         query = query.or(`and(senderId.eq.${userId},receiverId.eq.${targetUserId}),and(senderId.eq.${targetUserId},receiverId.eq.${userId})`);
+      // Find any request between these two users
+      findQuery = findQuery.or(`and(senderId.eq.${userId},receiverId.eq.${targetUserId}),and(senderId.eq.${targetUserId},receiverId.eq.${userId})`);
     } else {
-        return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+      return NextResponse.json({ error: "Missing parameters: either requestId or targetUserId required" }, { status: 400 });
     }
 
-    const { error } = await query;
+    // Execute the find query
+    const { data: foundRequests, error: findError } = await findQuery;
+    
+    // console.log("Found requests:", foundRequests);
 
-    if (error) throw error;
+    if (!foundRequests || foundRequests.length === 0) {
+      return NextResponse.json(
+        { error: "Friend request not found" },
+        { status: 404 }
+      );
+    }
 
-    return NextResponse.json({ message: "Request cancelled/deleted" }, { status: 200 });
+    const {data, error} = await supabase.from('FriendRequest').delete().eq('id', requestId);
+    
+    console.log("Deleted request:", data);
+    console.log("Delete error:", error);
+    
+    return NextResponse.json(
+        {message : "Friend request cancelled successfully"},
+        {status : 200}
+    );
+
 
   } catch (error) {
-    console.error("Error deleting friend request:", error);
+    console.error("Error in DELETE friend request:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
+
