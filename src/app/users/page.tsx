@@ -22,7 +22,7 @@ const UsersPage = () => {
     const handleAddFriend = (receiverId: string) => {
         sendFriendRequest(receiverId);
     };
-
+    //                          Requested User       Friendship ID
     const handleCancelRequest = (receiverId: string, requestId?: string) => {
         cancelFriendRequest({ targetUserId: receiverId, requestId });
     };

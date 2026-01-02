@@ -14,11 +14,14 @@ export const GET = async (req: Request) => {
             );
         }
         
+        console.log(1);
         // 1. Get conversation IDs where the user is a participant
         const { data: participantRows, error: participantError } = await supabase
             .from('ConversationParticipant')
             .select('conversationId')
             .eq('userId', userId);
+
+        console.log(2);
 
         if (participantError) throw participantError;
 
@@ -27,6 +30,8 @@ export const GET = async (req: Request) => {
         if (conversationIds.length === 0) {
             return NextResponse.json([]);
         }
+
+        console.log(3);
 
         // 2. Fetch conversations with details
         const { data: conversations, error: conversationError } = await supabase
@@ -40,6 +45,7 @@ export const GET = async (req: Request) => {
             `)
             .in('id', conversationIds);
 
+        console.log(4);
         if (conversationError) throw conversationError;
 
         return NextResponse.json(conversations);

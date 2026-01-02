@@ -11,6 +11,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const { data: user } = useGetMe();
     const { setSupabase, handleRemoteAnswer } = useCallStore();
 
+
+    
     // Initialize Supabase
     useEffect(() => {
         const supabase = createClient();
@@ -35,8 +37,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                     .from('calls')
                     .select(`
                         *,
-                        caller:User!calls_caller_id_fkey(id, username, fullName, email, avatar),
-                        receiver:User!calls_receiver_id_fkey(id, username, fullName, email, avatar)
+                        caller:User!caller_id(id, username, fullName, email, avatar),
+                        receiver:User!receiver_id(id, username, fullName, email, avatar)
                     `)
                     .eq('receiver_id', user.id)
                     .eq('status', 'PENDING')
@@ -91,8 +93,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                             .from('calls')
                             .select(`
                                 *,
-                                caller:User!calls_caller_id_fkey(id, username, fullName, email, avatar),
-                                receiver:User!calls_receiver_id_fkey(id, username, fullName, email, avatar)
+                                caller:User!caller_id(id, username, fullName, email, avatar),
+                                receiver:User!receiver_id(id, username, fullName, email, avatar)
                             `)
                             .eq('id', newCall.id)
                             .single()

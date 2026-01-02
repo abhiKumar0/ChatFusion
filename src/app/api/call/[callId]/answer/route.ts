@@ -16,8 +16,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
       .eq('id', callId)
       .select(`
         *,
-        caller:User!calls_caller_id_fkey(*),
-        receiver:User!calls_receiver_id_fkey(*)
+        caller:User!caller_id(*),
+        receiver:User!receiver_id(*)
       `)
       .single();
 

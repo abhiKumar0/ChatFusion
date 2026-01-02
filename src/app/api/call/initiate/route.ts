@@ -23,8 +23,8 @@ export async function POST(request: Request) {
       })
       .select(`
         *,
-        caller:User!calls_caller_id_fkey(*),
-        receiver:User!calls_receiver_id_fkey(*)
+        caller:User!caller_id(*),
+        receiver:User!receiver_id(*)
       `)
       .single();
 

@@ -34,8 +34,8 @@ const CallListener = () => {
                     .from('calls')
                     .select(`
                         *,
-                        caller:User!calls_caller_id_fkey(*),
-                        receiver:User!calls_receiver_id_fkey(*)
+                        caller:User!caller_id(*),
+                        receiver:User!receiver_id(*)
                     `)
                     .eq('receiver_id', user.id)
                     .eq('status', 'PENDING')
@@ -74,6 +74,7 @@ const CallListener = () => {
                 console.error('CallListener: Exception in checkForPendingCalls:', error);
             }
         };
+        
 
         // Check immediately on mount
         checkForPendingCalls();
@@ -107,8 +108,8 @@ const CallListener = () => {
                                 .from('calls')
                                 .select(`
                                     *,
-                                    caller:User!calls_caller_id_fkey(*),
-                                    receiver:User!calls_receiver_id_fkey(*)
+                                    caller:User!caller_id(*),
+                                    receiver:User!receiver_id(*)
                                 `)
                                 .eq('id', newCall.id)
                                 .single();

@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 export const POST = async (request: Request) => {
     try {
         const supabase = await createClient();
+        // console.log(request)
         const { email, password } = await request.json();
-
+        console.log(email, password);
         const {data: existingUser, error: existingUserError} = await supabase
             .from('User')
             .select('*')
@@ -20,6 +21,7 @@ export const POST = async (request: Request) => {
             email,
             password,
         });
+        // console.log(data, error);
 
         if (error) {
             return NextResponse.json({ message: "Incorrect Password." }, { status: 401 });
