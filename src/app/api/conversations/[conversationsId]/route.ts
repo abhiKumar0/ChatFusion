@@ -13,7 +13,7 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
                 *,
                 participants:ConversationParticipant(
                     *,
-                    user:User(id, email, username, fullName, avatar, publicKey, encryptedPrivateKey)
+                    user:User(id, email, username, fullName, avatar, publicKey)
                 )
             `)
             .eq('id', convoId)

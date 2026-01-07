@@ -1,31 +1,3 @@
-//Fetch current user
-//Fetch Conversation, also validate
-//Create a new Message
-//save in db
-
-// model Message {
-//   id String @id @default(cuid())
-
-//   // Relations to User
-//   sender     User   @relation(fields: [senderId], references: [id])
-//   senderId   String
-
-//   // Self-relation for replies
-//   parentMessage   Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id])
-//   parentMessageId String?
-
-//   replies         Message[] @relation("MessageReplies")
-
-//   seen           Boolean   @default(false)
-//   media          String?
-
-//   content   String
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   Conversation Conversation[]
-// }
-
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
@@ -131,7 +103,7 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
             .from('Message')
             .select(`
                 *,
-                sender:User(id, fullName, username, encryptedPrivateKey, publicKey, email),
+                sender:User(id, fullName, username, publicKey, email),
                 parentMessage:parentMessageId(
                     *,
                     sender:User(id, fullName, username)

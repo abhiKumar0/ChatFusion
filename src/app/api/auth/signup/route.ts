@@ -41,11 +41,24 @@ export const POST = async (request: Request) => {
                     fullName: fullName,
                     password: 'supa-auth-managed',
                     publicKey: publicKey,
-                    encryptedPrivateKey: encryptPrivateKey,
                     updatedAt: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                     isOnline: false,
                 });
+
+            const {error: keyError} = await supabaseAdmin
+                .from('UserSecrets')
+                .insert({
+                    id: authData.user.id,
+                    encryptedPrivateKey: encryptPrivateKey,
+                });
+
+            if (keyError) {
+                console.log("Key error", keyError);
+                // Clean up the auth user if profile creation fails
+                await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+                return NextResponse.json({ message: "Key creation failed: " + keyError.message }, { status: 500 });
+            }
 
             if (profileError) {
                 console.error("Profile Error:", profileError);

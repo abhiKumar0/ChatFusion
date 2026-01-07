@@ -1,3 +1,29 @@
+/**
+ * ChatArea Component
+ * 
+ * The main chat interface for displaying and sending encrypted messages.
+ * 
+ * Key Features:
+ * - Real-time messaging with Supabase subscriptions
+ * - End-to-end encryption for all messages
+ * - Optimistic UI updates for instant message feedback
+ * - Typing indicators to show when the other person is typing
+ * - Image support with previews
+ * - Reply/quote functionality
+ * - Emoji picker integration
+ * - Auto-scroll to latest messages
+ * 
+ * Real-time Features:
+ * - Message updates via Supabase Postgres changes
+ * - Typing indicators via Supabase broadcast
+ * - Reaction updates via Supabase broadcast
+ * 
+ * Performance Optimizations:
+ * - Memoized values (messages, participant)
+ * - useCallback for handlers to prevent re-renders
+ * - Optimistic updates (show message immediately before server confirms)
+ * - Message deduplication (merge local + server messages)
+ */
 'use client';
 
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
@@ -19,22 +45,25 @@ import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import EmojiPicker from 'emoji-picker-react'
-// import { useCallStore } from "@/store/useCallStore";
 import dynamic from "next/dynamic";
 import StartCallButton from './StartButton';
-import Link from 'next/link'; 
-import {TopRightChatButton} from './smaller';
-// import { CallButton } from './calls';
+import Link from 'next/link';
+import { TopRightChatButton } from './smaller';
 
+/**
+ * Extended Message type with UI-specific properties
+ * isOwn - true if the current user sent this message
+ */
 interface UIMessage extends Message {
   isOwn: boolean;
 }
 
-// Dynamically import call-related components
-// const CallWindow = dynamic(() => import('./calls/CallWindow'), { ssr: false });
-// const IncomingCall = dynamic(() => import('./calls/IncomingCall'), { ssr: false });
-
-// Typing indicator component
+/**
+ * Typing Indicator Component
+ * 
+ * Displays an animated bubble with bouncing dots when the other person is typing.
+ * Uses staggered animation delays for a nice wave effect.
+ */
 const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
   if (!isVisible) return null;
 
@@ -43,6 +72,7 @@ const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
       <Card className="max-w-[70%] bg-secondary/80 border-border rounded-2xl rounded-bl-none shadow-sm">
         <div className="p-3 px-4">
           <div className="flex items-center space-x-1.5">
+            {/* Three bouncing dots with staggered timing */}
             <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
             <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></div>
             <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
@@ -54,73 +84,99 @@ const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
 };
 
 const ChatArea = ({ conversationId }: { conversationId: string }) => {
+  // ========== State Management ==========
+
+  // Message input state
   const [newMessage, setNewMessage] = useState('');
+
+  // Local optimistic messages (shown immediately before server confirms)
   const [localMessages, setLocalMessages] = useState<UIMessage[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
+
+  // UI state
+  const [isTyping, setIsTyping] = useState(false); // Is the other person typing?
   const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>(""); // Decrypted version of message we're replying to
+  const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
+
+  // Refs for DOM elements and timeouts
+  const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling to bottom
   const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>("");
-  const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
 
+  // ========== Data Fetching ==========
 
-  //   const ClientOnlyCallButton = dynamic(
-  //   () => import("./calls/ClientOnlyCallButton"),
-  //   { ssr: false }
-  // );
-
-  
-
-
-  // Current User
+  // Current logged-in user
   const { data: user, error: userError } = useGetMe();
 
+  // Global chat state (reply management, current conversation)
   const { replyingTo, clearReplyingTo, setCurrentConversation } = useChatStore();
   const currentConversation = conversationId;
 
-  // Sync with store for "last visited" functionality
+  // Keep the global store in sync with current conversation
+  // This helps track "last visited" conversation for features like unread badges
   useEffect(() => {
     if (conversationId) {
       setCurrentConversation(conversationId);
     }
   }, [conversationId, setCurrentConversation]);
 
+  // Fetch conversation details (participants, etc.)
   const { data: conversationData, error: conversationError } = useGetConversationById(currentConversation || "");
 
+  /**
+   * Find the other person in this conversation
+   * We need their public key for encryption!
+   */
   const currentParticipant = useMemo(() => {
     if (!conversationData || !user) return null;
     return conversationData.participants.find((p: any) => p.user.id !== user.id)?.user;
   }, [conversationData, user]);
 
-  // Messages in Current Conversation
+  // Fetch paginated messages for this conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
-  // console.log(messagePages)
 
-  // Instance for message creation
+  // React Query instance for creating messages
   const createMessageMutation = useCreateMessage();
   const queryClient = useQueryClient();
 
-  // Crypto context for cached private key
+  // Get our decrypted private key from the Crypto Context
+  // This was fetched once at app load and cached, so we don't decrypt it for every message!
   const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
-  // Supabase Realtime subscription
+  // ========== Supabase Real-time Setup ==========
+
+  // Supabase client (created once, reused for subscriptions)
   const [supabase] = useState(() => createClient());
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
+  /**
+   * Subscribe to real-time updates for this conversation
+   * 
+   * We listen for:
+   * 1. Database changes (new messages, edits, deletes) -> refetch messages
+   * 2. Typing events -> show/hide typing indicator
+   * 3. Reaction updates -> refetch messages to show new reactions
+   * 
+   * Cleanup: unsubscribe when conversation changes or component unmounts
+   */
   useEffect(() => {
     if (!currentConversation || !user) return;
 
+    // Create a unique channel for this conversation
     const newChannel = supabase.channel(`chat:${currentConversation}`);
 
     newChannel
+      // Listen for ANY database changes to messages in this conversation
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, () => {
+        // When a message is created/updated/deleted, refetch messages
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
       })
+      // Listen for typing events from other users
       .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
       .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))
+      // Listen for reaction updates (someone added/removed a reaction)
       .on('broadcast', { event: 'reaction_update' }, () => {
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
       })
@@ -128,6 +184,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
     setChannel(newChannel);
 
+    // Cleanup: unsubscribe when we leave this conversation
     return () => {
       supabase.removeChannel(newChannel);
       setChannel(null);
@@ -135,16 +192,31 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   }, [currentConversation, user, queryClient, supabase]);
 
 
-  // Auto-scroll to bottom when new messages arrive
+  /**
+   * Auto-scroll helper
+   * Smoothly scrolls to the bottom of the message list
+   */
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Combining multiple pages of messages into one (optimized)
+  /**
+   * Merge server messages with local optimistic messages
+   * 
+   * Optimistic UI flow:
+   * 1. User sends message -> add to localMessages with status="sending"
+   * 2. Show immediately in UI (feels instant!)
+   * 3. Server confirms -> message appears in messagePages
+   * 4. We merge them here, preferring server data but keeping local status
+   * 5. Clean up local message once we know server has it
+   * 
+   * This creates a smooth UX where messages appear instantly without waiting for the server.
+   */
   const messages: UIMessage[] = useMemo(() => {
     if (!messagePages?.pages || !user?.id) return [];
 
     try {
+      // Flatten all pages from infinite query into one array
       const serverMessages = messagePages.pages
         .flatMap((page: unknown) => {
           const typedPage = page as { messages: Message[]; nextCursor: string | null };
@@ -156,26 +228,28 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
           status: 'delivered' as const
         }));
 
-      // Merge with local messages more efficiently
+      // Create efficient lookup maps
       const localMessagesMap = new Map(localMessages.map(msg => [msg.id, msg]));
       const mergedMessages = new Map<string, UIMessage>();
 
-      // Add server messages
+      // Add server messages (source of truth)
       serverMessages.forEach(msg => {
         const localMsg = localMessagesMap.get(msg.id);
         mergedMessages.set(msg.id, {
           ...msg,
+          // If we have a local version marked as "sending", upgrade it to "sent"
           status: localMsg?.status === 'sending' ? 'sent' : msg.status
         });
       });
 
-      // Add local messages that aren't yet on server
+      // Add local optimistic messages that haven't reached server yet
       localMessages.forEach(msg => {
         if (msg.status === 'sending' && !mergedMessages.has(msg.id)) {
           mergedMessages.set(msg.id, msg);
         }
       });
 
+      // Sort by timestamp (oldest first)
       return Array.from(mergedMessages.values())
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     } catch (error) {
@@ -185,7 +259,11 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
     }
   }, [messagePages, user?.id, localMessages]);
 
-  // Auto-scroll when messages change
+  /**
+   * Auto-scroll when new messages arrive
+   * 
+   * Small delay ensures DOM has updated with new message before scrolling
+   */
   useEffect(() => {
     if (messages.length > 0) {
       const timeoutId = setTimeout(scrollToBottom, 100);
@@ -193,14 +271,22 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
     }
   }, [messages.length, scrollToBottom]);
 
-  // Clean up local messages when server messages arrive
+  /**
+   * Clean up local optimistic messages once server has them
+   * 
+   * When messagePages updates (server confirmed our message),
+   * we can remove the "sending" local versions
+   */
   useEffect(() => {
     if (messagePages?.pages?.length) {
       setLocalMessages(prev => prev.filter(msg => msg.status === 'sending'));
     }
   }, [messagePages?.pages?.length]);
 
-  // Handle errors
+  /**
+   * Global error handler
+   * Display any errors from user fetch, conversation fetch, or message fetch
+   */
   useEffect(() => {
     if (userError || conversationError || messagesError) {
       const errorMsg = userError?.message || conversationError?.message || messagesError?.message || 'An error occurred';
@@ -210,61 +296,83 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   }, [userError, conversationError, messagesError]);
 
 
+  // ========== Event Handlers ==========
 
-  // Typing timeout ref
+  // Ref to track typing timeout (so we can clear it when user keeps typing)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle typing events
+  /**
+   * Handle typing events
+   * 
+   * Flow:
+   * 1. User types -> broadcast "typing" event
+   * 2. Clear any existing timeout
+   * 3. Set new timeout to broadcast "stop_typing" after 1 second
+   * 
+   * This creates the effect where typing indicator shows when actively typing,
+   * then disappears 1 second after they stop.
+   */
   const handleTyping = useCallback(() => {
     if (!channel || !currentConversation) return;
 
-    // Emit typing event
+    // Let other users know we're typing
     channel.send({ type: 'broadcast', event: 'typing' });
 
-    // Clear existing timeout
+    // Clear the previous "stop typing" timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Set timeout to stop typing
+    // Schedule a "stop typing" event for 1 second from now
+    // If user keeps typing, this gets cancelled and rescheduled
     typingTimeoutRef.current = setTimeout(() => {
       channel.send({ type: 'broadcast', event: 'stop_typing' });
     }, 1000);
   }, [channel, currentConversation]);
 
+  /**
+   * Broadcast reaction updates
+   * Called when user adds/removes a reaction to a message
+   */
   const handleBroadcastReaction = useCallback(() => {
     channel?.send({ type: 'broadcast', event: 'reaction_update' });
   }, [channel]);
 
-  // Handle image selection
+  /**
+   * Handle image selection from file input
+   * \n   * Validates file type and size before creating a preview
+   */
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
+    // Only accept image files
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
 
-    // Validate file size (max 10MB)
+    // Limit to 10MB (prevents huge uploads)
     if (file.size > 10 * 1024 * 1024) {
       setError('Image size must be less than 10MB');
       return;
     }
 
-    // Create preview
+    // Create a preview URL for immediate display
     const reader = new FileReader();
     reader.onloadend = () => {
       setSelectedImage({
         file,
-        preview: reader.result as string
+        preview: reader.result as string // Data URL for preview
       });
     };
     reader.readAsDataURL(file);
   }, []);
 
-  // Convert image to base64
+  /**
+   * Convert image file to base64 string
+   * Used when sending image to server (stored as base64 in database)
+   */
   const convertImageToBase64 = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -277,9 +385,12 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
     });
   }, []);
 
-  // Remove selected image
+  /**
+   * Remove selected image and clear file input
+   */
   const handleRemoveImage = useCallback(() => {
     setSelectedImage(null);
+    // Clear the file input so the same file can be selected again
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
