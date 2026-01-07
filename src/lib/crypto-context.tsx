@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { decryptPrivateKey } from './crypto';
-import { useGetMe } from './react-query/queries';
+import { useGetKey, useGetMe } from './react-query/queries';
 
 interface CryptoContextType {
   decryptedPrivateKey: string | null;
@@ -25,9 +25,9 @@ export const CryptoProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: user } = useGetMe();
-
+  const {data: key} = useGetKey();
   useEffect(() => {
-    if (!user?.encryptedPrivateKey || !user?.email) {
+    if (!key?.userSecret?.encryptedPrivateKey || !user?.email) {
       setDecryptedPrivateKey(null);
       return;
     }
@@ -36,7 +36,7 @@ export const CryptoProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const decrypted = await decryptPrivateKey(user.encryptedPrivateKey, user.email);
+        const decrypted = await decryptPrivateKey(key?.userSecret?.encryptedPrivateKey, user.email);
         setDecryptedPrivateKey(decrypted);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to decrypt private key');
@@ -47,7 +47,7 @@ export const CryptoProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     decryptKey();
-  }, [user?.encryptedPrivateKey, user?.email]);
+  }, [key, user?.email]);
 
   return (
     <CryptoContext.Provider value={{ decryptedPrivateKey, isLoading, error }}>

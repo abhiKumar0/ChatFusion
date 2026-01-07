@@ -69,6 +69,11 @@ export const logOut = async () => {
   return response.data;
 };
 
+export const getKey = async () => {
+  const response = await api.get("/auth/key");
+  return response.data;
+}
+
 // Users
 export const getMe = async () => {
   const response = await api.get("/users/me");

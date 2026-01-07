@@ -1,3 +1,29 @@
+/**
+ * MessageBubble Component
+ * 
+ * A fully-featured, encrypted message display component for the chat application.
+ * 
+ * Key Features:
+ * - End-to-end encryption using NaCl box encryption
+ * - Automatic message decryption with caching for performance
+ * - Message editing (within 48-hour window)
+ * - Message deletion with confirmation
+ * - Emoji reactions with toggle behavior
+ * - Reply/quote functionality
+ * - Image attachment support
+ * - Delivery status indicators (sending → sent → delivered → seen)
+ * 
+ * Encryption Details:
+ * - Uses your private key (from Crypto Context) + other person's public key
+ * - Private keys are fetched from a secure server endpoint, not from user objects
+ * - Decrypted messages are cached globally to avoid re-decryption on re-renders
+ * 
+ * Performance Optimizations:
+ * - React.memo to prevent unnecessary re-renders
+ * - Message cache to avoid redundant decryption
+ * - Memoized values (participant, parentMsg, cacheKey)
+ * - Cancelled state checks to prevent updates on unmounted components
+ */
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -13,6 +39,14 @@ import { encryptMessage } from '@/lib/crypto';
 import EmojiPicker from 'emoji-picker-react';
 import { useChatStore } from '@/store/useChatStore';
 
+/**
+ * Props for the MessageBubble component
+ * 
+ * message - The message object with additional metadata (isOwn tells us if current user sent it)
+ * conversationData - Info about conversation participants (needed for encryption/decryption)
+ * conversationId - ID of the conversation (needed for mutations like edit/delete)
+ * onBroadcastReaction - Optional callback to notify other components when reactions change
+ */
 interface MessageBubbleProps {
     message: Message & { isOwn: boolean; status?: string };
     conversationData?: {
@@ -21,8 +55,7 @@ interface MessageBubbleProps {
                 id: string;
                 email: string;
                 fullName: string;
-                publicKey: string;
-                encryptedPrivateKey: string;
+                publicKey: string; // Other user's public key - needed for decryption
             };
         }>;
     };
@@ -30,33 +63,68 @@ interface MessageBubbleProps {
     onBroadcastReaction?: () => void;
 }
 
-// Cache for decrypted messages to avoid re-decryption
+/**
+ * Global cache for decrypted messages
+ * 
+ * Why? Decryption is computationally expensive and we don't want to re-decrypt
+ * the same message every time the component re-renders. This cache persists across
+ * component instances, so scrolling up/down won't trigger unnecessary decryptions.
+ * 
+ * Key format: `${messageId}-${content}-${nonce}`
+ * Value: The decrypted plaintext message
+ */
 const messageCache = new Map<string, string>();
 
+/**
+ * MessageBubble Component
+ * 
+ * Displays an individual message in the chat with full encryption/decryption support.
+ * Handles: message display, editing, deleting, reactions, and replies.
+ * 
+ * Uses React.memo to prevent unnecessary re-renders when parent components update.
+ */
 const MessageBubble = React.memo(({ message, conversationData, conversationId, onBroadcastReaction }: MessageBubbleProps) => {
+    // ========== State Management ==========
+
+    // Decrypted message content (starts empty, gets filled after decryption)
     const [content, setContent] = useState<string>("");
-    const [parentContent, setParentContent] = useState<string>("");
+    const [parentContent, setParentContent] = useState<string>(""); // For quoted/replied messages
+
+    // Current logged-in user data
     const { data: currentUser } = useGetMe();
+
+    // Decryption loading states
     const [isDecrypting, setIsDecrypting] = useState(false);
     const [isDecryptingParent, setIsDecryptingParent] = useState(false);
+
+    // Get our decrypted private key from the Crypto Context
+    // This is cached globally so we don't have to decrypt it for every message!
     const { decryptedPrivateKey } = useCrypto();
-    const [showOptions, setShowOptions] = useState(false);
+
+    // UI state for interactions
+    const [showOptions, setShowOptions] = useState(false); // Show edit/delete menu on hover
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [alowEdit, setAlowEdit] = useState<boolean>(true);
+    const [alowEdit, setAlowEdit] = useState<boolean>(true); // Can only edit within 48 hours
+
+    // ========== React Query Mutations ==========
     const updateMessageMutation = useUpdateMessage();
     const deleteMessageMutation = useDeleteMessage();
     const addReactionMutation = useAddReaction();
     const removeReactionMutation = useRemoveReaction();
+
+    // Global state for reply functionality
     const { setReplyingTo } = useChatStore();
 
-    
 
-    // Handle operation errors and success
+
+    // ========== Error & Success Handling ==========
+
+    // Show feedback when update operations succeed or fail
     useEffect(() => {
         if (updateMessageMutation.error) {
             setError('Failed to update message');
@@ -94,21 +162,33 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         }
     }, [removeReactionMutation.error, removeReactionMutation.isSuccess]);
 
-    // Clear error when starting new operations
+    // ========== Event Handlers ==========
+
+    /**
+     * Enter edit mode for this message
+     * Pre-fills the edit input with the current decrypted content
+     */
     const handleEdit = () => {
         setError(null);
         setIsEditing(true);
         setEditText(content);
     };
 
-    // Update edit text when content changes and we're editing
+    /**
+     * Keep edit text in sync with decrypted content
+     * This ensures if the message finishes decrypting while we're editing,
+     * we get the latest decrypted text
+     */
     useEffect(() => {
         if (isEditing) {
             setEditText(content);
         }
     }, [content, isEditing]);
 
-    // Close emoji picker when clicking outside
+    /**
+     * Close emoji picker when user clicks outside of it
+     * This provides better UX than requiring a manual close button
+     */
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (showEmojiPicker) {
@@ -152,6 +232,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         setShowEmojiPicker(true);
     };
 
+    /**
+     * Handle emoji reaction selection
+     * 
+     * Toggle behavior: if you already reacted with this emoji, we remove it.
+     * Otherwise, we add it. This creates a nice "like/unlike" experience.
+     */
     const handleEmojiSelect = (emojiData: { emoji: string }) => {
         setError(null);
 
@@ -162,7 +248,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
         console.log("Existing reaction", existingReaction);
         if (existingReaction) {
-            // Remove existing reaction
+            // User already reacted with this emoji, so remove it (toggle off)
             removeReactionMutation.mutate({
                 conversationId,
                 messageId: message.id,
@@ -171,7 +257,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                 onSuccess: () => onBroadcastReaction?.()
             });
         } else {
-            // Add new reaction
+            // Add new reaction (toggle on)
             addReactionMutation.mutate({
                 conversationId,
                 messageId: message.id,
@@ -184,12 +270,23 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         setShowEmojiPicker(false);
     };
 
+    /**
+     * Save edited message
+     * 
+     * Process:
+     * 1. Validate that text actually changed
+     * 2. Encrypt the new message text using the other person's public key + our private key
+     * 3. Send encrypted message to the server
+     * 4. Server will broadcast the update via Supabase realtime
+     */
     const handleSaveEdit = async () => {
+        // Don't save if nothing changed or input is empty
         if (!editText.trim() || editText === content) {
             setIsEditing(false);
             return;
         }
 
+        // Make sure we have all the keys needed for encryption
         if (!conversationData || !currentUser?.id || !participant) {
             setError('Unable to encrypt message');
             return;
@@ -198,9 +295,10 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         setError(null);
 
         try {
-            // Encrypt the updated message
+            // Encrypt the updated message with the participant's public key
             const { ciphertext, nonce } = await encryptMessage(editText.trim(), participant.publicKey, decryptedPrivateKey!);
 
+            // Send the encrypted message to the server
             updateMessageMutation.mutate({
                 conversationId,
                 messageId: message.id,
@@ -226,29 +324,57 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
 
 
-    // Memoize participant to avoid recalculation
+    // ========== Memoized Values ==========
+
+    /**
+     * Find the other person in this conversation
+     * 
+     * In a 1-on-1 chat, we need their public key for decryption.
+     * We memoize this to avoid recalculating on every render.
+     */
     const participant = useMemo(() => {
         if (!conversationData || !currentUser?.id) return null;
         return conversationData.participants.find(p => p.user.id !== currentUser.id)?.user;
     }, [conversationData, currentUser?.id]);
 
-    // Handle both object and single-element array for parentMessage
+    /**
+     * Handle parent message (for replies/quotes)
+     * 
+     * Supabase sometimes returns this as an object, sometimes as a single-element array.
+     * We normalize it here to always work with a single object.
+     */
     const parentMsg = useMemo(() => {
         if (!message.parentMessage) return null;
         return Array.isArray(message.parentMessage) ? message.parentMessage[0] : message.parentMessage;
     }, [message.parentMessage]);
 
-
-    // Create cache key for this message
+    /**
+     * Create a unique cache key for this specific message
+     * 
+     * If any of these values change, we need to re-decrypt.
+     * This prevents unnecessary decryption when other parts of the component update.
+     */
     const cacheKey = useMemo(() =>
         `${message.id}-${message.content}-${message.nonce}`,
         [message.id, message.content, message.nonce]
     );
 
-    useEffect(() => {
-        let cancelled = false;
+    // ========== Main Message Decryption ==========
 
-        // Skip decryption for image-only messages (type IMAGE with no content)
+    /**
+     * Decrypt the message content
+     * 
+     * This runs whenever the message, user data, or keys change.
+     * Uses NaCl box encryption with this formula:
+     *   - Your private key (from Crypto Context)
+     *   - Other person's public key (from participant)
+     * 
+     * Performance optimization: checks cache first to avoid re-decrypting.
+     */
+    useEffect(() => {
+        let cancelled = false; // Prevents state updates after unmount
+
+        // Image-only messages don't have encrypted text content
         const isImageOnly = message.type === 'IMAGE' && (!message.content || message.content.trim() === '');
 
         if (isImageOnly) {
@@ -257,20 +383,21 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             return;
         }
 
+        // Validate we have all the data needed for decryption
         if (!conversationData || !currentUser?.id || !message?.sender?.id || !participant) {
             setContent('[Unable to decrypt message]');
             setIsDecrypting(false);
             return;
         }
 
-        // Skip decryption if there's no content to decrypt
+        // Some messages might not have content (e.g., system messages)
         if (!message.content || message.content.trim() === '') {
             setContent('');
             setIsDecrypting(false);
             return;
         }
 
-        // Check cache first
+        // Check if we've already decrypted this exact message before
         const cached = messageCache.get(cacheKey);
         if (cached) {
             setContent(cached);
@@ -278,6 +405,13 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             return;
         }
 
+        /**
+         * The actual decryption function
+         * 
+         * This is async because decryption with NaCl can take a moment.
+         * We wrap everything in a cancelled check to prevent state updates
+         * if the component unmounts during decryption.
+         */
         const decryptMessageContent = async () => {
             try {
                 setIsDecrypting(true);
@@ -285,34 +419,40 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
                 const isOwn = message.sender.id === currentUser.id;
 
-                // Use cached private key from crypto context when available
-                let privateKey;
-                if (decryptedPrivateKey && !isOwn) {
-                    privateKey = decryptedPrivateKey;
-                } else {
-                    privateKey = isOwn
-                        ? await decryptPrivateKey(participant.encryptedPrivateKey, participant.email)
-                        : await decryptPrivateKey(currentUser.encryptedPrivateKey, currentUser.email);
+                // Wait for the private key to be ready
+                // The Crypto Context fetches and decrypts this on app load
+                if (!decryptedPrivateKey) {
+                    const errorMsg = '[Waiting for key...]';
+                    if (!cancelled) {
+                        setContent(errorMsg);
+                    }
+                    return;
                 }
 
-                const publicKey = isOwn ? currentUser?.publicKey : participant?.publicKey;
+                // KEY CONCEPT: In NaCl box encryption, you always decrypt with:
+                // - Your private key (decryptedPrivateKey - from our secure storage)
+                // - The other person's public key (participant.publicKey - publicly shared)
+                // This works for BOTH sent and received messages!
+                const publicKey = participant?.publicKey;
 
-                // Skip decryption if no nonce (image-only messages don't have nonce)
-                if (!publicKey || !message.nonce || !privateKey) {
+                // Validate we have everything needed for decryption
+                if (!publicKey || !message.nonce) {
                     const errorMsg = message.type === 'IMAGE' ? '' : '[Message could not be decrypted]';
                     if (!cancelled) {
                         setContent(errorMsg);
                         if (message.nonce) {
-                            messageCache.set(cacheKey, errorMsg);
+                            messageCache.set(cacheKey, errorMsg); // Cache the error to avoid retrying
                         }
                     }
                     return;
                 }
 
-                const decrypted = await decryptMessage(message.content, message.nonce, publicKey, privateKey);
+                // Finally, decrypt the message!
+                // This uses the crypto.ts decryptMessage function which calls NaCl under the hood
+                const decrypted = await decryptMessage(message.content, message.nonce, publicKey, decryptedPrivateKey);
                 if (!cancelled) {
                     setContent(decrypted);
-                    messageCache.set(cacheKey, decrypted);
+                    messageCache.set(cacheKey, decrypted); // Cache for future renders
                 }
             } catch (error) {
                 console.error('Error decrypting message:', error);
@@ -324,34 +464,40 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                     }
                 }
             } finally {
+                // Always clear the loading state when done
                 if (!cancelled) setIsDecrypting(false);
             }
         };
 
+        // Start the decryption process
         decryptMessageContent();
 
+        // Cleanup function: mark as cancelled if component unmounts
+        // This prevents "Can't perform a React state update on an unmounted component" warnings
         return () => {
             cancelled = true;
         };
     }, [message, currentUser, participant, cacheKey, decryptedPrivateKey, conversationData]);
 
-    // Decrypt parent message if it exists
+    // ========== Parent Message Decryption (for Replies/Quotes) ==========
+
+    /**
+     * Decrypt the parent/quoted message if this is a reply
+     * 
+     * Uses the same decryption logic as the main message.
+     * We do this separately because parent messages have their own state and cache keys.
+     */
     useEffect(() => {
         let cancelled = false;
 
+        // No parent message to decrypt
         if (!parentMsg || !conversationData || !currentUser?.id || !participant) {
             setParentContent('');
             setIsDecryptingParent(false);
             return;
         }
 
-        // Debug logging for parentMessage
-        // console.log('Parent message debug:', {
-        //     parentMessage: parentMsg,
-        //     sender: parentMsg?.sender,
-        //     senderId: parentMsg?.senderId
-        // });
-
+        // Check cache first (avoid re-decrypting the same parent message)
         const parentCacheKey = `${parentMsg.id}-${parentMsg.content}-${parentMsg.nonce}`;
         const cachedParent = messageCache.get(parentCacheKey);
         if (cachedParent) {
@@ -360,7 +506,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             return;
         }
 
-        // Check for image-only parent message
+        // Handle image-only parent messages
         const isParentImageOnly = (parentMsg.type === 'IMAGE' || parentMsg.media) && (!parentMsg.content || parentMsg.content.trim() === '');
         if (isParentImageOnly) {
             setParentContent('📷 Photo');
@@ -368,24 +514,31 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             return;
         }
 
+        /**
+         * Decrypt parent message content
+         * Same logic as main message decryption
+         */
         const decryptParentMessage = async () => {
             try {
                 setIsDecryptingParent(true);
                 setParentContent("");
 
                 const isParentOwn = parentMsg.senderId === currentUser.id;
-                let privateKey;
-                if (decryptedPrivateKey && !isParentOwn) {
-                    privateKey = decryptedPrivateKey;
-                } else {
-                    privateKey = isParentOwn
-                        ? await decryptPrivateKey(participant.encryptedPrivateKey, participant.email)
-                        : await decryptPrivateKey(currentUser.encryptedPrivateKey, currentUser.email);
+
+                // Wait for private key
+                if (!decryptedPrivateKey) {
+                    const errorMsg = '[Waiting for key...]';
+                    if (!cancelled) {
+                        setParentContent(errorMsg);
+                    }
+                    return;
                 }
 
-                const publicKey = isParentOwn ? currentUser?.publicKey : participant?.publicKey;
+                // Always use participant's public key (same as main message)
+                const publicKey = participant?.publicKey;
 
-                if (!publicKey || !parentMsg.nonce || !privateKey) {
+                // Validate
+                if (!publicKey || !parentMsg.nonce) {
                     const errorMsg = '[Parent message could not be decrypted]';
                     if (!cancelled) {
                         setParentContent(errorMsg);
@@ -394,7 +547,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                     return;
                 }
 
-                const decrypted = await decryptMessage(parentMsg.content, parentMsg.nonce, publicKey, privateKey);
+                // Decrypt
+                const decrypted = await decryptMessage(parentMsg.content, parentMsg.nonce, publicKey, decryptedPrivateKey);
                 if (!cancelled) {
                     setParentContent(decrypted);
                     messageCache.set(parentCacheKey, decrypted);
@@ -411,57 +565,75 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             }
         };
 
+        // Start decrypting the parent message
         decryptParentMessage();
 
+        // Cleanup on unmount
         return () => {
             cancelled = true;
         };
     }, [parentMsg, currentUser, participant, decryptedPrivateKey, conversationData]);
 
-    // Status icon component
+    // ========== UI Components & Helpers ==========
+
+    /**
+     * Status Icon Component
+     * 
+     * Shows the delivery/read status for messages you sent.
+     * Only visible on your own messages (not on received messages).
+     * 
+     * Status progression: sending → sent → delivered → seen
+     */
     const StatusIcon = ({ status }: { status?: string }) => {
         if (!status || !message.isOwn) return null;
 
         switch (status) {
             case 'sending':
-                return <span className="ml-1 text-xs text-muted-foreground">🕒</span>;
+                return <span className="ml-1 text-xs text-muted-foreground">🕒</span>; // Clock emoji while sending
             case 'sent':
-                return <span className="ml-1 text-xs text-muted-foreground">✓</span>;
+                return <span className="ml-1 text-xs text-muted-foreground">✓</span>; // Single check - sent to server
             case 'delivered':
-                return <span className="ml-1 text-xs text-muted-foreground">✓✓</span>;
+                return <span className="ml-1 text-xs text-muted-foreground">✓✓</span>; // Double check - delivered to recipient
             case 'seen':
-                return <span className="ml-1 text-xs text-blue-500">✓✓</span>;
+                return <span className="ml-1 text-xs text-blue-500">✓✓</span>; // Blue double check - read by recipient
             case 'error':
-                return <span className="ml-1 text-xs text-red-500">!</span>;
+                return <span className="ml-1 text-xs text-red-500">!</span>; // Red exclamation - failed to send
             default:
                 return null;
         }
     };
 
-    //Allow edit
+    /**
+     * 48-Hour Edit Window
+     * 
+     * Messages can only be edited within 48 hours of being sent.
+     * This prevents editing very old messages which could be confusing in long conversations.
+     * 
+     * We recalculate this whenever the message changes (which is rare after initial load).
+     */
     useEffect(() => {
-        // 1. Define the 48-hour window in milliseconds (The limit)
-        // 48 hours * 60 min * 60 sec * 1000 ms = 172,800,000 ms
-        const FORTY_EIGHT_HOURS_MS = 172800000;
+        const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000; // 48 hours in milliseconds
 
-        // 2. Get the current time and the creation time
-        const now = Date.now(); // Current timestamp in ms
-        const createdTime = new Date(message.createdAt).getTime(); // Message timestamp in ms
-
-        // 3. Calculate the difference
+        const now = Date.now();
+        const createdTime = new Date(message.createdAt).getTime();
         const timeElapsed = now - createdTime;
 
-        // 4. Set permission based on the comparison
-        if (timeElapsed > FORTY_EIGHT_HOURS_MS) {
-            // If the elapsed time is greater than 48 hours, editing is disabled.
-            setAlowEdit(false);
-        } else {
-            // If the elapsed time is less than 48 hours, editing is allowed.
-            setAlowEdit(true);
-        }
-    }, [message, setAlowEdit]);
+        // Allow editing only if less than 48 hours have passed
+        setAlowEdit(timeElapsed <= FORTY_EIGHT_HOURS_MS);
+    }, [message]);
 
+    // ========== Render ==========
 
+    /**
+     * The JSX below renders:
+     * 1. Error/success notifications (positioned absolutely)
+     * 2. Message options menu (edit, delete, react) - shows on hover
+     * 3. The message bubble with:
+     *    - Parent/quoted message (if replying)
+     *    - Main content (text and/or image)
+     *    - Reactions
+     *    - Timestamp and status icon
+     */
 
     return (
         <div className={`flex items-center ${message.isOwn ? 'justify-end' : 'justify-start'} mb-2`}
@@ -619,22 +791,22 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                             </p>
                         ) : parentMsg?.type === 'TEXT' ? (
                             <div className="text-sm opacity-80">
-                            {isDecryptingParent ? (
-                                <div className="flex items-center space-x-1">
-                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                    <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                                </div>
-                            ) : (
-                                <p className="truncate">{parentContent}</p>
-                            )}
-                        </div>
+                                {isDecryptingParent ? (
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                        <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                        <div className="w-1 h-1 rounded-full bg-current opacity-70 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                    </div>
+                                ) : (
+                                    <p className="truncate">{parentContent}</p>
+                                )}
+                            </div>
                         ) : (
                             <p className="text-sm opacity-80">
                                 <p className='text-xs opacity-70'>Unknown Type</p>
                             </p>
                         )}
-                        
+
                     </div>
                 )}
 

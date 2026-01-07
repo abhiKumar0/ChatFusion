@@ -7,7 +7,6 @@ export interface User {
     bio: string,
     status: string,
     publicKey?: string,
-    encryptedPrivateKey?: string,
     friendshipStatus?: 'FRIEND' | 'REQUEST_SENT' | 'REQUEST_RECEIVED' | 'NONE',
     friendshipId?: string
 }

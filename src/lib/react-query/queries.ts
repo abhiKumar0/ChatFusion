@@ -33,6 +33,7 @@ import {
   updateCallStatus,
   answerCall,
   getUserByEmail,
+  getKey,
 } from './api';
 
 
@@ -40,7 +41,9 @@ import { Message } from '@/types/types';
 
 // QueryClient is now provided by the provider.tsx
 
-// Auth Mutations
+// ********************************************* Auth Mutations *********************************************
+
+//Signu[]
 export const useSignUp = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -56,6 +59,8 @@ export const useSignUp = () => {
   };
 };
 
+
+//Log in
 export const useLogIn = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -71,6 +76,8 @@ export const useLogIn = () => {
   };
 };
 
+
+//Login from server side, delete cookies and all
 export const useLogOut = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -89,7 +96,24 @@ export const useLogOut = () => {
   };
 }
 
-// User Queries
+//To get Private key of current user
+export const useGetKey = () => {
+  const query = useQuery({
+    queryKey: ['key'],
+    queryFn: getKey,
+    staleTime: Infinity,
+  })
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  }
+}
+
+
+// *********************************************User Queries ***********************************************
+
+//Get Current User
 export const useGetMe = () => {
   const query = useQuery({
     queryKey: ['me'],
@@ -103,6 +127,8 @@ export const useGetMe = () => {
   };
 };
 
+
+//Get All Users
 export const useGetUsers = () => {
   const query = useQuery({
     queryKey: ['users'],
@@ -116,6 +142,8 @@ export const useGetUsers = () => {
   };
 };
 
+
+//Singile user by Id
 export const useGetUserById = (id: string) => {
   const query = useQuery({
     queryKey: ['user', id],
@@ -129,6 +157,7 @@ export const useGetUserById = (id: string) => {
   };
 };
 
+//Get user by email
 export const useGetUserByEmail = (email: string) => {
   const query = useQuery({
     queryKey: ['user', email],
@@ -142,6 +171,7 @@ export const useGetUserByEmail = (email: string) => {
   };
 }
 
+//Get all friends
 export const useGetFriends = () => {
     const query = useQuery({
         queryKey: ['friends'],
@@ -155,6 +185,7 @@ export const useGetFriends = () => {
     };
 };
 
+// Get friends of users
 export const useGetUserFriends = (userId: string) => {
     return useQuery({
         queryKey: ['user-friends', userId],
