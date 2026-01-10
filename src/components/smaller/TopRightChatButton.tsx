@@ -30,10 +30,10 @@ const TopRigthChatButton = () => {
             </PopoverTrigger>
             <PopoverContent>
                 <div className="flex flex-col space-y-1">
-                    <Button className="cursor-pointer" onClick={handleLeaveConversation} variant="outline">Leave Conversation</Button>
-                    <Button className="cursor-pointer" variant="outline">Report User</Button>
+                    <Button className="cursor-pointer" onClick={handleLeaveConversation} variant="outline">Leave Chat</Button>
+                    <Button className="cursor-pointer" variant="outline">Clear Chat</Button>
                     <Button className="cursor-pointer" variant="outline">Block User</Button>
-                    <Button className="cursor-pointer" variant="destructive">Clear Conversation</Button>
+                    <Button className="cursor-pointer" variant="destructive">Delete Chat</Button>
                 </div>
             </PopoverContent>
             </Popover>

@@ -34,6 +34,7 @@ import {
   answerCall,
   getUserByEmail,
   getKey,
+  deleteConversation,
 } from './api';
 
 
@@ -235,8 +236,6 @@ export const useUploadAvatar = () => {
 };
 
 // Friend Request Mutations
-
-
 export const useSendFriendRequest = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation({
@@ -252,6 +251,8 @@ export const useSendFriendRequest = () => {
     };
 };
 
+
+//Respond to friend request mutation
 export const useRespondToFriendRequest = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
@@ -269,6 +270,7 @@ export const useRespondToFriendRequest = () => {
   };
 };
 
+//Cancel friend request mutation
 export const useCancelFriendRequest = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation({
@@ -285,6 +287,8 @@ export const useCancelFriendRequest = () => {
     };
 };
 
+
+//Get friend requests query
 export const useGetFriendRequests = () => {
   const query = useQuery({
     queryKey: ['friendRequests'],
@@ -298,9 +302,7 @@ export const useGetFriendRequests = () => {
   };
 };
 
-// Conversation Queries
-
-
+// *****************************Conversation Queries *************************
 export const useGetConversations = () => {
   const query = useQuery({
     queryKey: ['conversations'],
@@ -342,6 +344,23 @@ export const useGetConversationById = (id: string) => {
     error: query.error,
   };
 };
+
+
+export const useDeleteConversaion = (id: string, deleteFor: 'SELF' | 'ALL') => {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: () => deleteConversation(id, deleteFor),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+};
+
 
 // Message Queries and Mutations
 export const useCreateMessage = () => {
@@ -417,10 +436,11 @@ export const useUpdateMessage = () => {
   });
 };
 
+// Delete Message
 export const useDeleteMessage = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deleteMessage,
+    mutationFn: ({conversationId, messageId, deleteType}: {conversationId: string, messageId: string, deleteType: 'SELF' | 'ALL'}) => deleteMessage({conversationId, messageId, deleteType}),
     onSuccess: (_data, variables) => {
       queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
@@ -434,7 +454,7 @@ export const useDeleteMessage = () => {
       });
     },
   });
-};
+}
 
 
 // Reactions mutations
@@ -502,6 +522,8 @@ export const useRemoveReaction = () => {
     },
   });
 };
+
+
 // Call Hooks
 export const useInitiateCall = () => {
     const mutation = useMutation({

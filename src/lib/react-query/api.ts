@@ -175,6 +175,11 @@ export const getConversationById = async (id: string) => {
   return response.data.conversation;
 };
 
+export const deleteConversation = async (id: string, deleteFor: string) => {
+  const response = await api.delete(`/conversations/${id}?deleteFor=${deleteFor}`);
+  return response.data;
+};
+
 // Messages
 export const createMessage = async ({
   conversationId,
@@ -236,11 +241,14 @@ export const updateMessage = async ({
 export const deleteMessage = async ({
   conversationId,
   messageId,
+  deleteType
 }: {
   conversationId: string;
   messageId: string;
+  deleteType: string;
 }) => {
-  const { data } = await api.delete(`/conversations/${conversationId}/message/${messageId}`);
+  console.log("CAlling delkete")
+  const { data } = await api.delete(`/message/${messageId}?conversationId=${conversationId}&deleteType=${deleteType}`);
   return data;
 };
 
