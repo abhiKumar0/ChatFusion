@@ -699,7 +699,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                 />
               </>
             )}
-            <TopRightChatButton />
+            <TopRightChatButton conversationId={conversationId} />
           </div>
         </div>
 

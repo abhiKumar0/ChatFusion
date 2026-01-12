@@ -8,12 +8,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useRouter } from "next/navigation"
+import { useDeleteConversation } from "@/lib/react-query/queries"
 
-const TopRigthChatButton = () => {
+const TopRigthChatButton = ({conversationId}: {conversationId: string}) => {
     const router = useRouter();
+    const {mutateAsync: deleteConversation} = useDeleteConversation();
 
     const handleLeaveConversation = () => {
         router.replace('/chat');
+    }
+
+    const handleClearChat = () => {
+        deleteConversation({id: conversationId, deleteFor: 'SELF'});
+    }
+
+    const handleDeleteConversation = () => {
+        deleteConversation({id: conversationId, deleteFor: 'ALL'});
     }
 
     return (
@@ -31,9 +41,9 @@ const TopRigthChatButton = () => {
             <PopoverContent>
                 <div className="flex flex-col space-y-1">
                     <Button className="cursor-pointer" onClick={handleLeaveConversation} variant="outline">Leave Chat</Button>
-                    <Button className="cursor-pointer" variant="outline">Clear Chat</Button>
+                    <Button onClick={handleClearChat} className="cursor-pointer" variant="outline">Clear Chat</Button>
                     <Button className="cursor-pointer" variant="outline">Block User</Button>
-                    <Button className="cursor-pointer" variant="destructive">Delete Chat</Button>
+                    <Button onClick={handleDeleteConversation} className="cursor-pointer" variant="destructive">Delete Chat</Button>
                 </div>
             </PopoverContent>
             </Popover>

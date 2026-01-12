@@ -319,7 +319,7 @@ export const useGetConversations = () => {
 export const useCreateConversation = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: createConversation,
+    mutationFn: ({recipientId}: {recipientId: string}) => createConversation(recipientId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
@@ -346,10 +346,10 @@ export const useGetConversationById = (id: string) => {
 };
 
 
-export const useDeleteConversaion = (id: string, deleteFor: 'SELF' | 'ALL') => {
+export const useDeleteConversation = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: () => deleteConversation(id, deleteFor),
+    mutationFn: ({id, deleteFor}: {id: string, deleteFor: 'SELF' | 'ALL'}) => deleteConversation(id, deleteFor),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },

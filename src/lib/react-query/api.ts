@@ -238,6 +238,7 @@ export const updateMessage = async ({
   return data;
 };
 
+//Delete message
 export const deleteMessage = async ({
   conversationId,
   messageId,
@@ -247,7 +248,6 @@ export const deleteMessage = async ({
   messageId: string;
   deleteType: string;
 }) => {
-  console.log("CAlling delkete")
   const { data } = await api.delete(`/message/${messageId}?conversationId=${conversationId}&deleteType=${deleteType}`);
   return data;
 };
@@ -262,7 +262,6 @@ export const addReaction = async ({
   messageId: string;
   emoji: string;
 }) => {
-  console.log("Infos", conversationId, messageId, emoji);
   const { data } = await api.post(`/message/${messageId}/reactions`, { conversationId, emoji });
   return data;
 };

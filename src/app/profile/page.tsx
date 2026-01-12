@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'; // Assuming skeleton exists
 // Actually, let's just use standard HTML textarea with tailwind classes if component missing.
 
 import { useRouter } from 'next/navigation';
+import { FriendSection } from '@/components/smaller';
 
 const ProfilePage = () => {
     const router = useRouter();
@@ -282,40 +283,7 @@ const ProfilePage = () => {
                 ) : friends && friends.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {friends.map((friend) => (
-                            <Card key={friend.id} className="group hover:shadow-lg transition-all duration-300 border-muted-foreground/10 hover:border-primary/20">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="relative">
-                                            <Avatar className="h-14 w-14 border-2 border-background">
-                                                <AvatarImage src={friend.avatar} />
-                                                <AvatarFallback>{friend.fullName?.[0]}</AvatarFallback>
-                                            </Avatar>
-                                            <span
-                                                className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background ${(friend.status?.toLowerCase() === 'online') ? 'bg-green-500' :
-                                                    (friend.status?.toLowerCase() === 'away') ? 'bg-yellow-500' : 'bg-gray-400'
-                                                    }`}
-                                            />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                                                {friend.fullName}
-                                            </h3>
-                                            <p className="text-sm text-muted-foreground truncate">
-                                                @{friend.username}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 flex gap-2">
-                                        <Button className="w-full gap-2 text-xs" variant="secondary" size="sm">
-                                            <MessageSquare className="w-3.5 h-3.5" />
-                                            Message
-                                        </Button>
-                                        <Button className="w-full gap-2 text-xs" variant="outline" size="sm">
-                                            View
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <FriendSection key={friend.id} friend={friend} />
                         ))}
                     </div>
                 ) : (
