@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
         // Check if friendship already exists
         const { data: existingFriendship } = await supabase
-            .from('Friendship')
+            .from('FriendRequest')
             .select('*')
             .or(`and(senderId.eq.${user.id},receiverId.eq.${receiverId}),and(senderId.eq.${receiverId},receiverId.eq.${user.id})`)
             .single();
@@ -30,11 +30,13 @@ export async function POST(request: NextRequest) {
 
         // Create friend request
         const { data: friendship, error } = await supabase
-            .from('Friendship')
+            .from('FriendRequest')
             .insert({
                 senderId: user.id,
                 receiverId: receiverId,
-                status: 'PENDING'
+                status: 'PENDING',
+                updatedAt: new Date(),
+                createdAt: new Date(),
             })
             .select()
             .single();
@@ -67,7 +69,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Target user ID or request ID is required" }, { status: 400 });
         }
 
-        let query = supabase.from('Friendship').delete();
+        let query = supabase.from('FriendRequest').delete();
 
         if (requestId) {
             // Delete by specific request ID
@@ -110,7 +112,7 @@ export async function PATCH(request: NextRequest) {
         if (action === 'ACCEPT') {
             // Update the friendship status to ACCEPTED
             const { data: friendship, error } = await supabase
-                .from('Friendship')
+                .from('FriendRequest')
                 .update({ status: 'ACCEPTED' })
                 .eq('id', requestId)
                 .eq('receiverId', user.id) // Only receiver can accept
@@ -126,7 +128,7 @@ export async function PATCH(request: NextRequest) {
         } else if (action === 'REJECT') {
             // Delete the friendship request
             const { error } = await supabase
-                .from('Friendship')
+                .from('FriendRequest')
                 .delete()
                 .eq('id', requestId)
                 .eq('receiverId', user.id); // Only receiver can reject
