@@ -112,6 +112,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
   const [isInviting, setIsInviting] = useState(false);
 
   const { data: conversations, isLoading, error } = useGetConversations();
+  console.log("conversation", conversations)
   // const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore(); // Not needed for selection anymore
   const { setCurrentConversation, setCurrentParticipant } = useChatStore();
   const { data: user } = useGetMe();
@@ -163,7 +164,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
     if (!conversations || !user) return [];
 
     return conversations.map((convo: any) => {
-      const contact = convo.participants.find((participant: any) => participant.user.id !== user.id)?.user;
+      const contact = convo.allParticipants.find((participant: any) => participant.user.id !== user.id)?.user;
       return { ...convo, contact };
     }).filter((convo: any) => convo.contact); // Filter out conversations without valid contacts
   }, [conversations, user]);

@@ -100,7 +100,7 @@ export const getFriends = async (): Promise<User[]> => {
 export const uploadAvatar = async (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const headers = {
     'Content-Type': 'multipart/form-data',
   };
@@ -117,18 +117,23 @@ export const checkUsername = async (username: string): Promise<boolean> => {
 };
 
 export const getUserById = async (userId: string) => {
-    const response = await api.get(`/users/${userId}`);
-    return response.data;
+  const response = await api.get(`/users/${userId}`);
+  return response.data;
 };
 
-export const getUserByEmail = async (email: string): Promise<{user: SearchedUser}> => {
-    const response = await api.post(`/users/getUserByEmail`, { email });
-    return response.data;
+export const getUserByUsername = async (username: string) => {
+  const response = await api.get(`/users/username/${username}`);
+  return response.data;
+};
+
+export const getUserByEmail = async (email: string): Promise<{ user: SearchedUser }> => {
+  const response = await api.post(`/users/getUserByEmail`, { email });
+  return response.data;
 };
 
 export const getUserFriends = async (userId: string) => {
-    const response = await api.get(`/users/${userId}/friends`);
-    return response.data;
+  const response = await api.get(`/users/${userId}/friends`);
+  return response.data;
 };
 
 // Friend Requests
@@ -146,8 +151,8 @@ export const cancelFriendRequest = async ({ targetUserId, requestId }: { targetU
   // Use data property for DELETE body in axios/standard api wrappers if needed, 
   // but standard fetch uses body. 
   // Api wrapper likely uses axios.delete(url, { data: ... })
-  const response = await api.delete("/friendRequest", { 
-    data: { targetUserId, requestId } 
+  const response = await api.delete("/friendRequest", {
+    data: { targetUserId, requestId }
   });
   return response.data;
 };
@@ -173,6 +178,11 @@ export const createConversation = async (recipientId: string) => {
 export const getConversationById = async (id: string) => {
   const response = await api.get(`/conversations/${id}`);
   return response.data.conversation;
+};
+
+export const deleteConversation = async (id: string, deleteFor: string) => {
+  const response = await api.delete(`/conversations/${id}?deleteFor=${deleteFor}`);
+  return response.data;
 };
 
 // Messages
@@ -233,14 +243,17 @@ export const updateMessage = async ({
   return data;
 };
 
+//Delete message
 export const deleteMessage = async ({
   conversationId,
   messageId,
+  deleteType
 }: {
   conversationId: string;
   messageId: string;
+  deleteType: string;
 }) => {
-  const { data } = await api.delete(`/conversations/${conversationId}/message/${messageId}`);
+  const { data } = await api.delete(`/message/${messageId}?conversationId=${conversationId}&deleteType=${deleteType}`);
   return data;
 };
 
@@ -254,7 +267,6 @@ export const addReaction = async ({
   messageId: string;
   emoji: string;
 }) => {
-  console.log("Infos", conversationId, messageId, emoji);
   const { data } = await api.post(`/message/${messageId}/reactions`, { conversationId, emoji });
   return data;
 };
@@ -275,16 +287,16 @@ export const removeReaction = async ({
 
 // Call API
 export const initiateCall = async (data: { receiverId: string; offerSdp: any; isVideo: boolean }) => {
-    const response = await api.post('/call/initiate', data);
-    return response.data;
+  const response = await api.post('/call/initiate', data);
+  return response.data;
 };
 
 export const updateCallStatus = async (callId: string, status: string) => {
-    const response = await api.patch(`/call/${callId}`, { status });
-    return response.data;
+  const response = await api.patch(`/call/${callId}`, { status });
+  return response.data;
 };
 
 export const answerCall = async (callId: string, answerSdp: any) => {
-    const response = await api.patch(`/call/${callId}/answer`, { answerSdp });
-    return response.data;
+  const response = await api.patch(`/call/${callId}/answer`, { answerSdp });
+  return response.data;
 };

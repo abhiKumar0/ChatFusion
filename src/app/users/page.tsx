@@ -72,7 +72,7 @@ const UsersPage = () => {
                                     size="sm"
                                     variant="outline"
                                     className="text-xs"
-                                    onClick={() => router.push(`/users/${contact.id}`)}
+                                    onClick={() => router.push(`/${contact.username}`)}
                                 >
                                     View Profile
                                 </Button>

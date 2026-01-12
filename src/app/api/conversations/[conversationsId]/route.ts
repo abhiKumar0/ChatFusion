@@ -35,27 +35,42 @@ export const DELETE = async (req: Request, {params}: {params: Promise<{conversat
     try {
         //Aquiring supabase
         const supabase = await createClient();
-        const resolvedParams = await params;
-        const convoId = resolvedParams.conversationsId;
+        const {conversationsId} = await params;
+        const {searchParams} = new URL(req.url);
+        const deleteFor = searchParams.get("deleteFor");
+        
+        //user
+        const {data: {user}} = await supabase.auth.getUser();
+        const userId = user?.id;
 
-        const {data: conversation, error: conversationError} = await supabase
-            .from("Conversation")
-            .select("*")
-            .eq("id", convoId)
-            .single();
-
-        if (conversationError || !conversation) {
-            return NextResponse.json({message: "Conversation doesn't exist"}, {status: 404});
+        if (!userId) {
+            return NextResponse.json({message: "Unauthorized"}, {status: 401});
         }
-        console.log(conversation);
 
-        const {data, error} = await supabase
-            .from("Conversation")
-            .delete()
-            .eq("id", convoId);
-
-        if (error) {
-            return NextResponse.json({message: "Error while deleting conversation"}, {status: 500});
+        if (deleteFor === "ALL") {
+            const {error, count} = await supabase
+                            .from("Conversation")
+                            .delete()
+                            .eq("id", conversationsId);
+            
+            if (error) {
+                return NextResponse.json({message: error.message}, {status: 400});
+            }
+            
+            if (count == 0 && !error) {
+                return NextResponse.json({message: "Forbidden Action not Allowed"}, {status: 403});
+            }
+        } else {
+            const {error} = await supabase
+                            .from("ConversationParticipant")
+                            .update({
+                                lastDeletedAt: new Date().toISOString()
+                            })
+                            .eq("conversationId", conversationsId)
+                            .eq("userId", userId);
+            if (error) {
+                return NextResponse.json({message: error.message}, {status: 403});
+            }
         }
 
         return NextResponse.json({message: "Conversation deleted"}, {status: 201});

@@ -97,6 +97,9 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
     const [isDecrypting, setIsDecrypting] = useState(false);
     const [isDecryptingParent, setIsDecryptingParent] = useState(false);
 
+    // Delete Message Type
+    const [deleteMessageType, setDeleteMessageType] = useState<"ALL" | "SELF">("SELF");
+
     // Get our decrypted private key from the Crypto Context
     // This is cached globally so we don't have to decrypt it for every message!
     const { decryptedPrivateKey } = useCrypto();
@@ -113,7 +116,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
     // ========== React Query Mutations ==========
     const updateMessageMutation = useUpdateMessage();
-    const deleteMessageMutation = useDeleteMessage();
+    const { mutate: deleteMessageMutation, isPending: deleteMessagePending, isError: deleteMessageError, isSuccess: deleteMessageSuccess } = useDeleteMessage();
     const addReactionMutation = useAddReaction();
     const removeReactionMutation = useRemoveReaction();
 
@@ -136,13 +139,13 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
     }, [updateMessageMutation.error, updateMessageMutation.isSuccess]);
 
     useEffect(() => {
-        if (deleteMessageMutation.error) {
+        if (deleteMessageError) {
             setError('Failed to delete message');
-        } else if (deleteMessageMutation.isSuccess) {
+        } else if (deleteMessageSuccess) {
             setSuccessMessage('Message deleted successfully');
             setTimeout(() => setSuccessMessage(null), 3000);
         }
-    }, [deleteMessageMutation.error, deleteMessageMutation.isSuccess]);
+    }, [deleteMessageError, deleteMessageSuccess]);
 
     useEffect(() => {
         if (addReactionMutation.error) {
@@ -214,14 +217,16 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
         }
     };
 
-    const handleDelete = () => {
+    const handleDeleteMessage = (deleteType: "ALL" | "SELF") => {
         setShowDeleteConfirm(true);
+        setDeleteMessageType(deleteType);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = (conversationId: string, messageId: string) => {
         setError(null);
+        console.log(deleteMessageType);
+        deleteMessageMutation({ conversationId, messageId, deleteType: deleteMessageType });
         setShowDeleteConfirm(false);
-        deleteMessageMutation.mutate({ conversationId, messageId: message.id });
     };
 
     const cancelDelete = () => {
@@ -679,13 +684,14 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                disabled={updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                                disabled={updateMessageMutation.isPending || deleteMessagePending}
                             >
                                 <Ellipsis className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-32 p-1" align="end">
+                        <PopoverContent className="w-48 p-1" align="end">
                             <div className="space-y-1">
+                                {/* Reply */}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -695,6 +701,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                     <Reply className="w-3 h-3 mr-2" />
                                     Reply
                                 </Button>
+
+                                {/* Edit */}
                                 {alowEdit && <Button
                                     variant="ghost"
                                     size="sm"
@@ -711,6 +719,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                         'Edit'
                                     )}
                                 </Button>}
+
+                                {/* Copy */}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -719,22 +729,43 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 >
                                     Copy
                                 </Button>
+
+                                {/* Delete for me */}
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className="w-full justify-start h-8 text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={handleDelete}
-                                    disabled={deleteMessageMutation.isPending}
+                                    onClick={() => handleDeleteMessage("SELF")}
+                                    disabled={deleteMessagePending}
                                 >
-                                    {deleteMessageMutation.isPending ? (
+                                    {deleteMessagePending ? (
                                         <div className="flex items-center gap-2">
                                             <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                                             Deleting...
                                         </div>
                                     ) : (
-                                        'Delete'
+                                        'Delete for me'
                                     )}
                                 </Button>
+
+                                {/* Delete for All */}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start h-8 text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleDeleteMessage("ALL")}
+                                    disabled={deleteMessagePending}
+                                >
+                                    {deleteMessagePending ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                            Deleting...
+                                        </div>
+                                    ) : (
+                                        'Delete for Everyone'
+                                    )}
+                                </Button>
+
                             </div>
                         </PopoverContent>
                     </Popover>
@@ -899,11 +930,11 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                             <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={confirmDelete}
-                                disabled={deleteMessageMutation.isPending}
+                                onClick={() => confirmDelete(conversationId, message.id)}
+                                disabled={deleteMessagePending}
                                 className="h-8 cursor-pointer"
                             >
-                                {deleteMessageMutation.isPending ? (
+                                {deleteMessagePending ? (
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
                                         Deleting...
@@ -916,7 +947,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 size="sm"
                                 variant="outline"
                                 onClick={cancelDelete}
-                                disabled={deleteMessageMutation.isPending}
+                                disabled={deleteMessagePending}
                                 className="h-8 text-gray-700 cursor-pointer"
                             >
                                 Cancel
@@ -934,7 +965,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
             </div>
 
-            {/*Emoji picker*/}
+            {/*EOption for Other messages*/}
             <div className={`ml-2 flex items-end space-x-2 ${showOptions && !message.isOwn ? 'flex' : 'hidden'}`}>
                 <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
                     <div className="relative">
@@ -973,8 +1004,10 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                 <Ellipsis className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-24 p-1" align="start">
+                        <PopoverContent className="w-32 p-1" align="start">
                             <div className="space-y-1">
+
+                                {/* Reply */}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -984,6 +1017,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                     <Reply className="w-3 h-3 mr-2" />
                                     Reply
                                 </Button>
+
+                                {/* Copy */}
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -991,6 +1026,24 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                                     onClick={handleCopy}
                                 >
                                     Copy
+                                </Button>
+
+                                {/* Delete for me */}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start h-8 text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleDeleteMessage("SELF")}
+                                    disabled={deleteMessagePending}
+                                >
+                                    {deleteMessagePending ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                            Deleting...
+                                        </div>
+                                    ) : (
+                                        'Delete for me'
+                                    )}
                                 </Button>
                             </div>
                         </PopoverContent>
@@ -1004,6 +1057,3 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 MessageBubble.displayName = 'MessageBubble';
 
 export default MessageBubble;
-
-
-// now i want users to reply to a message, soo be a professional experienced senior SDE and implement a features where a user can reply to a message, after clicking on 3 dots there should be a reply option when clicked on that, about input it shpuld that youre replying to that with a cross icon for cancelling, after sending that new message shhould ne associated the repliedTo messages and also ui for that message should be different as well
