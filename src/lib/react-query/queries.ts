@@ -11,6 +11,7 @@ import {
   getMe,
   getUsers,
   getUserById,
+  getUserByUsername,
   sendFriendRequest,
   createConversation,
   getConversationById,
@@ -158,6 +159,20 @@ export const useGetUserById = (id: string) => {
   };
 };
 
+//Single user by username
+export const useGetUserByUsername = (username: string) => {
+  const query = useQuery({
+    queryKey: ['user', username],
+    queryFn: () => getUserByUsername(username),
+    enabled: !!username,
+  });
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+};
+
 //Get user by email
 export const useGetUserByEmail = (email: string) => {
   const query = useQuery({
@@ -174,81 +189,81 @@ export const useGetUserByEmail = (email: string) => {
 
 //Get all friends
 export const useGetFriends = () => {
-    const query = useQuery({
-        queryKey: ['friends'],
-        queryFn: getFriends,
-        staleTime: 5 * 60 * 1000,
-    });
-    return {
-        ...query,
-        isLoading: query.isLoading,
-        error: query.error,
-    };
+  const query = useQuery({
+    queryKey: ['friends'],
+    queryFn: getFriends,
+    staleTime: 5 * 60 * 1000,
+  });
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
 };
 
 // Get friends of users
 export const useGetUserFriends = (userId: string) => {
-    return useQuery({
-        queryKey: ['user-friends', userId],
-        queryFn: () => getUserFriends(userId),
-        enabled: !!userId,
-    });
+  return useQuery({
+    queryKey: ['user-friends', userId],
+    queryFn: () => getUserFriends(userId),
+    enabled: !!userId,
+  });
 };
 
 // Check Username Query
 export const useCheckUsername = (username: string) => {
-    return useQuery({
-        queryKey: ['checkUsername', username],
-        queryFn: () => checkUsername(username),
-        enabled: false, // Manual trigger or handle in component
-        retry: false,
-    });
+  return useQuery({
+    queryKey: ['checkUsername', username],
+    queryFn: () => checkUsername(username),
+    enabled: false, // Manual trigger or handle in component
+    retry: false,
+  });
 };
 
 // Update User Mutation
 export const useUpdateUser = () => {
-    const queryClient = useQueryClient();
-    const mutation = useMutation({
-        mutationFn: updateUser,
-        onSuccess: (data) => {
-            queryClient.setQueryData(['me'], data);
-            queryClient.invalidateQueries({ queryKey: ['users'] }); // Invalidate users list as info might have changed
-        },
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: updateUser,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['me'], data);
+      queryClient.invalidateQueries({ queryKey: ['users'] }); // Invalidate users list as info might have changed
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 
 
 export const useUploadAvatar = () => {
-    const mutation = useMutation({
-        mutationFn: uploadAvatar,
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const mutation = useMutation({
+    mutationFn: uploadAvatar,
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 // Friend Request Mutations
 export const useSendFriendRequest = () => {
-    const queryClient = useQueryClient();
-    const mutation = useMutation({
-        mutationFn: sendFriendRequest,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-        },
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: sendFriendRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 
@@ -272,19 +287,19 @@ export const useRespondToFriendRequest = () => {
 
 //Cancel friend request mutation
 export const useCancelFriendRequest = () => {
-    const queryClient = useQueryClient();
-    const mutation = useMutation({
-        mutationFn: cancelFriendRequest,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-            queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
-        },
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: cancelFriendRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 
@@ -319,7 +334,7 @@ export const useGetConversations = () => {
 export const useCreateConversation = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({recipientId}: {recipientId: string}) => createConversation(recipientId),
+    mutationFn: ({ recipientId }: { recipientId: string }) => createConversation(recipientId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
@@ -349,7 +364,7 @@ export const useGetConversationById = (id: string) => {
 export const useDeleteConversation = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({id, deleteFor}: {id: string, deleteFor: 'SELF' | 'ALL'}) => deleteConversation(id, deleteFor),
+    mutationFn: ({ id, deleteFor }: { id: string, deleteFor: 'SELF' | 'ALL' }) => deleteConversation(id, deleteFor),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
@@ -372,9 +387,9 @@ export const useCreateMessage = () => {
       queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
-        
+
         if (queryData.pages.length === 0) return queryData;
-        
+
         // Add to the first page (most recent messages)
         const firstPage = queryData.pages[0];
         return {
@@ -440,7 +455,7 @@ export const useUpdateMessage = () => {
 export const useDeleteMessage = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({conversationId, messageId, deleteType}: {conversationId: string, messageId: string, deleteType: 'SELF' | 'ALL'}) => deleteMessage({conversationId, messageId, deleteType}),
+    mutationFn: ({ conversationId, messageId, deleteType }: { conversationId: string, messageId: string, deleteType: 'SELF' | 'ALL' }) => deleteMessage({ conversationId, messageId, deleteType }),
     onSuccess: (_data, variables) => {
       queryClient.setQueryData(['messages', variables.conversationId], (oldData: unknown) => {
         if (!oldData || typeof oldData !== 'object') return oldData;
@@ -468,7 +483,7 @@ export const useAddReaction = () => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
         if (queryData.pages.length === 0) return queryData;
-        
+
         const pages = queryData.pages.map((page) => ({
           ...page,
           messages: page.messages.map((msg) => {
@@ -477,7 +492,7 @@ export const useAddReaction = () => {
               const reactionExists = existingReactions.some(
                 (r: any) => r.userId === data.userId && r.emoji === data.emoji
               );
-              
+
               if (!reactionExists) {
                 return {
                   ...msg,
@@ -504,7 +519,7 @@ export const useRemoveReaction = () => {
         if (!oldData || typeof oldData !== 'object') return oldData;
         const queryData = oldData as { pages: Array<{ messages: Message[]; nextCursor: string | null }> };
         if (queryData.pages.length === 0) return queryData;
-        
+
         const pages = queryData.pages.map((page) => ({
           ...page,
           messages: page.messages.map((msg) => {
@@ -526,34 +541,34 @@ export const useRemoveReaction = () => {
 
 // Call Hooks
 export const useInitiateCall = () => {
-    const mutation = useMutation({
-        mutationFn: initiateCall,
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const mutation = useMutation({
+    mutationFn: initiateCall,
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 export const useUpdateCallStatus = () => {
-    const mutation = useMutation({
-        mutationFn: ({ callId, status }: { callId: string; status: string }) => updateCallStatus(callId, status),
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const mutation = useMutation({
+    mutationFn: ({ callId, status }: { callId: string; status: string }) => updateCallStatus(callId, status),
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
 
 export const useAnswerCall = () => {
-    const mutation = useMutation({
-        mutationFn: ({ callId, answerSdp }: { callId: string; answerSdp: any }) => answerCall(callId, answerSdp),
-    });
-    return {
-        ...mutation,
-        isLoading: mutation.isPending,
-        error: mutation.error,
-    };
+  const mutation = useMutation({
+    mutationFn: ({ callId, answerSdp }: { callId: string; answerSdp: any }) => answerCall(callId, answerSdp),
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
 };
