@@ -4,6 +4,8 @@ import React from 'react';
 import { Button } from './ui/button';
 import { MessageSquare, Users, Settings, Moon, Sun, Bell } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback, AvatarImage } from '@radix-ui/react-avatar';
+import { useGetMe } from '@/lib/react-query/queries';
 
 interface MobileNavProps {
   darkMode: boolean;
@@ -13,6 +15,7 @@ interface MobileNavProps {
 const MobileNav = ({ darkMode, toggleDarkMode }: MobileNavProps) => {
   const router = useRouter();
   const pathname = usePathname();
+  const {data: user} = useGetMe();
 
   const isActive = (path: string) => {
     if (path === '/chat' && pathname?.startsWith('/chat')) return true;
@@ -64,7 +67,10 @@ const MobileNav = ({ darkMode, toggleDarkMode }: MobileNavProps) => {
           onClick={() => router.push('/profile')}
           className={isActive('/profile') ? 'text-primary' : 'text-muted-foreground'}
         >
-          <Settings className="w-5 h-5" />
+          <Avatar className="cursor-pointer rounded-full border-2 border-primary hover:scale-110 transition-transform">
+                  <AvatarImage className='rounded-full' src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.fullName || 'User'}`} />
+                  <AvatarFallback>{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
         </Button>
       </div>
     </div>
