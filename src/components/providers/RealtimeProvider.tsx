@@ -6,13 +6,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { Call } from '@/types/types';
 import { useGetMe } from '@/lib/react-query/queries';
+import { usePresenceStore } from '@/store/usePresenceStore';
+
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const { data: user } = useGetMe();
     const { setSupabase, handleRemoteAnswer } = useCallStore();
 
 
-    
+
     // Initialize Supabase
     useEffect(() => {
         const supabase = createClient();
@@ -142,6 +144,42 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
                 console.log('📞 Subscription:', status);
             });
 
+        // 🟢 Global Presence Logic
+        const presenceChannel = supabase.channel('global_presence', {
+            config: {
+                presence: {
+                    key: user.id,
+                },
+            },
+        });
+
+        presenceChannel
+            .on('presence', { event: 'sync' }, () => {
+                const state = presenceChannel.presenceState();
+                console.log('🟢 Presence Sync:', state);
+                usePresenceStore.getState().syncOnlineUsers(state);
+            })
+            .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+                console.log('🟢 User Joined:', key, newPresences);
+                // Sync full state to be safe, or optimize later
+                const state = presenceChannel.presenceState();
+                usePresenceStore.getState().syncOnlineUsers(state);
+            })
+            .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+                console.log('🟢 User Left:', key, leftPresences);
+                const state = presenceChannel.presenceState();
+                usePresenceStore.getState().syncOnlineUsers(state);
+            })
+            .subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    // console.log('🟢 Tracking Presence for:', user.id);
+                    await presenceChannel.track({
+                        user_id: user.id,
+                        online_at: new Date().toISOString(),
+                    });
+                }
+            });
+
         // Poll every 2 seconds
         const interval = setInterval(checkForPendingCalls, 2000);
 
@@ -157,6 +195,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         return () => {
             console.log('📞 Cleaning up');
             supabase.removeChannel(channel);
+            supabase.removeChannel(presenceChannel);
             clearInterval(interval);
             delete (window as any).callDebug;
         };

@@ -5,9 +5,11 @@ import { MessageSquare } from "lucide-react"
 import { User } from "@/types/types"
 import { useCreateConversation } from "@/lib/react-query/queries"
 import { useRouter } from "next/navigation"
+import { usePresenceStore } from "@/store/usePresenceStore"
 
 
 const FriendSection = ({ friend }: { friend: User }) => {
+    const { onlineUsers } = usePresenceStore();
 
     const router = useRouter();
     const { mutateAsync: createConvoMutate } = useCreateConversation();
@@ -54,7 +56,7 @@ const FriendSection = ({ friend }: { friend: User }) => {
                             <AvatarFallback>{friend.fullName?.[0]}</AvatarFallback>
                         </Avatar>
                         <span
-                            className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background ${(friend.status?.toLowerCase() === 'online') ? 'bg-green-500' :
+                            className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background ${(onlineUsers.has(friend.id)) ? 'bg-green-500' :
                                 (friend.status?.toLowerCase() === 'away') ? 'bg-yellow-500' : 'bg-gray-400'
                                 }`}
                         />

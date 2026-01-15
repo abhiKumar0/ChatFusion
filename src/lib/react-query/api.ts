@@ -37,10 +37,16 @@ api.interceptors.response.use(
 );
 
 // Auth
-export const signUp = async (
+export const requestOtp = async (fullName: string, email: string) => {
+  const response = await api.post("/auth/signup", { fullName, email });
+  return response.data;
+};
+
+export const verifyAndCompleteSignUp = async (
   fullName: string,
   email: string,
-  password: string
+  password: string,
+  otp: string
 ) => {
   //Generating 
   const { publicKey, privateKey } = await generateUserKeys();
@@ -52,11 +58,23 @@ export const signUp = async (
     password,
     publicKey,
     encryptPrivateKey: encryptedKey_base64,
+    otp
   };
   console.log(data);
-  const response = await api.post("/auth/signup", data);
+  const response = await api.post("/auth/verify", data);
   return response.data;
 };
+
+export const requestPasswordReset = async (email: string) => {
+  const response = await api.post("/auth/password-reset/request", { email });
+  return response.data;
+};
+
+export const confirmPasswordReset = async ({ email, otp, newPassword }: any) => {
+  const response = await api.post("/auth/password-reset/confirm", { email, otp, newPassword });
+  return response.data;
+};
+
 
 
 export const logIn = async (data: { email: string; password: string }) => {
@@ -73,6 +91,11 @@ export const getKey = async () => {
   const response = await api.get("/auth/key");
   return response.data;
 }
+
+export const sendInvite = async (email: string) => {
+  const response = await api.post("/invite", { email });
+  return response.data;
+};
 
 // Users
 export const getMe = async () => {

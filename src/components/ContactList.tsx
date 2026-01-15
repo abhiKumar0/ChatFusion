@@ -9,12 +9,14 @@ import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { useChatStore } from '@/store/useChatStore';
-import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
+import { useGetConversations, useGetMe, useSendInvite } from '@/lib/react-query/queries';
 import { createClient } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import { useRouter } from 'next/navigation';
+import { usePresenceStore } from '@/store/usePresenceStore';
+
 
 interface ConversationItemProps {
   conversation: {
@@ -109,40 +111,28 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
   const [searchTerm, setSearchTerm] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [isInviting, setIsInviting] = useState(false);
 
   const { data: conversations, isLoading, error } = useGetConversations();
-  console.log("conversation", conversations)
-  // const { currentConversation, setCurrentConversation, setCurrentParticipant } = useChatStore(); // Not needed for selection anymore
   const { setCurrentConversation, setCurrentParticipant } = useChatStore();
   const { data: user } = useGetMe();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
 
+  const { mutateAsync: sendInvite, isPending: isInviting } = useSendInvite();
+
   // Handle invite friend
   const handleInviteFriend = async () => {
     if (!inviteEmail.trim()) return;
 
-    setIsInviting(true);
     try {
-      // TODO: Replace with actual API endpoint for sending friend invites
-      // For now, just simulating an invite
-      console.log('Inviting friend:', inviteEmail);
+      await sendInvite(inviteEmail.trim());
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Reset and close dialog
       setInviteEmail('');
       setInviteDialogOpen(false);
-
-      // Show success message (you can integrate with a toast notification system)
       alert(`Invite sent to ${inviteEmail}!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to send invite:', error);
-      alert('Failed to send invite. Please try again.');
-    } finally {
-      setIsInviting(false);
+      alert(error.message || 'Failed to send invite. Please try again.');
     }
   };
 
@@ -159,15 +149,19 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
     };
   }, [supabase, queryClient]);
 
+  const { onlineUsers } = usePresenceStore();
+
   // Process and filter conversations
   const processedConversations = useMemo(() => {
     if (!conversations || !user) return [];
 
     return conversations.map((convo: any) => {
-      const contact = convo.allParticipants.find((participant: any) => participant.user.id !== user.id)?.user;
+      const contactData = convo.allParticipants.find((participant: any) => participant.user.id !== user.id)?.user;
+      const contact = contactData ? { ...contactData, status: onlineUsers.has(contactData.id) ? 'online' : 'offline' } : null;
       return { ...convo, contact };
     }).filter((convo: any) => convo.contact); // Filter out conversations without valid contacts
-  }, [conversations, user]);
+  }, [conversations, user, onlineUsers]);
+
 
   // Filter conversations based on search term
   const filteredConversations = useMemo(() => {
