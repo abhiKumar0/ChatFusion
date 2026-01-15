@@ -5,7 +5,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
-  signUp,
+  requestOtp,
+  verifyAndCompleteSignUp,
+  requestPasswordReset,
+  confirmPasswordReset,
+  sendInvite,
   logIn,
   logOut,
   getMe,
@@ -45,11 +49,18 @@ import { Message } from '@/types/types';
 
 // ********************************************* Auth Mutations *********************************************
 
-//Signu[]
-export const useSignUp = () => {
+// Request OTP
+export const useRequestOtp = () => {
+  return useMutation({
+    mutationFn: ({ fullName, email }: { fullName: string; email: string }) => requestOtp(fullName, email),
+  });
+};
+
+// Complete Signup (Verify OTP and Create User)
+export const useCompleteSignUp = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({ fullName, email, password }: { fullName: string; email: string; password: string }) => signUp(fullName, email, password),
+    mutationFn: ({ fullName, email, password, otp }: { fullName: string; email: string; password: string, otp: string }) => verifyAndCompleteSignUp(fullName, email, password, otp),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
@@ -98,6 +109,19 @@ export const useLogOut = () => {
   };
 }
 
+// Password Reset Hooks
+export const useRequestPasswordReset = () => {
+  return useMutation({
+    mutationFn: (email: string) => requestPasswordReset(email),
+  });
+};
+
+export const useConfirmPasswordReset = () => {
+  return useMutation({
+    mutationFn: confirmPasswordReset,
+  });
+};
+
 //To get Private key of current user
 export const useGetKey = () => {
   const query = useQuery({
@@ -129,6 +153,13 @@ export const useGetMe = () => {
   };
 };
 
+
+// Invite Hook
+export const useSendInvite = () => {
+  return useMutation({
+    mutationFn: (email: string) => sendInvite(email),
+  });
+};
 
 //Get All Users
 export const useGetUsers = () => {

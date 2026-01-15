@@ -1,15 +1,17 @@
-import { createClient } from "@supabase/supabase-js"; // Import directly
+
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import otpGenerator from 'otp-generator';
+import { transporter, mailOptions } from "@/lib/nodemailer";
+import { getOtpEmailTemplate } from "@/lib/email-templates";
 
 export const POST = async (request: Request) => {
     try {
-        const { fullName, email, password, publicKey, encryptPrivateKey } = await request.json();
+        const { fullName, email } = await request.json();
 
-        // 👇 THIS IS THE FIX.
-        // We create a specific client JUST for this request using the SERVICE_ROLE_KEY
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!, // ⚠️ Must be in .env.local
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
             {
                 auth: {
                     autoRefreshToken: false,
@@ -18,59 +20,57 @@ export const POST = async (request: Request) => {
             }
         );
 
-        // 1. Sign up the user (using Admin method ensures we don't need a session)
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-            email: email.trim(),
-            password: password,
-            email_confirm: true,
-            user_metadata: { full_name: fullName }
-        });
+        // 1. Check if user exists
+        const { data: existingUser } = await supabaseAdmin
+            .from('User')
+            .select('id')
+            .eq('email', email)
+            .single();
 
-        if (authError) return NextResponse.json({ message: authError.message }, { status: 400 });
-
-        if (authData.user) {
-            // 2. Insert into 'User' table
-            // Because 'supabaseAdmin' uses the SERVICE_ROLE_KEY, it BYPASSES RLS.
-            // The 42501 error will disappear.
-            const { error: profileError } = await supabaseAdmin
-                .from('User') 
-                .insert({
-                    id: authData.user.id,
-                    email: email,
-                    username: email.split('@')[0] + Math.floor(Math.random() * 1000),
-                    fullName: fullName,
-                    password: 'supa-auth-managed',
-                    publicKey: publicKey,
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    isOnline: false,
-                });
-
-                if (profileError) {
-                    console.log("Profile error", profileError);
-                    // Clean up the auth user if profile creation fails
-                    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-                    return NextResponse.json({ message: "Profile creation failed: " + profileError.message }, { status: 500 });
-                }
-
-            const {error: keyError} = await supabaseAdmin
-                .from('UserSecrets')
-                .insert({
-                    userId: authData.user.id,
-                    encryptedPrivateKey: encryptPrivateKey,
-                });
-
-            if (keyError) {
-                console.log("Key error", keyError);
-                // Clean up the auth user if profile creation fails
-                await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-                return NextResponse.json({ message: "Key creation failed: " + keyError.message }, { status: 500 });
-            }
+        if (existingUser) {
+            return NextResponse.json({ message: "User already exists" }, { status: 400 });
         }
 
-        return NextResponse.json({ user: authData.user }, { status: 201 });
+        // 2. Generate OTP
+        const otp = otpGenerator.generate(6, {
+            upperCaseAlphabets: false,
+            specialChars: false,
+            lowerCaseAlphabets: false
+        });
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
+
+        // 3. Store OTP in 'VerificationCodes'
+        const { error: otpError } = await supabaseAdmin
+            .from('VerificationCodes')
+            .upsert({
+                email: email,
+                code: otp,
+                expiresAt: expiresAt
+            }, { onConflict: 'email' });
+
+        if (otpError) {
+            console.error("OTP Store Error:", otpError);
+            return NextResponse.json({ message: "Database Error: " + otpError.message }, { status: 500 });
+        }
+
+        // 4. Send Email via Nodemailer
+        try {
+            await transporter.sendMail({
+                ...mailOptions,
+                to: email,
+                subject: 'Verify your email - ChatFusion',
+                html: getOtpEmailTemplate(otp, fullName)
+            });
+            console.log("Email sent successfully");
+        } catch (emailError: any) {
+            console.error("Email Send Error:", emailError);
+            return NextResponse.json({ message: "Failed to send email: " + emailError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ message: "OTP sent successfully" }, { status: 200 });
 
     } catch (error) {
+        console.error("Signup Init Error:", error);
         return NextResponse.json({ message: "Internal server error" }, { status: 500 });
     }
 }
