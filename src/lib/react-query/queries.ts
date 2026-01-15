@@ -20,6 +20,7 @@ import {
   createConversation,
   getConversationById,
   createMessage,
+  markAsSeen,
   getMessages,
   getConversations,
   getFriendRequests,
@@ -411,6 +412,17 @@ export const useDeleteConversation = () => {
 
 
 // Message Queries and Mutations
+export const useMarkAsSeen = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markAsSeen,
+    onSuccess: (_data, conversationId) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+    }
+  });
+};
+
 export const useCreateMessage = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({

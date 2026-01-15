@@ -209,6 +209,11 @@ export const deleteConversation = async (id: string, deleteFor: string) => {
 };
 
 // Messages
+export const markAsSeen = async (conversationId: string) => {
+  const response = await api.post(`/conversations/${conversationId}/seen`);
+  return response.data;
+};
+
 export const createMessage = async ({
   conversationId,
   content,

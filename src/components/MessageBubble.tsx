@@ -590,7 +590,13 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
      * Status progression: sending → sent → delivered → seen
      */
     const StatusIcon = ({ status }: { status?: string }) => {
-        if (!status || !message.isOwn) return null;
+        if (!message.isOwn) return null;
+        // console.log(status)
+
+        // Debug logging
+        // if (status) {
+        //     console.log(`[StatusIcon] Message ${content}: status="${status}"`);
+        // }
 
         switch (status) {
             case 'sending':

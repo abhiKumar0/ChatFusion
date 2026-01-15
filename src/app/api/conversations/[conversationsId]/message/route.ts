@@ -2,29 +2,29 @@ import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 
-export const POST = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
+export const POST = async (req: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         const userId = user?.id;
-        
+
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
-        const {parentId, content, media, nonce, type} = await req.json();
+        const { parentId, content, media, nonce, type } = await req.json();
 
         if (!userId) {
-            return NextResponse.json({message: "Unauthorize"}, {status: 401});
+            return NextResponse.json({ message: "Unauthorize" }, { status: 401 });
         }
 
         if (!(content || media)) {
-            return NextResponse.json({message: "Message content cannot be empty"}, {status: 400});
+            return NextResponse.json({ message: "Message content cannot be empty" }, { status: 400 });
         }
 
         // Determine message type
         const hasContent = content && content.trim() !== '';
         const messageType = type || (media && !hasContent ? 'IMAGE' : 'TEXT');
 
-        // 1. Find the conversation and ensure the user is a participant
+        // Verify user is part of this conversation
         const { data: participant } = await supabase
             .from('ConversationParticipant')
             .select('conversationId')
@@ -36,7 +36,7 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
             return NextResponse.json({ message: "Conversation not found or you are not a participant" }, { status: 404 });
         }
 
-        // 3. Create the new message
+        // Create message with initial 'sent' status
         const { data: newMessage, error: createError } = await supabase
             .from('Message')
             .insert({
@@ -47,6 +47,7 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
                 parentMessageId: parentId,
                 nonce: nonce || (content ? randomBytes(12).toString('base64') : ''),
                 type: messageType,
+                status: 'sent', // Initial status when message is created
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             })
@@ -68,25 +69,25 @@ export const POST = async (req: Request, {params} : {params: Promise<{conversati
             .update({ updatedAt: new Date().toISOString() })
             .eq('id', convoId);
 
-        return NextResponse.json(newMessage, {status: 201});
-        
+        return NextResponse.json(newMessage, { status: 201 });
+
     } catch (error) {
         console.log(error);
-        return NextResponse.json({message: "Error while sending a message"}, {status: 500})
+        return NextResponse.json({ message: "Error while sending a message" }, { status: 500 })
     }
 }
 
 const MESSAGE_BATCH_SIZE = 50;
 
-export const GET = async (req: Request, {params} : {params: Promise<{conversationsId: string}>}) => {
+export const GET = async (req: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         const userId = user?.id;
-        
+
         const resolvedParams = await params;
         const convoId = resolvedParams.conversationsId;
-        
+
         if (!userId) {
             return new NextResponse('Unauthorized', { status: 401 });
         }
@@ -126,7 +127,7 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
                 .select('createdAt')
                 .eq('id', cursor)
                 .single();
-            
+
             if (cursorMsg) {
                 query = query.lt('createdAt', cursorMsg.createdAt);
             }
@@ -139,15 +140,15 @@ export const GET = async (req: Request, {params} : {params: Promise<{conversatio
         let nextCursor = null;
 
         if (messages && messages.length === MESSAGE_BATCH_SIZE) {
-            nextCursor = messages[MESSAGE_BATCH_SIZE-1].id;
+            nextCursor = messages[MESSAGE_BATCH_SIZE - 1].id;
         }
 
         return NextResponse.json({
-            messages: messages || [], 
+            messages: messages || [],
             nextCursor
-        }, {status: 201});
+        }, { status: 201 });
     } catch (error) {
         console.error(error);
-        return NextResponse.json({message: "Error while fetching message"}, {status: 500});
+        return NextResponse.json({ message: "Error while fetching message" }, { status: 500 });
     }
 }
