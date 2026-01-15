@@ -35,7 +35,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { usePresenceStore } from '@/store/usePresenceStore';
-import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
+import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById, useMarkAsSeen } from '@/lib/react-query/queries';
 
 import { createClient } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -141,6 +141,17 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   // Fetch paginated messages for this conversation
   const { data: messagePages, isLoading: messagesLoading, error: messagesError } = useGetMessages(currentConversation, !!currentConversation);
 
+  // Mark as seen mutation
+  const { mutate: markAsSeen } = useMarkAsSeen();
+
+  // Mark messages as seen when conversation is opened
+  // Only trigger when conversation changes or user changes, not on every message update
+  useEffect(() => {
+    if (currentConversation && user) {
+      markAsSeen(currentConversation);
+    }
+  }, [currentConversation, user?.id]); // Only re-run when conversation or user ID changes
+
   // React Query instance for creating messages
   const createMessageMutation = useCreateMessage();
   const queryClient = useQueryClient();
@@ -156,39 +167,33 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   /**
-   * Subscribe to real-time updates for this conversation
-   * 
-   * We listen for:
-   * 1. Database changes (new messages, edits, deletes) -> refetch messages
-   * 2. Typing events -> show/hide typing indicator
-   * 3. Reaction updates -> refetch messages to show new reactions
-   * 
-   * Cleanup: unsubscribe when conversation changes or component unmounts
+   * Real-time subscriptions for this conversation
+   * Listens for message updates, typing events, and reactions
    */
   useEffect(() => {
     if (!currentConversation || !user) return;
 
-    // Create a unique channel for this conversation
     const newChannel = supabase.channel(`chat:${currentConversation}`);
 
     newChannel
-      // Listen for ANY database changes to messages in this conversation
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, () => {
-        // When a message is created/updated/deleted, refetch messages
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, (payload) => {
+        console.log('[ChatArea] Database change detected:', payload.eventType, payload);
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
       })
-      // Listen for typing events from other users
       .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
       .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))
-      // Listen for reaction updates (someone added/removed a reaction)
       .on('broadcast', { event: 'reaction_update' }, () => {
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+      })
+      .on('broadcast', { event: 'messages_seen' }, () => {
+        console.log('[ChatArea] Messages marked as seen, refetching...');
+        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
       })
       .subscribe();
 
     setChannel(newChannel);
 
-    // Cleanup: unsubscribe when we leave this conversation
     return () => {
       supabase.removeChannel(newChannel);
       setChannel(null);
@@ -206,15 +211,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   /**
    * Merge server messages with local optimistic messages
-   * 
-   * Optimistic UI flow:
-   * 1. User sends message -> add to localMessages with status="sending"
-   * 2. Show immediately in UI (feels instant!)
-   * 3. Server confirms -> message appears in messagePages
-   * 4. We merge them here, preferring server data but keeping local status
-   * 5. Clean up local message once we know server has it
-   * 
-   * This creates a smooth UX where messages appear instantly without waiting for the server.
+   * Shows messages instantly while waiting for server confirmation
    */
   const messages: UIMessage[] = useMemo(() => {
     if (!messagePages?.pages || !user?.id) return [];
@@ -229,7 +226,8 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
         .map((msg: Message) => ({
           ...msg,
           isOwn: msg.senderId === user.id,
-          status: 'delivered' as const
+          // Use the actual status from the database, don't hardcode it
+          status: msg.status || 'sent' // Default to 'sent' if no status
         }));
 
       // Create efficient lookup maps
@@ -241,8 +239,9 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
         const localMsg = localMessagesMap.get(msg.id);
         mergedMessages.set(msg.id, {
           ...msg,
-          // If we have a local version marked as "sending", upgrade it to "sent"
-          status: localMsg?.status === 'sending' ? 'sent' : msg.status
+          // If we have a local version marked as "sending", keep it as sending
+          // Otherwise use the server status
+          status: localMsg?.status === 'sending' ? 'sending' : msg.status
         });
       });
 

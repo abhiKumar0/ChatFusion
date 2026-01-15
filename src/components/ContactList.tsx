@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { PlusCircle, Search, AlertCircle, MessageSquare, Clock, Plus, Mail, UserPlus } from 'lucide-react'
 import { Input } from './ui/input'
@@ -16,13 +16,29 @@ import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import { useRouter } from 'next/navigation';
 import { usePresenceStore } from '@/store/usePresenceStore';
+import { useCrypto } from '@/lib/crypto-context';
+import { decryptMessage } from '@/lib/crypto';
 
 
 interface ConversationItemProps {
   conversation: {
     id: string;
     lastMessage?: string;
+    lastMessageData?: {
+      senderId: string;
+      status: string;
+      content: string;
+      type: string;
+      nonce?: string;
+    };
     unreadCount?: number;
+    allParticipants?: Array<{
+      user: {
+        id: string;
+        publicKey: string;
+        fullName: string;
+      };
+    }>;
   };
   contact: {
     id: string;
@@ -33,9 +49,53 @@ interface ConversationItemProps {
   };
   isSelected: boolean;
   onClick: () => void;
+  currentUserId?: string;
+  decryptedPrivateKey?: string;
 }
 
-const ConversationItem = React.memo(({ conversation, contact, isSelected, onClick }: ConversationItemProps) => {
+const ConversationItem = React.memo(({ conversation, contact, isSelected, onClick, currentUserId, decryptedPrivateKey }: ConversationItemProps) => {
+  const lastMsg = conversation.lastMessageData;
+  const isOwnLastMsg = lastMsg?.senderId === currentUserId;
+  const [decryptedContent, setDecryptedContent] = useState<string>('');
+
+  // Decrypt last message for preview
+  useEffect(() => {
+    const decrypt = async () => {
+      if (!lastMsg?.content || !lastMsg?.nonce || !decryptedPrivateKey) {
+        return;
+      }
+
+      const otherParticipant = conversation.allParticipants?.find(p => p.user.id !== currentUserId);
+      if (!otherParticipant?.user?.publicKey) {
+        return;
+      }
+
+      try {
+        const decrypted = await decryptMessage(
+          lastMsg.content,
+          lastMsg.nonce,
+          otherParticipant.user.publicKey,
+          decryptedPrivateKey
+        );
+        setDecryptedContent(decrypted);
+      } catch (error) {
+        console.error('Failed to decrypt last message:', error);
+        setDecryptedContent('Message');
+      }
+    };
+
+    decrypt();
+  }, [lastMsg?.content, lastMsg?.nonce, decryptedPrivateKey, currentUserId, conversation.allParticipants]);
+
+  const StatusIcon = ({ status }: { status: string }) => {
+    switch (status) {
+      case 'sent': return <span className="ml-1 text-xs text-muted-foreground">✓</span>;
+      case 'delivered': return <span className="ml-1 text-xs text-muted-foreground">✓✓</span>;
+      case 'seen': return <span className="ml-1 text-xs text-blue-500">✓✓</span>;
+      default: return null;
+    }
+  };
+
   return (
     <Card
       className={`mx-2 my-1.5 rounded-xl border-border cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${isSelected
@@ -78,11 +138,16 @@ const ConversationItem = React.memo(({ conversation, contact, isSelected, onClic
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              {conversation?.lastMessage ? (
+              {conversation?.unreadCount && conversation.unreadCount > 0 ? (
+                <p className="text-xs font-bold text-primary truncate flex-1">
+                  New Message
+                </p>
+              ) : conversation.lastMessageData ? (
                 <>
+                  {isOwnLastMsg && lastMsg?.status && <StatusIcon status={lastMsg.status} />}
                   <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
                   <p className="text-xs text-muted-foreground truncate flex-1">
-                    {conversation.lastMessage}
+                    {lastMsg?.type === 'IMAGE' && !decryptedContent ? '📷 Photo' : decryptedContent || 'Message...'}
                   </p>
                 </>
               ) : (
@@ -117,6 +182,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
   const { data: user } = useGetMe();
   const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
+  const { decryptedPrivateKey } = useCrypto(); // Get decrypted private key
 
   const { mutateAsync: sendInvite, isPending: isInviting } = useSendInvite();
 
@@ -278,6 +344,8 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
                   contact={convo.contact}
                   isSelected={selectedConversationId === convo.id}
                   onClick={() => handleConversationClick(convo)}
+                  currentUserId={user?.id}
+                  decryptedPrivateKey={decryptedPrivateKey ?? undefined}
                 />
               ))
             ) : searchTerm ? (
