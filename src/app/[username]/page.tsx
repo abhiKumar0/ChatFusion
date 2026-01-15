@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useGetUserByUsername, useCreateConversation, useGetUserFriends, useSendFriendRequest, useCancelFriendRequest, useGetMe } from '@/lib/react-query/queries';
+import { usePresenceStore } from '@/store/usePresenceStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,14 +26,16 @@ import {
 const UserProfilePage = () => {
     const params = useParams();
     const router = useRouter();
-    const username = params.username as string;
+    const username = params?.username as string;
 
     const { data: currentUser } = useGetMe();
     const { data: user, isLoading, error } = useGetUserByUsername(username);
     const { data: friends, isLoading: friendsLoading } = useGetUserFriends(user?.id || '');
     const { mutateAsync: createConvoMutate } = useCreateConversation();
     const sendRequestMutation = useSendFriendRequest();
+
     const cancelRequestMutation = useCancelFriendRequest();
+    const { onlineUsers } = usePresenceStore();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isUnfriendOpen, setIsUnfriendOpen] = useState(false);
@@ -159,10 +163,10 @@ const UserProfilePage = () => {
                                         {user.fullName?.[0] || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background shadow-lg ${user.status?.toLowerCase() === 'online' ? 'bg-green-500' :
-                                        user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                            'bg-gray-400'
-                                    } animate-pulse`} />
+                                <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background shadow-lg ${onlineUsers.has(user.id) ? 'bg-green-500' :
+                                    user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
+                                        'bg-gray-400'
+                                    } ${onlineUsers.has(user.id) ? 'animate-pulse' : ''}`} />
                             </div>
 
                             {/* User Info */}
@@ -341,9 +345,9 @@ const UserProfilePage = () => {
                                                             </AvatarFallback>
                                                         </Avatar>
                                                         <span
-                                                            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${friend.status?.toLowerCase() === 'online' ? 'bg-green-500' :
-                                                                    friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                                                        'bg-gray-400'
+                                                            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${onlineUsers.has(friend.id) ? 'bg-green-500' :
+                                                                friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
+                                                                    'bg-gray-400'
                                                                 }`}
                                                         />
                                                     </div>

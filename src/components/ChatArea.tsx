@@ -34,7 +34,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
+import { usePresenceStore } from '@/store/usePresenceStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById } from '@/lib/react-query/queries';
+
 import { createClient } from '@/lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
@@ -112,7 +114,9 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   // Global chat state (reply management, current conversation)
   const { replyingTo, clearReplyingTo, setCurrentConversation } = useChatStore();
+  const { onlineUsers } = usePresenceStore();
   const currentConversation = conversationId;
+
 
   // Keep the global store in sync with current conversation
   // This helps track "last visited" conversation for features like unread badges
@@ -670,8 +674,10 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                   {currentParticipant?.fullName?.charAt(0)?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${isTyping ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${isTyping ? 'bg-yellow-500 animate-pulse' :
+                currentParticipant && onlineUsers.has(currentParticipant.id) ? 'bg-green-500' : 'bg-gray-400'
                 }`} />
+
             </div>
             <div>
               <h3 className="font-semibold text-sm">{currentParticipant?.fullName || 'Unknown User'}</h3>
@@ -686,7 +692,9 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                     <p className="text-xs text-primary font-medium">typing...</p>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Online</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currentParticipant && onlineUsers.has(currentParticipant.id) ? 'Online' : 'Offline'}
+                  </p>
                 )}
               </div>
             </div>

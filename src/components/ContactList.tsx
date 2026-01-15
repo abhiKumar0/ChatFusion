@@ -15,6 +15,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import { useRouter } from 'next/navigation';
+import { usePresenceStore } from '@/store/usePresenceStore';
+
 
 interface ConversationItemProps {
   conversation: {
@@ -159,15 +161,19 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
     };
   }, [supabase, queryClient]);
 
+  const { onlineUsers } = usePresenceStore();
+
   // Process and filter conversations
   const processedConversations = useMemo(() => {
     if (!conversations || !user) return [];
 
     return conversations.map((convo: any) => {
-      const contact = convo.allParticipants.find((participant: any) => participant.user.id !== user.id)?.user;
+      const contactData = convo.allParticipants.find((participant: any) => participant.user.id !== user.id)?.user;
+      const contact = contactData ? { ...contactData, status: onlineUsers.has(contactData.id) ? 'online' : 'offline' } : null;
       return { ...convo, contact };
     }).filter((convo: any) => convo.contact); // Filter out conversations without valid contacts
-  }, [conversations, user]);
+  }, [conversations, user, onlineUsers]);
+
 
   // Filter conversations based on search term
   const filteredConversations = useMemo(() => {

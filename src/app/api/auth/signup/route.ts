@@ -46,10 +46,17 @@ export const POST = async (request: Request) => {
                     isOnline: false,
                 });
 
+                if (profileError) {
+                    console.log("Profile error", profileError);
+                    // Clean up the auth user if profile creation fails
+                    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+                    return NextResponse.json({ message: "Profile creation failed: " + profileError.message }, { status: 500 });
+                }
+
             const {error: keyError} = await supabaseAdmin
                 .from('UserSecrets')
                 .insert({
-                    id: authData.user.id,
+                    userId: authData.user.id,
                     encryptedPrivateKey: encryptPrivateKey,
                 });
 
@@ -58,13 +65,6 @@ export const POST = async (request: Request) => {
                 // Clean up the auth user if profile creation fails
                 await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
                 return NextResponse.json({ message: "Key creation failed: " + keyError.message }, { status: 500 });
-            }
-
-            if (profileError) {
-                console.error("Profile Error:", profileError);
-                // Clean up the auth user if profile creation fails
-                await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-                return NextResponse.json({ message: "Profile creation failed: " + profileError.message }, { status: 500 });
             }
         }
 

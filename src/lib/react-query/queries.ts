@@ -293,6 +293,8 @@ export const useCancelFriendRequest = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
     },
   });
   return {
