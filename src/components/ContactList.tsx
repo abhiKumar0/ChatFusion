@@ -97,70 +97,56 @@ const ConversationItem = React.memo(({ conversation, contact, isSelected, onClic
   };
 
   return (
-    <Card
-      className={`mx-2 my-1.5 rounded-xl border-border cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${isSelected
-        ? 'bg-primary/10 border-primary shadow-sm'
-        : 'hover:border-primary/50 hover:bg-accent/50'
+    <div
+      className={`mx-2 my-1 px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${isSelected
+        ? 'bg-violet-500/10 border border-violet-500/30'
+        : 'hover:bg-white/[0.03] border border-transparent'
         }`}
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyPress={(e) => e.key === 'Enter' && onClick()}
     >
-      <CardContent className="p-3">
-        <div className="flex items-center gap-3">
-          <div className="relative shrink-0">
-            <Avatar className="h-12 w-12 border-2 border-border">
-              <AvatarImage src={contact?.avatar} />
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {contact?.fullName?.charAt(0)?.toUpperCase() || '?'}
-              </AvatarFallback>
-            </Avatar>
-            <span
-              className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background transition-all ${contact?.status === 'online' ? 'bg-green-500 animate-pulse' :
-                contact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'
-                }`}
-            />
+      <div className="flex items-center gap-3">
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11 border border-white/10">
+            <AvatarImage src={contact?.avatar} />
+            <AvatarFallback className="bg-violet-500/20 text-violet-400 font-medium text-sm">
+              {contact?.fullName?.charAt(0)?.toUpperCase() || '?'}
+            </AvatarFallback>
+          </Avatar>
+          <span
+            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0f0f11] transition-all ${contact?.status === 'online' ? 'bg-green-500' :
+              contact?.status === 'away' ? 'bg-yellow-500' : 'bg-gray-600'
+              }`}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            <h3 className="font-medium text-sm text-white truncate">{contact?.fullName || 'Unknown User'}</h3>
+            {(conversation?.unreadCount ?? 0) > 0 && (
+              <span className="h-5 min-w-5 flex items-center justify-center px-1.5 rounded-full bg-violet-500 text-white text-xs font-medium">
+                {(conversation?.unreadCount ?? 0) > 99 ? '99+' : (conversation?.unreadCount ?? 0)}
+              </span>
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm truncate">{contact?.fullName || 'Unknown User'}</h3>
-                <p className="text-xs text-muted-foreground truncate">@{contact?.username || 'user'}</p>
-              </div>
-              {(conversation?.unreadCount ?? 0) > 0 && (
-                <Badge
-                  variant="default"
-                  className="rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 bg-primary text-primary-foreground font-semibold animate-pulse"
-                >
-                  {(conversation?.unreadCount ?? 0) > 99 ? '99+' : (conversation?.unreadCount ?? 0)}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              {conversation?.unreadCount && conversation.unreadCount > 0 ? (
-                <p className="text-xs font-bold text-primary truncate flex-1">
-                  New Message
-                </p>
-              ) : conversation.lastMessageData ? (
-                <>
-                  {isOwnLastMsg && lastMsg?.status && <StatusIcon status={lastMsg.status} />}
-                  <MessageSquare className="w-3 h-3 text-muted-foreground shrink-0" />
-                  <p className="text-xs text-muted-foreground truncate flex-1">
-                    {lastMsg?.type === 'IMAGE' && !decryptedContent ? '📷 Photo' : decryptedContent || 'Message...'}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
-                  <p className="text-xs text-muted-foreground italic">No messages yet</p>
-                </>
-              )}
-            </div>
+          <div className="flex items-center gap-1.5">
+            {conversation?.unreadCount && conversation.unreadCount > 0 ? (
+              <p className="text-xs font-medium text-violet-400 truncate">
+                New message
+              </p>
+            ) : conversation.lastMessageData ? (
+              <p className="text-xs text-gray-500 truncate flex-1">
+                {isOwnLastMsg && lastMsg?.status && <StatusIcon status={lastMsg.status} />}
+                {lastMsg?.type === 'IMAGE' && !decryptedContent ? '📷 Photo' : decryptedContent || 'Message...'}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600 italic">No messages yet</p>
+            )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 });
 
@@ -259,11 +245,10 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
   if (isLoading) {
     return (
-      <div className="w-full border-r border-border flex flex-col bg-background">
-        <div className="p-4 border-b border-border bg-card">
+      <div className="w-full flex flex-col bg-[#0f0f11]">
+        <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold">Messages</h2>
+            <h2 className="text-lg font-semibold text-white">Messages</h2>
           </div>
         </div>
         <ConversationSkeleton />
@@ -302,40 +287,37 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
   return (
     <>
       <ComponentErrorBoundary>
-        <div className="w-full border-r border-border flex flex-col bg-background h-full">
-          <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
+        <div className="w-full flex flex-col bg-[#0f0f11] h-full">
+          <div className="p-4 border-b border-white/5 sticky top-0 z-10 bg-[#0f0f11]">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-bold">Messages</h2>
+                <h2 className="text-lg font-semibold text-white">Messages</h2>
                 {filteredConversations.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 text-xs text-gray-400">
                     {filteredConversations.length}
-                  </Badge>
+                  </span>
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                size="icon"
-                className="active:scale-95 transition-transform duration-150"
+              <button
+                className="h-9 w-9 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 flex items-center justify-center transition-colors"
                 onClick={() => setInviteDialogOpen(true)}
               >
-                <PlusCircle className="w-4 h-4" />
-              </Button>
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
               <Input
-                placeholder="Search conversations..."
-                className="pl-10 bg-secondary border-border focus:border-primary transition-colors"
+                placeholder="Search..."
+                className="pl-10 h-10 bg-white/5 border-white/10 rounded-lg text-white placeholder:text-gray-600 focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
                 value={searchTerm}
                 onChange={handleSearchChange}
               />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             {filteredConversations.length > 0 ? (
               filteredConversations.map((convo: any) => (
                 <ConversationItem
@@ -349,31 +331,31 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
                 />
               ))
             ) : searchTerm ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                  <Search className="w-8 h-8 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+                <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center mb-4">
+                  <Search className="w-6 h-6 text-gray-500" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">No conversations found</h3>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Try a different search term or start a new conversation
+                <h3 className="font-medium text-white mb-1">No results</h3>
+                <p className="text-sm text-gray-500">
+                  Try a different search term
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-8 text-center min-h-[400px]">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <MessageSquare className="w-10 h-10 text-primary" />
+              <div className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-4">
+                  <MessageSquare className="w-7 h-7 text-violet-400" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">No conversations yet</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-                  Start a new conversation to get chatting with your friends
+                <h3 className="font-medium text-white mb-1">No conversations</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Start chatting with your friends
                 </p>
-                <Button
-                  size="sm"
-                  className="active:scale-95 transition-transform duration-150 hover:scale-105"
+                <button
+                  className="h-9 px-4 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500 transition-colors flex items-center gap-2"
+                  onClick={() => setInviteDialogOpen(true)}
                 >
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  New Chat
-                </Button>
+                  <Plus className="w-4 h-4" />
+                  Invite friend
+                </button>
               </div>
             )}
           </div>
@@ -382,29 +364,29 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
       {/* Invite Friend Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-[#0f0f11] border-white/10">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <UserPlus className="h-5 w-5 text-violet-400" />
               Invite a Friend
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-500">
               Enter your friend's email address to send them an invitation to join ChatFusion.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium text-gray-300">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="friend@example.com"
-                  className="pl-10"
+                  className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-violet-500/50"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !isInviting && handleInviteFriend()}
@@ -414,24 +396,24 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
+          <DialogFooter className="gap-2">
+            <button
               type="button"
-              variant="outline"
               onClick={() => setInviteDialogOpen(false)}
               disabled={isInviting}
+              className="h-10 px-4 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors"
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
               onClick={handleInviteFriend}
               disabled={!inviteEmail.trim() || isInviting}
-              className="active:scale-95 transition-transform duration-150"
+              className="h-10 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center"
             >
               {isInviting ? (
                 <>
-                  <div className="h-4 w-4 mr-2 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin"></div>
+                  <div className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Sending...
                 </>
               ) : (
@@ -440,7 +422,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
                   Send Invite
                 </>
               )}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

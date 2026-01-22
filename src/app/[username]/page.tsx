@@ -4,11 +4,7 @@ import React, { useState } from 'react';
 import { useGetUserByUsername, useCreateConversation, useGetUserFriends, useSendFriendRequest, useCancelFriendRequest, useGetMe } from '@/lib/react-query/queries';
 import { usePresenceStore } from '@/store/usePresenceStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Mail, MessageSquare, ArrowLeft, Users, Search, UserPlus, UserMinus, UserCheck, UserX } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { User } from '@/types/types';
@@ -96,10 +92,10 @@ const UserProfilePage = () => {
 
     if (isLoading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
+            <div className="flex h-screen items-center justify-center bg-[#0a0a0b]">
                 <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                    <p className="text-muted-foreground animate-pulse">Loading profile...</p>
+                    <Loader2 className="h-10 w-10 animate-spin text-violet-500 mx-auto" />
+                    <p className="text-gray-500">Loading profile...</p>
                 </div>
             </div>
         );
@@ -107,17 +103,20 @@ const UserProfilePage = () => {
 
     if (error || !user) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-6 text-center bg-gradient-to-br from-background via-background to-destructive/5 p-6">
+            <div className="flex h-screen flex-col items-center justify-center gap-6 text-center bg-[#0a0a0b] p-6">
                 <div className="space-y-4 max-w-md">
-                    <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-                        <UserX className="w-10 h-10 text-destructive" />
+                    <div className="w-16 h-16 rounded-xl bg-red-500/10 flex items-center justify-center mx-auto">
+                        <UserX className="w-8 h-8 text-red-400" />
                     </div>
-                    <h1 className="text-3xl font-bold">User not found</h1>
-                    <p className="text-muted-foreground text-lg">The user @{username} does not exist or could not be loaded.</p>
-                    <Button onClick={() => router.back()} variant="outline" className="gap-2">
+                    <h1 className="text-2xl font-bold text-white">User not found</h1>
+                    <p className="text-gray-500">The user @{username} does not exist or could not be loaded.</p>
+                    <button
+                        onClick={() => router.back()}
+                        className="inline-flex items-center gap-2 h-10 px-4 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors"
+                    >
                         <ArrowLeft className="w-4 h-4" />
                         Go Back
-                    </Button>
+                    </button>
                 </div>
             </div>
         );
@@ -126,68 +125,60 @@ const UserProfilePage = () => {
     const isSelf = user.friendshipStatus === 'SELF';
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+        <div className="min-h-screen bg-[#0a0a0b]">
             {/* Back Button */}
-            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border/50">
-                <div className="container mx-auto max-w-6xl px-4 py-3">
-                    <Button
-                        variant="ghost"
+            <div className="sticky top-0 z-10 bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-white/5">
+                <div className="container mx-auto max-w-5xl px-4 py-3">
+                    <button
                         onClick={() => router.back()}
-                        className="gap-2 hover:bg-primary/10 transition-colors"
+                        className="inline-flex items-center gap-2 h-9 px-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Back
-                    </Button>
+                    </button>
                 </div>
             </div>
 
-            <div className="container mx-auto max-w-6xl p-4 md:p-8 space-y-6 animate-in fade-in duration-700">
-                {/* Profile Header Card */}
-                <Card className="overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/95 to-card/80 backdrop-blur-xl relative">
-                    {/* Animated Background Pattern */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 animate-gradient-x opacity-50"></div>
-
-                    {/* Cover Image */}
-                    <div className="h-40 md:h-48 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+            <div className="container mx-auto max-w-5xl p-4 md:p-8 space-y-6">
+                {/* Profile Header */}
+                <div className="overflow-hidden rounded-2xl bg-[#0f0f11] border border-white/5">
+                    {/* Cover */}
+                    <div className="h-32 md:h-40 bg-gradient-to-r from-violet-600/20 via-violet-500/10 to-indigo-600/20 relative">
+                        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
                     </div>
 
-                    <CardContent className="relative pt-0 pb-8 px-6 md:px-10">
-                        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-16 md:-mt-20">
+                    <div className="relative px-6 pb-6">
+                        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-14 md:-mt-16">
                             {/* Avatar */}
-                            <div className="relative group">
-                                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary/50 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
-                                <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-2xl ring-4 ring-primary/20">
+                            <div className="relative">
+                                <Avatar className="h-28 w-28 md:h-32 md:w-32 border-4 border-[#0f0f11] ring-2 ring-violet-500/20">
                                     <AvatarImage src={user.avatar} className="object-cover" />
-                                    <AvatarFallback className="text-5xl bg-gradient-to-br from-primary/20 to-primary/5">
+                                    <AvatarFallback className="text-4xl bg-violet-500/20 text-violet-400">
                                         {user.fullName?.[0] || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background shadow-lg ${onlineUsers.has(user.id) ? 'bg-green-500' :
-                                    user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                        'bg-gray-400'
-                                    } ${onlineUsers.has(user.id) ? 'animate-pulse' : ''}`} />
+                                <div className={`absolute bottom-2 right-2 w-5 h-5 rounded-full border-3 border-[#0f0f11] ${onlineUsers.has(user.id) ? 'bg-green-500' :
+                                    user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' : 'bg-gray-600'
+                                    }`} />
                             </div>
 
                             {/* User Info */}
-                            <div className="flex-1 text-center md:text-left space-y-3 mb-2">
-                                <div className="space-y-1">
-                                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                                        {user.fullName}
-                                    </h1>
-                                    <p className="text-lg text-muted-foreground font-medium">@{user.username}</p>
-                                </div>
+                            <div className="flex-1 text-center md:text-left space-y-2 mb-2">
+                                <h1 className="text-2xl md:text-3xl font-bold text-white">
+                                    {user.fullName}
+                                </h1>
+                                <p className="text-gray-500">@{user.username}</p>
 
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm">
-                                    <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 pt-2">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 text-gray-300 text-sm rounded-lg">
                                         <Mail className="w-3.5 h-3.5" />
                                         {user.email}
-                                    </Badge>
+                                    </span>
                                     {friends && (
-                                        <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/30 text-primary">
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-500/10 text-violet-400 text-sm rounded-lg">
                                             <Users className="w-3.5 h-3.5" />
                                             {friends.length} {friends.length === 1 ? 'Friend' : 'Friends'}
-                                        </Badge>
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -198,29 +189,28 @@ const UserProfilePage = () => {
                                     <>
                                         {user.friendshipStatus === 'FRIEND' && (
                                             <>
-                                                <Button
+                                                <button
                                                     onClick={handleMessage}
-                                                    className="gap-2 shadow-lg hover:shadow-xl transition-all"
+                                                    className="inline-flex items-center gap-2 h-10 px-4 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-lg transition-colors"
                                                 >
                                                     <MessageSquare className="w-4 h-4" />
                                                     Message
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
+                                                </button>
+                                                <button
                                                     onClick={() => setIsUnfriendOpen(true)}
-                                                    className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                                                    className="inline-flex items-center gap-2 h-10 px-4 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 text-gray-300 hover:text-red-400 font-medium rounded-lg transition-colors"
                                                 >
                                                     <UserMinus className="w-4 h-4" />
                                                     Unfriend
-                                                </Button>
+                                                </button>
                                             </>
                                         )}
 
                                         {user.friendshipStatus === 'NONE' && (
-                                            <Button
+                                            <button
                                                 onClick={handleAddFriend}
                                                 disabled={sendRequestMutation.isPending}
-                                                className="gap-2 shadow-lg hover:shadow-xl transition-all"
+                                                className="inline-flex items-center gap-2 h-10 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
                                             >
                                                 {sendRequestMutation.isPending ? (
                                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -228,15 +218,14 @@ const UserProfilePage = () => {
                                                     <UserPlus className="w-4 h-4" />
                                                 )}
                                                 Add Friend
-                                            </Button>
+                                            </button>
                                         )}
 
                                         {user.friendshipStatus === 'REQUEST_SENT' && (
-                                            <Button
-                                                variant="secondary"
+                                            <button
                                                 onClick={handleCancelRequest}
                                                 disabled={cancelRequestMutation.isPending}
-                                                className="gap-2"
+                                                className="inline-flex items-center gap-2 h-10 px-4 bg-white/10 hover:bg-white/20 text-gray-300 font-medium rounded-lg transition-colors"
                                             >
                                                 {cancelRequestMutation.isPending ? (
                                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -244,182 +233,167 @@ const UserProfilePage = () => {
                                                     <UserX className="w-4 h-4" />
                                                 )}
                                                 Cancel Request
-                                            </Button>
+                                            </button>
                                         )}
 
                                         {user.friendshipStatus === 'REQUEST_RECEIVED' && (
-                                            <Button variant="outline" disabled className="gap-2">
+                                            <span className="inline-flex items-center gap-2 h-10 px-4 bg-violet-500/10 text-violet-400 font-medium rounded-lg">
                                                 <UserCheck className="w-4 h-4" />
                                                 Request Received
-                                            </Button>
+                                            </span>
                                         )}
                                     </>
                                 )}
 
                                 {isSelf && (
-                                    <Button
-                                        variant="outline"
+                                    <button
                                         onClick={() => router.push('/profile')}
-                                        className="gap-2 shadow-lg"
+                                        className="inline-flex items-center gap-2 h-10 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-medium rounded-lg transition-colors"
                                     >
                                         Edit Profile
-                                    </Button>
+                                    </button>
                                 )}
                             </div>
                         </div>
 
                         {/* Bio Section */}
                         {user.bio && (
-                            <div className="mt-8 p-5 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border/50 backdrop-blur-sm">
-                                <h3 className="font-semibold mb-2 text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                                    About
-                                </h3>
-                                <p className="text-base leading-relaxed text-foreground/90">{user.bio}</p>
+                            <div className="mt-6 p-4 bg-white/[0.02] rounded-xl border border-white/5">
+                                <h3 className="font-medium text-gray-400 text-sm mb-2">About</h3>
+                                <p className="text-gray-300">{user.bio}</p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Friends Section */}
-                <Card className="border-none shadow-xl bg-card/95 backdrop-blur-xl">
-                    <CardContent className="p-6 space-y-6">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                                    <div className="w-1 h-8 bg-gradient-to-b from-primary to-primary/50 rounded-full"></div>
-                                    Friends
-                                    {friends && (
-                                        <Badge variant="secondary" className="text-base px-3 py-1">
-                                            {friends.length}
-                                        </Badge>
-                                    )}
-                                </h2>
-                                <p className="text-muted-foreground ml-4">
-                                    {isSelf ? 'Your connections' : `${user.fullName}'s connections`}
-                                </p>
-                            </div>
-
-                            {friends && friends.length > 0 && (
-                                <div className="relative w-full sm:w-80">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search friends..."
-                                        className="pl-10 bg-secondary/50 border-border/50 focus:border-primary/50 transition-colors"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                            )}
+                <div className="rounded-2xl bg-[#0f0f11] border border-white/5 p-6 space-y-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                                Friends
+                                {friends && (
+                                    <span className="text-sm px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded-lg">
+                                        {friends.length}
+                                    </span>
+                                )}
+                            </h2>
+                            <p className="text-gray-500 text-sm mt-1">
+                                {isSelf ? 'Your connections' : `${user.fullName}'s connections`}
+                            </p>
                         </div>
 
-                        {friendsLoading ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {[1, 2, 3].map((i) => (
-                                    <div key={i} className="h-24 bg-muted/50 animate-pulse rounded-xl"></div>
-                                ))}
-                            </div>
-                        ) : filteredFriends && filteredFriends.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {filteredFriends.map((friend: User) => {
-                                    const isFriendOfCurrentUser = friend.friendshipStatus === 'FRIEND';
-                                    const hasRequestSent = friend.friendshipStatus === 'REQUEST_SENT';
-                                    const canSendRequest = friend.friendshipStatus === 'NONE' && !isSelf;
-
-                                    return (
-                                        <Card
-                                            key={friend.id}
-                                            className="group hover:shadow-lg transition-all duration-300 border-muted-foreground/10 hover:border-primary/30 cursor-pointer overflow-hidden relative"
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            <CardContent className="p-4 relative">
-                                                <div
-                                                    className="flex items-center gap-3 mb-3"
-                                                    onClick={() => handleFriendClick(friend)}
-                                                >
-                                                    <div className="relative">
-                                                        <Avatar className="h-12 w-12 border-2 border-background ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all">
-                                                            <AvatarImage src={friend.avatar} />
-                                                            <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5">
-                                                                {friend.fullName?.[0]}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <span
-                                                            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${onlineUsers.has(friend.id) ? 'bg-green-500' :
-                                                                friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                                                    'bg-gray-400'
-                                                                }`}
-                                                        />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                                                            {friend.fullName}
-                                                        </h3>
-                                                        <p className="text-sm text-muted-foreground truncate">
-                                                            @{friend.username}
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {canSendRequest && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="w-full gap-2 hover:bg-primary/10 hover:border-primary/50"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSendFriendRequest(friend.id);
-                                                        }}
-                                                        disabled={sendRequestMutation.isPending}
-                                                    >
-                                                        {sendRequestMutation.isPending ? (
-                                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                                        ) : (
-                                                            <UserPlus className="w-3.5 h-3.5" />
-                                                        )}
-                                                        Add Friend
-                                                    </Button>
-                                                )}
-
-                                                {hasRequestSent && (
-                                                    <Badge variant="secondary" className="w-full justify-center">
-                                                        <UserCheck className="w-3 h-3 mr-1" />
-                                                        Request Sent
-                                                    </Badge>
-                                                )}
-
-                                                {isFriendOfCurrentUser && (
-                                                    <Badge variant="outline" className="w-full justify-center border-primary/30 text-primary">
-                                                        <UserCheck className="w-3 h-3 mr-1" />
-                                                        Friend
-                                                    </Badge>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        ) : friends && friends.length === 0 ? (
-                            <div className="text-center py-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-2xl border border-dashed border-border/50">
-                                <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                                    <Users className="w-8 h-8 text-muted-foreground opacity-50" />
-                                </div>
-                                <h3 className="font-semibold text-lg mb-2">No friends yet</h3>
-                                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                                    {isSelf ? "Connect with other users to see them here." : `${user.fullName} hasn't added any friends yet.`}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="text-center py-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-2xl">
-                                <Search className="w-12 h-12 text-muted-foreground opacity-50 mx-auto mb-4" />
-                                <h3 className="font-semibold text-lg mb-2">No results found</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Try adjusting your search terms.
-                                </p>
+                        {friends && friends.length > 0 && (
+                            <div className="relative w-full sm:w-72">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Input
+                                    placeholder="Search friends..."
+                                    className="pl-10"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {friendsLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="h-24 bg-white/[0.02] animate-pulse rounded-xl border border-white/5"></div>
+                            ))}
+                        </div>
+                    ) : filteredFriends && filteredFriends.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredFriends.map((friend: User) => {
+                                const isFriendOfCurrentUser = friend.friendshipStatus === 'FRIEND';
+                                const hasRequestSent = friend.friendshipStatus === 'REQUEST_SENT';
+                                const canSendRequest = friend.friendshipStatus === 'NONE' && !isSelf;
+
+                                return (
+                                    <div
+                                        key={friend.id}
+                                        className="group p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 transition-colors cursor-pointer"
+                                    >
+                                        <div
+                                            className="flex items-center gap-3 mb-3"
+                                            onClick={() => handleFriendClick(friend)}
+                                        >
+                                            <div className="relative">
+                                                <Avatar className="h-11 w-11 ring-1 ring-white/10">
+                                                    <AvatarImage src={friend.avatar} />
+                                                    <AvatarFallback className="bg-violet-500/20 text-violet-400">
+                                                        {friend.fullName?.[0]}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span
+                                                    className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0f0f11] ${onlineUsers.has(friend.id) ? 'bg-green-500' :
+                                                        friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' : 'bg-gray-600'
+                                                        }`}
+                                                />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-medium text-white truncate group-hover:text-violet-400 transition-colors">
+                                                    {friend.fullName}
+                                                </h3>
+                                                <p className="text-sm text-gray-500 truncate">
+                                                    @{friend.username}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {canSendRequest && (
+                                            <button
+                                                className="w-full h-8 flex items-center justify-center gap-2 bg-white/5 hover:bg-violet-500/20 text-gray-400 hover:text-violet-400 text-sm rounded-lg transition-colors"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleSendFriendRequest(friend.id);
+                                                }}
+                                                disabled={sendRequestMutation.isPending}
+                                            >
+                                                {sendRequestMutation.isPending ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                ) : (
+                                                    <UserPlus className="w-3.5 h-3.5" />
+                                                )}
+                                                Add Friend
+                                            </button>
+                                        )}
+
+                                        {hasRequestSent && (
+                                            <div className="w-full h-8 flex items-center justify-center gap-1 bg-white/5 text-gray-500 text-sm rounded-lg">
+                                                <UserCheck className="w-3 h-3" />
+                                                Request Sent
+                                            </div>
+                                        )}
+
+                                        {isFriendOfCurrentUser && (
+                                            <div className="w-full h-8 flex items-center justify-center gap-1 bg-violet-500/10 text-violet-400 text-sm rounded-lg">
+                                                <UserCheck className="w-3 h-3" />
+                                                Friend
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : friends && friends.length === 0 ? (
+                        <div className="text-center py-12 rounded-xl bg-white/[0.02] border border-white/5">
+                            <div className="w-14 h-14 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-7 h-7 text-gray-600" />
+                            </div>
+                            <h3 className="font-medium text-white mb-2">No friends yet</h3>
+                            <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                                {isSelf ? "Connect with other users to see them here." : `${user.fullName} hasn't added any friends yet.`}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 rounded-xl bg-white/[0.02] border border-white/5">
+                            <Search className="w-10 h-10 text-gray-600 mx-auto mb-4" />
+                            <h3 className="font-medium text-white mb-2">No results found</h3>
+                            <p className="text-sm text-gray-500">Try adjusting your search terms.</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Unfriend Confirmation Dialog */}
@@ -436,7 +410,7 @@ const UserProfilePage = () => {
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleUnfriend}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                         >
                             Yes, Unfriend
                         </AlertDialogAction>

@@ -591,24 +591,18 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
      */
     const StatusIcon = ({ status }: { status?: string }) => {
         if (!message.isOwn) return null;
-        // console.log(status)
-
-        // Debug logging
-        // if (status) {
-        //     console.log(`[StatusIcon] Message ${content}: status="${status}"`);
-        // }
 
         switch (status) {
             case 'sending':
-                return <span className="ml-1 text-xs text-muted-foreground">🕒</span>; // Clock emoji while sending
+                return <span className="ml-1 text-xs text-gray-400">🕒</span>;
             case 'sent':
-                return <span className="ml-1 text-xs text-muted-foreground">✓</span>; // Single check - sent to server
+                return <span className="ml-1 text-xs text-gray-400">✓</span>;
             case 'delivered':
-                return <span className="ml-1 text-xs text-muted-foreground">✓✓</span>; // Double check - delivered to recipient
+                return <span className="ml-1 text-xs text-gray-400">✓✓</span>;
             case 'seen':
-                return <span className="ml-1 text-xs text-blue-500">✓✓</span>; // Blue double check - read by recipient
+                return <span className="ml-1 text-xs text-violet-400">✓✓</span>;
             case 'error':
-                return <span className="ml-1 text-xs text-red-500">!</span>; // Red exclamation - failed to send
+                return <span className="ml-1 text-xs text-red-400">!</span>;
             default:
                 return null;
         }
@@ -683,19 +677,19 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
 
             <div className={`mr-2 items-end space-x-2 ${showOptions && message.isOwn ? 'flex' : 'hidden'}`}>
-                <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
+                <div className="flex items-center space-x-1 bg-[#1a1a1d] backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border border-white/10">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                className="h-8 w-8 p-0 hover:bg-white/10 text-gray-400 hover:text-white"
                                 disabled={updateMessageMutation.isPending || deleteMessagePending}
                             >
                                 <Ellipsis className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-1" align="end">
+                        <PopoverContent className="w-48 p-1 bg-[#1a1a1d] border-white/10" align="end">
                             <div className="space-y-1">
                                 {/* Reply */}
                                 <Button
@@ -780,7 +774,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            className="h-8 w-8 p-0 hover:bg-white/10 text-gray-400 hover:text-white"
                             onClick={handleReact}
                             title={addReactionMutation.isPending ? 'Adding reaction...' : 'Add reaction'}
                         >
@@ -805,15 +799,15 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
             </div>
             <div
                 className={`max-w-[70%] relative rounded-2xl p-3 px-4 ${message.isOwn
-                    ? 'bg-primary text-primary-foreground rounded-br-none'
-                    : 'bg-secondary rounded-bl-none'
+                    ? 'bg-violet-600 text-white rounded-br-sm'
+                    : 'bg-white/[0.05] border border-white/10 text-white rounded-bl-sm'
                     }`}
             >
                 {/* Parent Message Display */}
                 {parentMsg && (
                     <div className={`mb-2 p-2 rounded-lg border-l-2 ${message.isOwn
                         ? 'bg-white/10 border-white/30'
-                        : 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                        : 'bg-white/5 border-violet-400/50'
                         }`}>
 
                         <div className="flex items-center gap-2 mb-1">
@@ -823,8 +817,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                             </span>
                         </div>
                         {parentMsg?.type === 'IMAGE' ? (
-                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                <Image className="w-4 h-4 text-primary shrink-0" /> Photo
+                            <p className="text-xs text-gray-300 truncate flex items-center gap-1">
+                                <Image className="w-4 h-4 text-violet-400 shrink-0" /> Photo
                             </p>
                         ) : parentMsg?.type === 'TEXT' ? (
                             <div className="text-sm opacity-80">
@@ -919,7 +913,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                         {message.reactions.map((reaction) => (
                             <span
                                 key={reaction.id}
-                                className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                className="text-xs bg-white/10 px-2 py-1 rounded-full cursor-pointer hover:bg-white/20 transition-colors"
                                 onClick={() => handleEmojiSelect({ emoji: reaction.emoji })}
                             >
                                 {reaction.emoji}
@@ -930,8 +924,8 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
                 {/* Delete Confirmation Dialog */}
                 {showDeleteConfirm && (
-                    <div className="absolute top-0 left-0 right-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-lg rounded-lg p-3 text-sm z-20">
-                        <p className="text-gray-700 dark:text-gray-300 mb-3">Delete this message?</p>
+                    <div className="absolute top-0 left-0 right-0 bg-[#1a1a1d] border border-white/10 shadow-lg rounded-lg p-3 text-sm z-20">
+                        <p className="text-gray-300 mb-3">Delete this message?</p>
                         <div className="flex gap-2">
                             <Button
                                 size="sm"
@@ -973,7 +967,7 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
 
             {/*EOption for Other messages*/}
             <div className={`ml-2 flex items-end space-x-2 ${showOptions && !message.isOwn ? 'flex' : 'hidden'}`}>
-                <div className="flex items-center space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border">
+                <div className="flex items-center space-x-1 bg-[#1a1a1d] backdrop-blur-sm rounded-lg px-2 py-1 shadow-lg border border-white/10">
                     <div className="relative">
                         <Button
                             variant="ghost"
@@ -1005,12 +999,12 @@ const MessageBubble = React.memo(({ message, conversationData, conversationId, o
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                className="h-8 w-8 p-0 hover:bg-white/10 text-gray-400 hover:text-white"
                             >
                                 <Ellipsis className="h-4 w-4" />
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-32 p-1" align="start">
+                        <PopoverContent className="w-32 p-1 bg-[#1a1a1d] border-white/10" align="start">
                             <div className="space-y-1">
 
                                 {/* Reply */}

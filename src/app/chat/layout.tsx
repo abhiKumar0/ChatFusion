@@ -18,12 +18,8 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
         document.documentElement.classList.toggle('dark');
     };
 
-    // Mobile view logic
-    // If conversationId exists, we are in a chat on mobile -> show child (ChatArea)
-    // If not, we are in list on mobile -> show ContactList
-
     return (
-        <div className={`min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
+        <div className={`min-h-screen flex flex-col bg-[#0a0a0b] ${darkMode ? 'dark' : ''}`}>
             <div className="flex-1 flex overflow-hidden">
                 <Sidebar
                     darkMode={darkMode}
@@ -32,24 +28,17 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
                 />
 
                 {/* Desktop Layout: Always show ContactList */}
-                <div className="hidden md:flex w-80 md:max-w-96 xl:w-1/3 border-r border-border h-full">
+                <div className="hidden md:flex w-80 lg:w-[340px] border-r border-white/5 h-full bg-[#0f0f11]">
                     <ContactList selectedConversationId={conversationId} />
                 </div>
 
                 {/* Mobile Layout: Show ContactList only if NO conversation selected */}
-                <div className={`md:hidden flex-1 flex flex-col h-full ${conversationId ? 'hidden' : 'flex'}`}>
+                <div className={`md:hidden flex-1 flex flex-col h-full bg-[#0f0f11] ${conversationId ? 'hidden' : 'flex'}`}>
                     <ContactList selectedConversationId={conversationId} />
                 </div>
 
                 {/* Main Content (ChatArea or Empty State) */}
-                {/* On Mobile: If conversationId, show this. If not, hide this (because ContactList is shown). */}
-                {/* Actually, if children is EmptyState (page.tsx), we want to hide it on mobile if we want to show ContactList? 
-            Wait, if route is /chat (page.tsx), conversationId is undefined. 
-            So ContactList is visible. Child (EmptyState) is ...?
-            On mobile, EmptyState is usually not shown. User sees ContactList.
-            So we should hide children on mobile if conversationId is missing.
-        */}
-                <div className={`flex-1 flex flex-col h-[100vh] overflow-hidden ${!conversationId ? 'hidden md:flex' : 'flex'}`}>
+                <div className={`flex-1 flex flex-col h-[100vh] overflow-hidden bg-[#0a0a0b] ${!conversationId ? 'hidden md:flex' : 'flex'}`}>
                     {children}
                 </div>
             </div>

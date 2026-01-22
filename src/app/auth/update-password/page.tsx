@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Eye, EyeOff, Loader2, Lock } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, MessageSquare, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -32,7 +31,7 @@ export default function UpdatePasswordPage() {
 
         // Validate password length
         if (newPassword.length < 6) {
-            setError('Password must be at least 8 characters long');
+            setError('Password must be at least 6 characters long');
             return;
         }
 
@@ -42,7 +41,7 @@ export default function UpdatePasswordPage() {
 
             //Update password
 
-            const {error} = await supabase.auth.updateUser({
+            const { error } = await supabase.auth.updateUser({
                 password: newPassword
             })
 
@@ -58,44 +57,53 @@ export default function UpdatePasswordPage() {
         }
     };
 
+    const passwordLengthValid = newPassword.length >= 6;
+    const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0;
+
     return (
-        <div className="flex min-h-screen items-center justify-center bg-black p-4 text-foreground">
-            {/* Background blobs */}
+        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0b] p-4">
+            {/* Subtle background */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute left-[10%] top-[-20%] h-96 w-96 animate-[blob_8s_infinite] rounded-full bg-blue-300/50 opacity-50 blur-3xl filter"></div>
-                <div className="absolute right-[-10%] top-[10%] h-96 w-96 animate-[blob_10s_infinite_2s] rounded-full bg-primary/30 opacity-50 blur-3xl filter"></div>
-                <div className="absolute bottom-[-10%] left-[20%] h-80 w-80 animate-[blob_12s_infinite_4s] rounded-full bg-purple-300/40 opacity-60 blur-3xl filter"></div>
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl" />
             </div>
 
             {/* Back button */}
-            <Link href="/auth" className="absolute left-10 top-10 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/auth" className="absolute left-6 top-6 flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
                 <ArrowLeft className="h-4 w-4" />
                 Back to login
             </Link>
 
-            <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-card/60 shadow-2xl backdrop-blur-md p-8">
+            <div className="relative w-full max-w-md rounded-2xl bg-[#0f0f11] border border-white/10 p-8">
+                {/* Logo */}
+                <div className="flex justify-center mb-6">
+                    <div className="h-12 w-12 bg-violet-600 rounded-xl flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6 text-white" />
+                    </div>
+                </div>
+
                 {/* Header */}
                 <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/20">
-                        <Lock className="h-8 w-8 text-primary" />
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-violet-500/10">
+                        <Lock className="h-7 w-7 text-violet-400" />
                     </div>
-                    <h1 className="text-3xl font-bold">Update Password</h1>
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <h1 className="text-2xl font-bold text-white">Update Password</h1>
+                    <p className="mt-2 text-sm text-gray-500">
                         Enter your new password below
                     </p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                             {error}
                         </div>
                     )}
 
                     {/* New Password Field */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground/80">
+                        <label className="text-sm font-medium text-gray-400">
                             New Password
                         </label>
                         <div className="relative">
@@ -104,7 +112,7 @@ export default function UpdatePasswordPage() {
                                 placeholder="Enter new password"
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                className="border-none bg-secondary pr-12 p-3"
+                                className="h-11 pr-12"
                                 required
                                 disabled={loading}
                                 minLength={6}
@@ -112,7 +120,7 @@ export default function UpdatePasswordPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowNewPassword(!showNewPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
                                 tabIndex={-1}
                             >
                                 {showNewPassword ? (
@@ -126,7 +134,7 @@ export default function UpdatePasswordPage() {
 
                     {/* Confirm Password Field */}
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground/80">
+                        <label className="text-sm font-medium text-gray-400">
                             Confirm Password
                         </label>
                         <div className="relative">
@@ -135,7 +143,7 @@ export default function UpdatePasswordPage() {
                                 placeholder="Confirm new password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="border-none bg-secondary pr-12 p-3"
+                                className="h-11 pr-12"
                                 required
                                 disabled={loading}
                                 minLength={6}
@@ -143,7 +151,7 @@ export default function UpdatePasswordPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
                                 tabIndex={-1}
                             >
                                 {showConfirmPassword ? (
@@ -156,36 +164,38 @@ export default function UpdatePasswordPage() {
                     </div>
 
                     {/* Password Requirements */}
-                    <div className="text-xs text-muted-foreground space-y-1">
-                        <p>Password must:</p>
-                        <ul className="list-disc list-inside space-y-0.5 ml-2">
-                            <li className={newPassword.length >= 6 ? 'text-green-500' : ''}>
-                                Be at least 6 characters long
+                    <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5 space-y-2">
+                        <p className="text-xs text-gray-500 font-medium">Password requirements:</p>
+                        <ul className="space-y-1.5">
+                            <li className={`flex items-center gap-2 text-xs ${passwordLengthValid ? 'text-green-400' : 'text-gray-500'}`}>
+                                <Check className={`w-3.5 h-3.5 ${passwordLengthValid ? 'opacity-100' : 'opacity-30'}`} />
+                                At least 6 characters long
                             </li>
-                            <li className={newPassword === confirmPassword && newPassword ? 'text-green-500' : ''}>
-                                Match the confirmation password
+                            <li className={`flex items-center gap-2 text-xs ${passwordsMatch ? 'text-green-400' : 'text-gray-500'}`}>
+                                <Check className={`w-3.5 h-3.5 ${passwordsMatch ? 'opacity-100' : 'opacity-30'}`} />
+                                Passwords match
                             </li>
                         </ul>
                     </div>
 
                     {/* Submit Button */}
-                    <Button
+                    <button
                         type="submit"
                         disabled={loading || !newPassword || !confirmPassword}
-                        className="w-full transform rounded-full px-12 py-3 text-xs font-bold uppercase tracking-wider transition-transform duration-75 ease-in hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
                     >
                         {loading ? (
                             <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                                 Updating...
                             </>
                         ) : (
                             <>
-                                <Lock className="mr-2 h-4 w-4" />
+                                <Lock className="h-4 w-4" />
                                 Update Password
                             </>
                         )}
-                    </Button>
+                    </button>
                 </form>
             </div>
         </div>

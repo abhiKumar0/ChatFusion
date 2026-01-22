@@ -107,6 +107,8 @@ export async function decryptMessage(
 
 // Function to encrypt the private key with a password
 export function encryptPrivateKey(privateKey: string, email: string): string {
+    // console.log("Private Key",privateKey)
+    // console.log("Email",email)
     const encrypted = CryptoJS.AES.encrypt(privateKey, email).toString();
     return encrypted;
 }

@@ -3,10 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGetMe, useGetFriends, useUpdateUser, useUploadAvatar, useCheckUsername, useCreateConversation } from '@/lib/react-query/queries';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Loader2, Mail, User as UserIcon, Edit, Camera, Upload, ArrowLeft, Users, Search, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -32,7 +29,6 @@ const ProfilePage = () => {
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
     const { refetch: checkUsernameUnique } = useCheckUsername(formData.username);
 
-    // Debounce username check
     useEffect(() => {
         const check = async () => {
             if (formData.username && formData.username !== user?.username) {
@@ -44,7 +40,6 @@ const ProfilePage = () => {
                         setUsernameError("Username is already taken");
                     }
                 } catch {
-                    // Ignore error on check failure
                 } finally {
                     setIsCheckingUsername(false);
                 }
@@ -109,7 +104,7 @@ const ProfilePage = () => {
     };
 
     const handleMessage = async (friend: User, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent card click
+        e.stopPropagation();
         try {
             const conversation = await createConvoMutate({
                 recipientId: friend.id
@@ -131,10 +126,12 @@ const ProfilePage = () => {
 
     if (isUserLoading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
-                <div className="text-center space-y-4">
-                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                    <p className="text-muted-foreground animate-pulse">Loading your profile...</p>
+            <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-violet-600 mb-4">
+                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                    </div>
+                    <p className="text-gray-500">Loading profile...</p>
                 </div>
             </div>
         );
@@ -142,84 +139,79 @@ const ProfilePage = () => {
 
     if (!user) {
         return (
-            <div className="flex h-screen flex-col items-center justify-center gap-6 text-center bg-gradient-to-br from-background via-background to-destructive/5 p-6">
-                <div className="space-y-4 max-w-md">
-                    <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
-                        <UserIcon className="w-10 h-10 text-destructive" />
+            <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="h-16 w-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                        <UserIcon className="w-7 h-7 text-red-400" />
                     </div>
-                    <h1 className="text-3xl font-bold">Not Logged In</h1>
-                    <p className="text-muted-foreground text-lg">Please log in to view your profile.</p>
-                    <Button onClick={() => router.push('/auth/login')} variant="outline" className="gap-2">
+                    <h1 className="text-2xl font-semibold text-white mb-2">Not Logged In</h1>
+                    <p className="text-gray-500 mb-6">Please log in to view your profile.</p>
+                    <button
+                        onClick={() => router.push('/auth')}
+                        className="h-10 px-6 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-lg transition-colors"
+                    >
                         Go to Login
-                    </Button>
+                    </button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-            {/* Back Button */}
-            <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border/50">
-                <div className="container mx-auto max-w-6xl px-4 py-3">
-                    <Button
-                        variant="ghost"
+        <div className="min-h-screen bg-[#0a0a0b]">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-[#0a0a0b]/90 backdrop-blur-xl border-b border-white/5">
+                <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-4">
+                    <button
                         onClick={() => router.back()}
-                        className="gap-2 hover:bg-primary/10 transition-colors"
+                        className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors"
                     >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back
-                    </Button>
+                        <ArrowLeft className="w-4 h-4 text-gray-400" />
+                    </button>
+                    <span className="text-sm text-gray-500">Profile</span>
                 </div>
             </div>
 
-            <div className="container mx-auto max-w-6xl p-4 md:p-8 space-y-6 animate-in fade-in duration-700">
-                {/* Profile Header Card */}
-                <Card className="overflow-hidden border-none shadow-2xl bg-gradient-to-br from-card/95 to-card/80 backdrop-blur-xl relative">
-                    {/* Animated Background Pattern */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 animate-gradient-x opacity-50"></div>
-
-                    {/* Cover Image */}
-                    <div className="h-40 md:h-48 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 relative overflow-hidden">
-                        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10"></div>
+            <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+                {/* Profile Card */}
+                <div className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
+                    {/* Cover */}
+                    <div className="h-32 md:h-40 bg-gradient-to-r from-violet-600/20 via-indigo-600/20 to-violet-600/20 relative">
+                        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
                     </div>
 
-                    <CardContent className="relative pt-0 pb-8 px-6 md:px-10">
-                        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-16 md:-mt-20">
+                    {/* Content */}
+                    <div className="px-6 pb-6 relative">
+                        <div className="flex flex-col md:flex-row items-center md:items-end gap-4 -mt-12 md:-mt-16">
                             {/* Avatar */}
-                            <div className="relative group">
-                                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-primary/50 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-300"></div>
-                                <Avatar className="relative h-32 w-32 md:h-40 md:w-40 border-4 border-background shadow-2xl ring-4 ring-primary/20">
+                            <div className="relative">
+                                <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-[#0a0a0b] ring-2 ring-violet-500/30">
                                     <AvatarImage src={user.avatar} className="object-cover" />
-                                    <AvatarFallback className="text-5xl bg-gradient-to-br from-primary/20 to-primary/5">
+                                    <AvatarFallback className="text-3xl bg-violet-500/20 text-violet-400">
                                         {user.fullName?.[0] || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
-                                <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background shadow-lg ${user.status?.toLowerCase() === 'online' ? 'bg-green-500' :
-                                    user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                        'bg-gray-400'
-                                    } animate-pulse`} />
+                                <span className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-3 border-[#0a0a0b] ${user.status?.toLowerCase() === 'online' ? 'bg-green-500' :
+                                    user.status?.toLowerCase() === 'away' ? 'bg-yellow-500' : 'bg-gray-600'
+                                    }`} />
                             </div>
 
                             {/* User Info */}
-                            <div className="flex-1 text-center md:text-left space-y-3 mb-2">
-                                <div className="space-y-1">
-                                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                                        {user.fullName}
-                                    </h1>
-                                    <p className="text-lg text-muted-foreground font-medium">@{user.username}</p>
-                                </div>
-
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm">
-                                    <Badge variant="secondary" className="gap-1.5 px-3 py-1">
-                                        <Mail className="w-3.5 h-3.5" />
+                            <div className="flex-1 text-center md:text-left py-2">
+                                <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
+                                    {user.fullName}
+                                </h1>
+                                <p className="text-gray-500 mb-3">@{user.username}</p>
+                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 text-xs text-gray-400">
+                                        <Mail className="w-3 h-3" />
                                         {user.email}
-                                    </Badge>
+                                    </span>
                                     {friends && (
-                                        <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/30 text-primary">
-                                            <Users className="w-3.5 h-3.5" />
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 text-xs text-violet-400">
+                                            <Users className="w-3 h-3" />
                                             {friends.length} {friends.length === 1 ? 'Friend' : 'Friends'}
-                                        </Badge>
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -227,24 +219,26 @@ const ProfilePage = () => {
                             {/* Edit Button */}
                             <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
                                 <SheetTrigger asChild>
-                                    <Button className="gap-2 shadow-lg hover:shadow-xl transition-all">
+                                    <button className="h-10 px-4 bg-white text-gray-900 text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2">
                                         <Edit className="w-4 h-4" />
                                         Edit Profile
-                                    </Button>
+                                    </button>
                                 </SheetTrigger>
-                                <SheetContent className="overflow-y-auto w-full sm:max-w-md">
+                                <SheetContent className="overflow-y-auto w-full sm:max-w-md bg-[#0f0f11] border-white/5">
                                     <SheetHeader>
-                                        <SheetTitle>Edit Profile</SheetTitle>
-                                        <SheetDescription>
-                                            Make changes to your profile here. Click save when you're done.
+                                        <SheetTitle className="text-white">Edit Profile</SheetTitle>
+                                        <SheetDescription className="text-gray-500">
+                                            Make changes to your profile here.
                                         </SheetDescription>
                                     </SheetHeader>
                                     <div className="grid gap-6 py-6">
                                         <div className="flex flex-col items-center gap-4">
                                             <div className="relative group cursor-pointer w-24 h-24">
-                                                <Avatar className="h-full w-full border-2 border-border group-hover:border-primary transition-colors">
+                                                <Avatar className="h-full w-full border-2 border-white/10 group-hover:border-violet-500/50 transition-colors">
                                                     <AvatarImage src={previewUrl || ""} className="object-cover" />
-                                                    <AvatarFallback className="text-xl">{formData.fullName?.[0]}</AvatarFallback>
+                                                    <AvatarFallback className="text-xl bg-violet-500/20 text-violet-400">
+                                                        {formData.fullName?.[0]}
+                                                    </AvatarFallback>
                                                 </Avatar>
                                                 <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <Camera className="w-8 h-8 text-white" />
@@ -256,208 +250,188 @@ const ProfilePage = () => {
                                                     onChange={handleFileChange}
                                                 />
                                             </div>
-                                            <Button variant="outline" size="sm" className="relative cursor-pointer" type="button">
-                                                <span className="flex items-center">
-                                                    <Upload className="w-4 h-4 mr-2" />
-                                                    Change Avatar
-                                                </span>
+                                            <button className="h-9 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 flex items-center gap-2 transition-colors relative">
+                                                <Upload className="w-4 h-4" />
+                                                Change Avatar
                                                 <input
                                                     type="file"
                                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                                     accept="image/*"
                                                     onChange={handleFileChange}
                                                 />
-                                            </Button>
+                                            </button>
                                         </div>
 
                                         <div className="space-y-4">
                                             <div className="space-y-2">
-                                                <label htmlFor="fullName" className="text-sm font-medium leading-none">
+                                                <label className="text-sm font-medium text-gray-300">
                                                     Full Name
                                                 </label>
                                                 <Input
-                                                    id="fullName"
                                                     value={formData.fullName}
                                                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                                                     placeholder="John Doe"
+                                                    className="h-11 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-violet-500/50"
                                                 />
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label htmlFor="username" className="text-sm font-medium leading-none">
+                                                <label className="text-sm font-medium text-gray-300">
                                                     Username
                                                 </label>
                                                 <div className="relative">
                                                     <Input
-                                                        id="username"
                                                         value={formData.username}
                                                         onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
                                                         placeholder="johndoe"
-                                                        className={usernameError ? "border-red-500 pr-10" : "pr-10"}
+                                                        className={`h-11 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-violet-500/50 ${usernameError ? "border-red-500" : ""}`}
                                                     />
                                                     {isCheckingUsername && (
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                                            <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                                                         </div>
                                                     )}
                                                 </div>
                                                 {usernameError && (
-                                                    <p className="text-xs text-red-500 font-medium">{usernameError}</p>
+                                                    <p className="text-xs text-red-400">{usernameError}</p>
                                                 )}
-                                                <p className="text-[0.8rem] text-muted-foreground">
-                                                    Usernames can only contain lowercase letters, numbers, and underscores.
+                                                <p className="text-xs text-gray-600">
+                                                    Lowercase letters, numbers, and underscores only.
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
-                                    <SheetFooter>
+                                    <SheetFooter className="gap-2">
                                         <SheetClose asChild>
-                                            <Button variant="outline" type="button">Cancel</Button>
+                                            <button className="h-10 px-4 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors">
+                                                Cancel
+                                            </button>
                                         </SheetClose>
-                                        <Button
+                                        <button
                                             onClick={handleUpdateProfile}
                                             disabled={isUpdating || isUploading || isCheckingUsername || !!usernameError || !formData.username}
-                                            className="gap-2"
+                                            className="h-10 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
                                         >
                                             {(isUpdating || isUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
                                             Save Changes
-                                        </Button>
+                                        </button>
                                     </SheetFooter>
                                 </SheetContent>
                             </Sheet>
                         </div>
-
-                        {/* Bio Section */}
-                        {user.bio && (
-                            <div className="mt-8 p-5 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border/50 backdrop-blur-sm">
-                                <h3 className="font-semibold mb-2 text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                                    About
-                                </h3>
-                                <p className="text-base leading-relaxed text-foreground/90">{user.bio}</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
                 {/* Friends Section */}
-                <Card className="border-none shadow-xl bg-card/95 backdrop-blur-xl">
-                    <CardContent className="p-6 space-y-6">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-                                    <div className="w-1 h-8 bg-gradient-to-b from-primary to-primary/50 rounded-full"></div>
-                                    Friends
-                                    {friends && (
-                                        <Badge variant="secondary" className="text-base px-3 py-1">
-                                            {friends.length}
-                                        </Badge>
-                                    )}
-                                </h2>
-                                <p className="text-muted-foreground ml-4">
-                                    Your connections
-                                </p>
-                            </div>
-
-                            {friends && friends.length > 0 && (
-                                <div className="relative w-full sm:w-80">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search friends..."
-                                        className="pl-10 bg-secondary/50 border-border/50 focus:border-primary/50 transition-colors"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-                            )}
+                <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                        <div>
+                            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                Friends
+                                {friends && (
+                                    <span className="px-2 py-0.5 rounded-full bg-violet-500/10 text-sm text-violet-400">
+                                        {friends.length}
+                                    </span>
+                                )}
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">Your connections</p>
                         </div>
 
-                        {isFriendsLoading ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {[1, 2, 3].map((i) => (
-                                    <div key={i} className="h-32 bg-muted/50 animate-pulse rounded-xl"></div>
-                                ))}
-                            </div>
-                        ) : filteredFriends && filteredFriends.length > 0 ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {filteredFriends.map((friend: User) => (
-                                    <Card
-                                        key={friend.id}
-                                        className="group hover:shadow-lg transition-all duration-300 border-muted-foreground/10 hover:border-primary/30 overflow-hidden relative"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                        <CardContent className="p-4 relative space-y-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative">
-                                                    <Avatar className="h-14 w-14 border-2 border-background ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all">
-                                                        <AvatarImage src={friend.avatar} />
-                                                        <AvatarFallback className="bg-gradient-to-br from-primary/20 to-primary/5">
-                                                            {friend.fullName?.[0]}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span
-                                                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background ${friend.status?.toLowerCase() === 'online' ? 'bg-green-500' :
-                                                            friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' :
-                                                                'bg-gray-400'
-                                                            }`}
-                                                    />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                                                        {friend.fullName}
-                                                    </h3>
-                                                    <p className="text-sm text-muted-foreground truncate">
-                                                        @{friend.username}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    className="w-full gap-2 hover:bg-primary/20 transition-colors"
-                                                    onClick={(e) => handleMessage(friend, e)}
-                                                >
-                                                    <MessageSquare className="w-3.5 h-3.5" />
-                                                    Message
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="w-full gap-2 hover:bg-primary/10 hover:border-primary/50 transition-colors"
-                                                    onClick={() => handleFriendClick(friend)}
-                                                >
-                                                    View
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
-                        ) : friends && friends.length === 0 ? (
-                            <div className="text-center py-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-2xl border border-dashed border-border/50">
-                                <div className="mx-auto w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-                                    <Users className="w-8 h-8 text-muted-foreground opacity-50" />
-                                </div>
-                                <h3 className="font-semibold text-lg mb-2">No friends yet</h3>
-                                <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
-                                    Connect with other users to see them here.
-                                </p>
-                                <Button variant="outline" onClick={() => router.push('/users')}>
-                                    Find Friends
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="text-center py-16 bg-gradient-to-br from-muted/20 to-muted/10 rounded-2xl">
-                                <Search className="w-12 h-12 text-muted-foreground opacity-50 mx-auto mb-4" />
-                                <h3 className="font-semibold text-lg mb-2">No results found</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Try adjusting your search terms.
-                                </p>
+                        {friends && friends.length > 0 && (
+                            <div className="relative w-full sm:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                <Input
+                                    placeholder="Search friends..."
+                                    className="pl-10 h-10 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-violet-500/50"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {isFriendsLoading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="h-24 bg-white/5 animate-pulse rounded-xl" />
+                            ))}
+                        </div>
+                    ) : filteredFriends && filteredFriends.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {filteredFriends.map((friend: User) => (
+                                <div
+                                    key={friend.id}
+                                    className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all"
+                                >
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="relative">
+                                            <Avatar className="h-11 w-11 border border-white/10">
+                                                <AvatarImage src={friend.avatar} />
+                                                <AvatarFallback className="bg-violet-500/20 text-violet-400 text-sm">
+                                                    {friend.fullName?.[0]}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span
+                                                className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0a0a0b] ${friend.status?.toLowerCase() === 'online' ? 'bg-green-500' :
+                                                    friend.status?.toLowerCase() === 'away' ? 'bg-yellow-500' : 'bg-gray-600'
+                                                    }`}
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-medium text-sm text-white truncate">
+                                                {friend.fullName}
+                                            </h3>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                @{friend.username}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            className="flex-1 h-8 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                                            onClick={(e) => handleMessage(friend, e)}
+                                        >
+                                            <MessageSquare className="w-3 h-3" />
+                                            Message
+                                        </button>
+                                        <button
+                                            className="flex-1 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-xs font-medium flex items-center justify-center transition-colors"
+                                            onClick={() => handleFriendClick(friend)}
+                                        >
+                                            View
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : friends && friends.length === 0 ? (
+                        <div className="text-center py-12">
+                            <div className="h-14 w-14 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-6 h-6 text-gray-500" />
+                            </div>
+                            <h3 className="font-medium text-white mb-1">No friends yet</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Connect with other users to see them here.
+                            </p>
+                            <button
+                                onClick={() => router.push('/users')}
+                                className="h-9 px-4 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-lg transition-colors"
+                            >
+                                Find Friends
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center py-12">
+                            <div className="h-14 w-14 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                                <Search className="w-6 h-6 text-gray-500" />
+                            </div>
+                            <h3 className="font-medium text-white mb-1">No results found</h3>
+                            <p className="text-sm text-gray-500">
+                                Try adjusting your search terms.
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
