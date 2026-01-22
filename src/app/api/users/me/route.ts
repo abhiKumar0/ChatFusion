@@ -12,7 +12,7 @@ export const GET = async (request: Request) => {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        console.log("Auth User",authUser)
+        // console.log("Auth User",authUser)
 
         const { data: user, error } = await supabase
             .from('User')
@@ -26,35 +26,35 @@ export const GET = async (request: Request) => {
             return NextResponse.json({message: "User not found"}, { status: 404 });
         }
 
-        if (!user) {
-             // Create user if they don't exist in public table
-             console.log("User not found, creating...")
-             const newUser = {
-                id: authUser.id,
-                email: authUser.email,
-                fullName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0],
-                username: (authUser.email?.split('@')[0] || 'user') + Math.floor(Math.random() * 10000),
-                avatar: authUser.user_metadata?.avatar_url || "",
-                isOnline: true,
-                updatedAt: new Date().toISOString(),
-             };
+        // if (!user) {
+        //      // Create user if they don't exist in public table
+        //      console.log("User not found, creating...")
+        //      const newUser = {
+        //         id: authUser.id,
+        //         email: authUser.email,
+        //         fullName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0],
+        //         username: (authUser.email?.split('@')[0] || 'user') + Math.floor(Math.random() * 10000),
+        //         avatar: authUser.user_metadata?.avatar_url || "",
+        //         isOnline: true,
+        //         updatedAt: new Date().toISOString(),
+        //      };
 
-             const { data: createdUser, error: createError } = await supabase
-                .from('User')
-                .insert(newUser)
-                .select()
-                .single();
+        //      const { data: createdUser, error: createError } = await supabase
+        //         .from('User')
+        //         .insert(newUser)
+        //         .select()
+        //         .single();
 
-             if (createError) {
-                 console.error("Error creating user:", createError);
-                 // Fallback to ephemeral data if insertion fails
-                 return NextResponse.json({
-                    user: newUser
-                 }, { status: 200 });
-             }
+        //      if (createError) {
+        //          console.error("Error creating user:", createError);
+        //          // Fallback to ephemeral data if insertion fails
+        //          return NextResponse.json({
+        //             user: newUser
+        //          }, { status: 200 });
+        //      }
              
-             return NextResponse.json({ user: createdUser }, { status: 200 });
-        }
+        //      return NextResponse.json({ user: createdUser }, { status: 200 });
+        // }
 
         const { password, ...userWithoutPassword } = user;
 
