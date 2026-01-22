@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, Search, Loader2, KeyRound, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, KeyRound, CheckCircle, Mail, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useGetUserByEmail, useRequestPasswordReset, useConfirmPasswordReset } from '@/lib/react-query/queries';
@@ -66,96 +65,110 @@ export default function ForgotPasswordPage() {
     const currentError = error || requestError || confirmError;
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-black p-4 text-foreground">
+        <div className="flex min-h-screen items-center justify-center bg-[#0a0a0b] p-4">
+            {/* Subtle background */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
-                <div className="absolute left-[10%] top-[-20%] h-96 w-96 animate-[blob_8s_infinite] rounded-full bg-blue-300/50 opacity-50 blur-3xl filter"></div>
-                <div className="absolute right-[-10%] top-[10%] h-96 w-96 animate-[blob_10s_infinite_2s] rounded-full bg-primary/30 opacity-50 blur-3xl filter"></div>
-                <div className="absolute bottom-[-10%] left-[20%] h-80 w-80 animate-[blob_12s_infinite_4s] rounded-full bg-purple-300/40 opacity-60 blur-3xl filter"></div>
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl" />
             </div>
 
-            <Link href="/auth" className="absolute left-10 top-10 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/auth" className="absolute left-6 top-6 flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors">
                 <ArrowLeft className="h-4 w-4" />
                 Back to login
             </Link>
 
-            <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-card/60 shadow-2xl backdrop-blur-md p-8">
-                <h1 className="text-3xl font-bold text-center mb-2">
+            <div className="relative w-full max-w-md rounded-2xl bg-[#0f0f11] border border-white/10 p-8">
+                {/* Logo */}
+                <div className="flex justify-center mb-6">
+                    <div className="h-12 w-12 bg-violet-600 rounded-xl flex items-center justify-center">
+                        <MessageSquare className="w-6 h-6 text-white" />
+                    </div>
+                </div>
+
+                <h1 className="text-2xl font-bold text-center text-white mb-2">
                     {step === 'otp-verification' ? 'Reset Password' : 'Forgot Password'}
                 </h1>
-                <p className="text-sm text-muted-foreground text-center mb-8">
+                <p className="text-sm text-gray-500 text-center mb-8">
                     {step === 'otp-verification' ? 'Enter the code sent to your email' : 'Enter your email to find your account'}
                 </p>
 
                 {currentError && (
-                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                         {currentError.message}
                     </div>
                 )}
 
                 {step === 'search' ? (
                     <form onSubmit={handleSearch} className="space-y-4">
-                        <div className="space-y-2">
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                             <Input
                                 type="email"
                                 placeholder="Enter your email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="border-none bg-secondary p-3"
+                                className="pl-10 h-11"
                                 required
                                 disabled={loading}
                             />
                         </div>
 
-                        <Button
+                        <button
                             type="submit"
                             disabled={loading || !email}
-                            className="w-full transform rounded-full cursor-pointer px-12 py-3 text-xs font-bold uppercase tracking-wider transition-transform duration-75 ease-in hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
                         >
                             {loading ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                     Searching...
                                 </>
                             ) : (
                                 <>
-                                    <Search className="mr-2 h-4 w-4" />
+                                    <Search className="h-4 w-4" />
                                     Search Account
                                 </>
                             )}
-                        </Button>
+                        </button>
                     </form>
                 ) : step === 'confirm' ? (
                     <div className="space-y-6">
-                        <div className="p-6 bg-secondary/50 rounded-xl border border-border/50">
+                        <div className="p-4 bg-white/[0.02] rounded-xl border border-white/5">
                             <div className="flex items-center gap-4 mb-4">
-                                <Avatar className="h-16 w-16 border-2 border-primary/20">
+                                <Avatar className="h-14 w-14 ring-1 ring-white/10">
                                     <AvatarImage src={user?.avatar || ''} />
-                                    <AvatarFallback className="bg-primary/20 text-2xl">
+                                    <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xl">
                                         {user?.fullName?.charAt(0).toUpperCase() || 'U'}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1">
-                                    <h3 className="font-semibold text-lg">{user?.fullName || 'User'}</h3>
-                                    <p className="text-sm text-muted-foreground">@{user?.username || 'username'}</p>
+                                    <h3 className="font-semibold text-white">{user?.fullName || 'User'}</h3>
+                                    <p className="text-sm text-gray-500">@{user?.username || 'username'}</p>
                                 </div>
                             </div>
-                            <div className="space-y-2 text-sm">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Email:</span>
-                                    <span className="font-medium">{user?.email}</span>
-                                </div>
+                            <div className="text-sm flex items-center gap-2">
+                                <span className="text-gray-500">Email:</span>
+                                <span className="text-gray-300">{user?.email}</span>
                             </div>
                         </div>
 
                         <div className="text-center">
-                            <p className="text-sm text-muted-foreground mb-4">Is this your account?</p>
+                            <p className="text-sm text-gray-500 mb-4">Is this your account?</p>
                             <div className="flex gap-3">
-                                <Button variant="outline" onClick={handleTryAgain} className="flex-1 rounded-full" disabled={loading}>
+                                <button
+                                    onClick={handleTryAgain}
+                                    className="flex-1 h-10 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors"
+                                    disabled={loading}
+                                >
                                     No, try again
-                                </Button>
-                                <Button onClick={handleRequestReset} className="flex-1 rounded-full cursor-pointer bg-primary hover:bg-primary/80" disabled={loading}>
-                                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Yes, send code'}
-                                </Button>
+                                </button>
+                                <button
+                                    onClick={handleRequestReset}
+                                    className="flex-1 h-10 bg-violet-600 hover:bg-violet-500 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                                    disabled={loading}
+                                >
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Yes, send code'}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -164,7 +177,7 @@ export default function ForgotPasswordPage() {
                         <Input
                             type="text"
                             placeholder="Verification Code"
-                            className="border-none bg-secondary p-3 text-center tracking-widest text-lg"
+                            className="h-11 text-center tracking-widest text-lg"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
                             disabled={loading}
@@ -174,7 +187,7 @@ export default function ForgotPasswordPage() {
                         <Input
                             type="password"
                             placeholder="New Password"
-                            className="border-none bg-secondary p-3"
+                            className="h-11"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             disabled={loading}
@@ -182,26 +195,36 @@ export default function ForgotPasswordPage() {
                             minLength={6}
                         />
 
-                        <Button
+                        <button
                             type="submit"
                             disabled={loading || !otp || !newPassword}
-                            className="w-full transform rounded-full px-12 py-3 text-xs font-bold uppercase tracking-wider hover:scale-105"
+                            className="w-full h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
                         >
-                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <> <KeyRound className="mr-2 h-4 w-4" /> Reset Password </>}
-                        </Button>
+                            {loading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <KeyRound className="h-4 w-4" />
+                                    Reset Password
+                                </>
+                            )}
+                        </button>
                     </form>
                 ) : (
                     <div className="space-y-6 text-center">
-                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-500/20">
-                            <CheckCircle className="h-10 w-10 text-green-500" />
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-green-500/10">
+                            <CheckCircle className="h-8 w-8 text-green-500" />
                         </div>
                         <div className="space-y-2">
-                            <h2 className="text-2xl font-bold">Password Reset!</h2>
-                            <p className="text-sm text-muted-foreground">Your password has been successfully updated.</p>
+                            <h2 className="text-xl font-bold text-white">Password Reset!</h2>
+                            <p className="text-sm text-gray-500">Your password has been successfully updated.</p>
                         </div>
-                        <Button onClick={() => router.push('/auth')} className="w-full rounded-full" variant="outline">
+                        <button
+                            onClick={() => router.push('/auth')}
+                            className="w-full h-10 bg-white/5 hover:bg-white/10 text-gray-300 font-medium rounded-lg transition-colors"
+                        >
                             Back to Login
-                        </Button>
+                        </button>
                     </div>
                 )}
             </div>

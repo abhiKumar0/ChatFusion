@@ -20,75 +20,138 @@ const Auth = () => {
   }, [user, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black p-4 text-foreground overflow-hidden relative">
-      {/* Enhanced Animated Background */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        {/* Main gradient blobs - MUCH MORE VISIBLE */}
-        <div className="absolute left-[5%] top-[-15%] h-[600px] w-[600px] animate-[blob_8s_infinite] rounded-full bg-blue-500/60 blur-3xl filter"></div>
-        <div className="absolute right-[-5%] top-[5%] h-[700px] w-[700px] animate-[blob_10s_infinite_2s] rounded-full bg-purple-600/70 blur-3xl filter"></div>
-        <div className="absolute bottom-[-10%] left-[15%] h-[550px] w-[550px] animate-[blob_12s_infinite_4s] rounded-full bg-violet-500/65 blur-3xl filter"></div>
+    <div className="min-h-screen bg-[#0a0a0b] flex">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-600/20 via-transparent to-indigo-600/10" />
 
-        {/* Additional floating blobs - BIGGER AND BRIGHTER */}
-        <div className="absolute top-[35%] right-[15%] h-96 w-96 animate-[float_6s_ease-in-out_infinite] rounded-full bg-cyan-500/50 blur-2xl filter"></div>
-        <div className="absolute bottom-[25%] right-[5%] h-[450px] w-[450px] animate-[float-reverse_8s_ease-in-out_infinite] rounded-full bg-pink-500/55 blur-2xl filter"></div>
-        <div className="absolute top-[60%] left-[35%] h-80 w-80 animate-[float_7s_ease-in-out_infinite_1s] rounded-full bg-indigo-500/45 blur-2xl filter"></div>
+        {/* Decorative elements */}
+        <div className="absolute top-20 left-20 w-72 h-72 bg-violet-500/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-indigo-500/15 rounded-full blur-[120px]" />
 
-        {/* Rotating gradient rings - MORE VISIBLE */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[700px] w-[700px] animate-[rotate-slow_20s_linear_infinite] opacity-40">
-          <div className="h-full w-full rounded-full border-4 border-primary/50 shadow-[0_0_50px_rgba(124,58,237,0.3)]"></div>
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-violet-600 flex items-center justify-center">
+              <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <span className="text-xl font-semibold text-white">ChatFusion</span>
+          </Link>
+
+          {/* Main message */}
+          <div className="space-y-6 max-w-md">
+            <h1 className="text-4xl font-bold text-white leading-tight">
+              Where conversations
+              <span className="block text-violet-400">come alive</span>
+            </h1>
+            <p className="text-gray-400 text-lg leading-relaxed">
+              Join millions of people using ChatFusion for seamless,
+              secure communication every day.
+            </p>
+
+            {/* Stats */}
+            <div className="flex gap-8 pt-4">
+              <div>
+                <div className="text-2xl font-bold text-white">10M+</div>
+                <div className="text-sm text-gray-500">Active users</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">99.9%</div>
+                <div className="text-sm text-gray-500">Uptime</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-white">E2E</div>
+                <div className="text-sm text-gray-500">Encrypted</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Testimonial */}
+          <div className="max-w-sm">
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <p className="text-gray-300 text-sm leading-relaxed mb-4">
+                "ChatFusion has completely changed how our team communicates.
+                The video quality is incredible."
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center text-white text-sm font-medium">
+                  SK
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-white">Sarah Kim</div>
+                  <div className="text-xs text-gray-500">Product Manager</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[900px] w-[900px] animate-[rotate-slow_30s_linear_infinite_reverse] opacity-30">
-          <div className="h-full w-full rounded-full border-4 border-blue-400/40 shadow-[0_0_60px_rgba(96,165,250,0.2)]"></div>
-        </div>
-
-        {/* Floating particles - MUCH BIGGER AND BRIGHTER */}
-        <div className="absolute top-[15%] left-[10%] h-6 w-6 animate-[drift_15s_ease-in-out_infinite] rounded-full bg-primary shadow-[0_0_20px_rgba(124,58,237,0.8)]"></div>
-        <div className="absolute top-[55%] left-[75%] h-8 w-8 animate-[drift_20s_ease-in-out_infinite_2s] rounded-full bg-blue-400 shadow-[0_0_25px_rgba(96,165,250,0.8)]"></div>
-        <div className="absolute top-[25%] right-[20%] h-5 w-5 animate-[drift_18s_ease-in-out_infinite_1s] rounded-full bg-purple-400 shadow-[0_0_20px_rgba(192,132,252,0.8)]"></div>
-        <div className="absolute bottom-[35%] left-[35%] h-6 w-6 animate-[float_10s_ease-in-out_infinite] rounded-full bg-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.8)]"></div>
-        <div className="absolute top-[65%] right-[55%] h-7 w-7 animate-[float-reverse_12s_ease-in-out_infinite] rounded-full bg-pink-400 shadow-[0_0_22px_rgba(244,114,182,0.8)]"></div>
-        <div className="absolute bottom-[15%] right-[40%] h-5 w-5 animate-[drift_16s_ease-in-out_infinite_3s] rounded-full bg-indigo-400 shadow-[0_0_20px_rgba(129,140,248,0.8)]"></div>
-
-        {/* Pulsing glow effects - BIGGER AND BRIGHTER */}
-        <div className="absolute top-[10%] left-[45%] h-64 w-64 animate-[pulse-glow_3s_ease-in-out_infinite] rounded-full bg-primary/40 blur-3xl"></div>
-        <div className="absolute bottom-[15%] right-[25%] h-72 w-72 animate-[pulse-glow_4s_ease-in-out_infinite_1s] rounded-full bg-blue-500/35 blur-3xl"></div>
-
-        {/* Grid overlay for depth */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(124,58,237,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(124,58,237,0.03)_1px,transparent_1px)] bg-size-[50px_50px] mask-[radial-gradient(ellipse_80%_50%_at_50%_50%,black,transparent)]"></div>
       </div>
 
-      {/* Back button */}
-      <Link href="/" className="absolute left-10 top-10 flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors z-50">
-        <ArrowLeft className="h-4 w-4" />
-        Back to home
-      </Link>
-
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 to-purple-600/20 backdrop-blur-xl p-8 border border-white/10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),inset_0_1px_0_0_rgba(255,255,255,0.1)] z-10">
-        {/* Tab Headers */}
-        <div className="flex mb-8 gap-2 p-1 bg-secondary/50 rounded-full">
-          <button
-            onClick={() => setActiveTab('login')}
-            className={`flex-1 py-2.5 px-6 text-sm font-semibold rounded-full transition-all duration-300 ${activeTab === 'login'
-              ? 'bg-primary text-primary-foreground shadow-lg'
-              : 'text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setActiveTab('signup')}
-            className={`flex-1 py-2.5 px-6 text-sm font-semibold rounded-full transition-all duration-300 ${activeTab === 'signup'
-              ? 'bg-primary text-primary-foreground shadow-lg'
-              : 'text-muted-foreground hover:text-foreground'
-              }`}
-          >
-            Sign Up
-          </button>
+      {/* Right Panel - Form */}
+      <div className="w-full lg:w-1/2 flex flex-col">
+        {/* Mobile header */}
+        <div className="lg:hidden p-6 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center">
+              <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <span className="text-lg font-semibold text-white">ChatFusion</span>
+          </Link>
         </div>
 
-        {/* Form Content */}
-        <div className="relative">
-          {activeTab === 'login' ? <LoginForm /> : <SignUpForm />}
+        {/* Back to home - desktop */}
+        <div className="hidden lg:block p-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to home
+          </Link>
+        </div>
+
+        {/* Form container */}
+        <div className="flex-1 flex items-center justify-center px-6 py-12 lg:px-12">
+          <div className="w-full max-w-sm">
+            {/* Tab switcher */}
+            <div className="flex gap-1 p-1 mb-8 bg-white/5 rounded-lg">
+              <button
+                onClick={() => setActiveTab('login')}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'login'
+                    ? 'bg-white text-gray-900'
+                    : 'text-gray-400 hover:text-white'
+                  }`}
+              >
+                Sign in
+              </button>
+              <button
+                onClick={() => setActiveTab('signup')}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all ${activeTab === 'signup'
+                    ? 'bg-white text-gray-900'
+                    : 'text-gray-400 hover:text-white'
+                  }`}
+              >
+                Create account
+              </button>
+            </div>
+
+            {/* Form */}
+            {activeTab === 'login' ? <LoginForm /> : <SignUpForm />}
+
+            {/* Terms */}
+            <p className="mt-8 text-center text-xs text-gray-600">
+              By continuing, you agree to our{' '}
+              <a href="#" className="text-gray-400 hover:text-white">Terms</a>
+              {' '}and{' '}
+              <a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

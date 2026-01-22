@@ -71,16 +71,15 @@ const TypingIndicator = ({ isVisible }: { isVisible: boolean }) => {
 
   return (
     <div className="flex justify-start mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <Card className="max-w-[70%] bg-secondary/80 border-border rounded-2xl rounded-bl-none shadow-sm">
+      <div className="max-w-[70%] bg-white/[0.02] border border-white/5 rounded-2xl rounded-bl-sm shadow-sm">
         <div className="p-3 px-4">
           <div className="flex items-center space-x-1.5">
-            {/* Three bouncing dots with staggered timing */}
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
@@ -597,27 +596,27 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   // Loading states
   if (messagesLoading || cryptoLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-background">
+      <div className="flex-1 flex flex-col bg-[#0a0a0b]">
         {/* Chat Header Skeleton */}
-        <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-card">
+        <div className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0f0f11]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-muted rounded-full animate-pulse"></div>
+            <div className="w-10 h-10 bg-white/5 rounded-full animate-pulse"></div>
             <div>
-              <div className="h-4 bg-muted rounded w-24 mb-1 animate-pulse"></div>
-              <div className="h-3 bg-muted rounded w-16 animate-pulse"></div>
+              <div className="h-4 bg-white/5 rounded w-24 mb-1 animate-pulse"></div>
+              <div className="h-3 bg-white/5 rounded w-16 animate-pulse"></div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="w-8 h-8 bg-muted rounded-full animate-pulse"></div>
+              <div key={i} className="w-8 h-8 bg-white/5 rounded-full animate-pulse"></div>
             ))}
           </div>
         </div>
         <MessageSkeleton />
         {/* Input Skeleton */}
-        <div className="p-4 border-t border-border bg-background">
-          <div className="bg-secondary rounded-full px-4 py-2 animate-pulse">
-            <div className="h-10 bg-muted rounded-full"></div>
+        <div className="p-4 border-t border-white/5 bg-[#0a0a0b]">
+          <div className="bg-white/5 rounded-xl px-4 py-2 animate-pulse">
+            <div className="h-10 bg-white/5 rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -627,13 +626,13 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   // Error states
   if (!currentConversation) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
+      <div className="flex-1 flex items-center justify-center bg-[#0a0a0b]">
         <div className="text-center p-8">
-          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <MessageSquare className="w-10 h-10 text-primary" />
+          <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-7 h-7 text-violet-400" />
           </div>
-          <h3 className="text-lg font-semibold mb-2 text-foreground">Select a conversation</h3>
-          <p className="text-sm text-muted-foreground">Choose a conversation from the sidebar to start chatting</p>
+          <h3 className="text-lg font-semibold mb-2 text-white">Select a conversation</h3>
+          <p className="text-sm text-gray-500">Choose a conversation from the sidebar to start chatting</p>
         </div>
       </div>
     );
@@ -641,19 +640,18 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   if (messagesError && !messages.length) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-background">
-        <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-          <AlertTriangle className="w-8 h-8 text-destructive" />
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-[#0a0a0b]">
+        <div className="w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-6 h-6 text-red-400" />
         </div>
-        <h3 className="text-lg font-semibold mb-2">Failed to load messages</h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-xs">{messagesError.message}</p>
-        <Button
+        <h3 className="text-lg font-semibold mb-2 text-white">Failed to load messages</h3>
+        <p className="text-sm text-gray-500 mb-4 max-w-xs">{messagesError.message}</p>
+        <button
           onClick={() => window.location.reload()}
-          variant="outline"
-          className="active:scale-95 transition-transform duration-150"
+          className="h-9 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm text-gray-300 transition-colors"
         >
           Retry
-        </Button>
+        </button>
       </div>
     );
   }
@@ -661,44 +659,45 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   return (
     <ComponentErrorBoundary>
-      <div className="flex-1 flex flex-col bg-background h-full">
+      <div className="flex-1 flex flex-col bg-[#0a0a0b] h-full">
         {/* Chat Header */}
-        <div className="h-16 border-b border-border flex items-center justify-between px-6 bg-card sticky top-0 z-10 shadow-sm">
+        <div className="h-16 border-b border-white/5 flex items-center justify-between px-4 md:px-6 bg-[#0f0f11] sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center gap-2">
-              <Link className='md:hidden' href="/chat"><ArrowLeft className="w-6 h-6" /></Link>
-              <Avatar className="h-10 w-10 border-2 border-border">
+              <Link className='md:hidden h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors' href="/chat">
+                <ArrowLeft className="w-4 h-4 text-gray-400" />
+              </Link>
+              <Avatar className="h-10 w-10 border border-white/10">
                 <AvatarImage src={currentParticipant?.avatar} />
-                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                <AvatarFallback className="bg-violet-500/20 text-violet-400 font-medium">
                   {currentParticipant?.fullName?.charAt(0)?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
-              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-background ${isTyping ? 'bg-yellow-500 animate-pulse' :
-                currentParticipant && onlineUsers.has(currentParticipant.id) ? 'bg-green-500' : 'bg-gray-400'
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0f0f11] ${isTyping ? 'bg-yellow-500' :
+                currentParticipant && onlineUsers.has(currentParticipant.id) ? 'bg-green-500' : 'bg-gray-600'
                 }`} />
-
             </div>
             <div>
-              <h3 className="font-semibold text-sm">{currentParticipant?.fullName || 'Unknown User'}</h3>
+              <h3 className="font-medium text-sm text-white">{currentParticipant?.fullName || 'Unknown User'}</h3>
               <div className="flex items-center gap-1.5">
                 {isTyping ? (
                   <>
-                    <div className="flex items-center gap-1">
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-1 h-1 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="flex items-center gap-0.5">
+                      <div className="w-1 h-1 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-1 h-1 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-1 h-1 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
                     </div>
-                    <p className="text-xs text-primary font-medium">typing...</p>
+                    <p className="text-xs text-violet-400 font-medium">typing...</p>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-500">
                     {currentParticipant && onlineUsers.has(currentParticipant.id) ? 'Online' : 'Offline'}
                   </p>
                 )}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {currentParticipant && (
               <>
                 <StartCallButton
@@ -735,7 +734,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent" style={{ maxHeight: 'calc(100vh - 200px)' }}>
           {messages && messages.length > 0 ? (
             <>
               {messages.map((message) => (
@@ -752,11 +751,11 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
           ) : (
             <div className="h-full flex items-center justify-center min-h-[400px]">
               <div className="text-center p-8">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="w-10 h-10 text-primary" />
+                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="w-7 h-7 text-violet-400" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">No messages yet</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                <h3 className="text-lg font-semibold mb-2 text-white">No messages yet</h3>
+                <p className="text-sm text-gray-500 max-w-xs mx-auto">
                   Be the first to send a message and start the conversation
                 </p>
               </div>
@@ -767,21 +766,19 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
         {/* Image Preview */}
         {selectedImage && (
-          <div className="px-6 py-3 bg-accent/50 border-t border-border animate-in slide-in-from-bottom duration-300">
-            <Card className="bg-card border-border">
+          <div className="px-4 md:px-6 py-3 bg-[#0f0f11] border-t border-white/5 animate-in slide-in-from-bottom duration-300">
+            <div className="bg-white/[0.02] border border-white/5 rounded-xl">
               <div className="px-3 py-2">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-primary">Image Preview</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <p className="text-xs font-medium text-violet-400">Image Preview</p>
+                  <button
                     onClick={handleRemoveImage}
-                    className="h-6 w-6 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
+                    className="h-6 w-6 rounded-full bg-white/5 hover:bg-red-500/10 hover:text-red-400 flex items-center justify-center transition-colors"
                   >
-                    <X className="w-4 h-4" />
-                  </Button>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-                <div className="relative rounded-lg overflow-hidden border border-border">
+                <div className="relative rounded-lg overflow-hidden border border-white/10">
                   <img
                     src={selectedImage.preview}
                     alt="Preview"
@@ -792,56 +789,54 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
         )}
 
         {/* Reply Preview */}
         {replyingTo && (
-          <div className="px-6 py-3 bg-accent/50 border-t border-border animate-in slide-in-from-bottom duration-300">
-            <Card className="bg-card border-border">
+          <div className="px-4 md:px-6 py-3 bg-[#0f0f11] border-t border-white/5 animate-in slide-in-from-bottom duration-300">
+            <div className="bg-white/[0.02] border border-white/5 rounded-xl">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Reply className="w-4 h-4 text-primary shrink-0" />
+                  <Reply className="w-4 h-4 text-violet-400 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-primary mb-0.5">
+                    <p className="text-xs font-medium text-violet-400 mb-0.5">
                       Replying to {replyingTo.sender.fullName || replyingTo.sender.username}
                     </p>
                     {replyingTo?.type === 'TEXT' ? (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-gray-500 truncate">
                         {decryptedReplyingMessage.length > 50 ? `${decryptedReplyingMessage.substring(0, 50)}...` : decryptedReplyingMessage}
                       </p>
                     ) : replyingTo?.type === 'IMAGE' ? (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Image className="w-4 h-4 text-primary shrink-0" /> Photo
+                      <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                        <Image className="w-4 h-4 text-violet-400 shrink-0" /> Photo
                       </p>
                     ) : replyingTo?.type === 'VIDEO' ? (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <Video className="w-4 h-4 text-primary shrink-0" /> Video
+                      <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                        <Video className="w-4 h-4 text-violet-400 shrink-0" /> Video
                       </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-gray-500 truncate">
                         Unknown Type
                       </p>
                     )}
                   </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <button
                   onClick={clearReplyingTo}
-                  className="h-7 w-7 p-0 rounded-full hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150 shrink-0"
+                  className="h-6 w-6 rounded-full bg-white/5 hover:bg-red-500/10 hover:text-red-400 flex items-center justify-center transition-colors shrink-0"
                 >
-                  <X className="w-4 h-4" />
-                </Button>
+                  <X className="w-3 h-3" />
+                </button>
               </div>
-            </Card>
+            </div>
           </div>
         )}
 
         {/* Message Input */}
-        <div className="p-4 border-t border-border bg-background sticky bottom-0 z-10">
-          <Card className="bg-secondary/50 border-border shadow-sm">
+        <div className="p-4 border-t border-white/5 bg-[#0a0a0b] sticky bottom-0 z-10">
+          <div className="bg-white/[0.02] border border-white/5 rounded-xl">
             <div className="flex items-center gap-2 px-3 py-2">
               <input
                 type="file"
@@ -850,47 +845,41 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                 onChange={handleImageSelect}
                 className="hidden"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
+              <button
+                className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title="Send Image"
                 onClick={() => fileInputRef.current?.click()}
                 type="button"
               >
-                <ImageIcon className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full hover:bg-accent active:scale-95 transition-all duration-150"
+                <ImageIcon className="w-4 h-4" />
+              </button>
+              <button
+                className="h-9 w-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title="Attach File"
               >
-                <Paperclip className="w-5 h-5" />
-              </Button>
+                <Paperclip className="w-4 h-4" />
+              </button>
               <Input
                 ref={inputRef}
                 placeholder={replyingTo ? `Reply to ${replyingTo.sender.fullName || replyingTo.sender.username}...` : "Type a message..."}
-                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-muted-foreground"
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-white placeholder:text-gray-600"
                 value={newMessage}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
               />
               <div className="relative" ref={emojiPickerRef}>
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={`rounded-full cursor-pointer hover:bg-accent active:scale-95 transition-all duration-150 ${showEmojiPicker ? 'bg-primary/10 text-primary' : ''
+                  className={`h-9 w-9 rounded-lg flex items-center justify-center transition-colors ${showEmojiPicker ? 'bg-violet-500/10 text-violet-400' : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
                     }`}
                   title="Emojis"
                   onClick={toggleEmojiPicker}
                 >
-                  {showEmojiPicker ? <X className="w-5 h-5" /> : <Smile className="w-5 h-5" />}
-                </Button>
+                  {showEmojiPicker ? <X className="w-4 h-4" /> : <Smile className="w-4 h-4" />}
+                </button>
                 {showEmojiPicker && (
                   <div className="absolute bottom-12 right-0 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                    <Card className="border-border shadow-lg">
+                    <Card className="border-white/10 shadow-lg">
                       <EmojiPicker
                         onEmojiClick={onEmojiClick}
                         width={300}
@@ -905,20 +894,19 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
                   </div>
                 )}
               </div>
-              <Button
-                size="icon"
-                className={`rounded-full transition-all duration-200 active:scale-95 ${(newMessage.trim() || selectedImage)
-                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+              <button
+                className={`h-9 w-9 rounded-lg flex items-center justify-center transition-all ${(newMessage.trim() || selectedImage)
+                  ? 'bg-violet-600 hover:bg-violet-500 text-white'
+                  : 'bg-white/5 text-gray-600 cursor-not-allowed'
                   }`}
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() && !selectedImage}
                 title="Send Message"
               >
                 <Send className="w-4 h-4" />
-              </Button>
+              </button>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </ComponentErrorBoundary>
