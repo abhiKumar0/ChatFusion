@@ -27,19 +27,33 @@ export const GET = async (request: Request) => {
         }
 
         if (!user) {
-             // Fallback to auth user data if profile doesn't exist
-             return NextResponse.json({
-                user: {
-                    id: authUser.id,
-                    email: authUser.email,
-                    // Add other necessary fields with defaults or from metadata
-                    fullName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0],
-                    username: authUser.email?.split('@')[0],
-                    avatar: "",
-                    bio: "",
-                    status: "OFFLINE"
-                }
-             }, { status: 200 });
+             // Create user if they don't exist in public table
+             console.log("User not found, creating...")
+             const newUser = {
+                id: authUser.id,
+                email: authUser.email,
+                fullName: authUser.user_metadata?.full_name || authUser.email?.split('@')[0],
+                username: (authUser.email?.split('@')[0] || 'user') + Math.floor(Math.random() * 10000),
+                avatar: authUser.user_metadata?.avatar_url || "",
+                isOnline: true,
+                updatedAt: new Date().toISOString(),
+             };
+
+             const { data: createdUser, error: createError } = await supabase
+                .from('User')
+                .insert(newUser)
+                .select()
+                .single();
+
+             if (createError) {
+                 console.error("Error creating user:", createError);
+                 // Fallback to ephemeral data if insertion fails
+                 return NextResponse.json({
+                    user: newUser
+                 }, { status: 200 });
+             }
+             
+             return NextResponse.json({ user: createdUser }, { status: 200 });
         }
 
         const { password, ...userWithoutPassword } = user;
