@@ -186,6 +186,11 @@ export const getFriendRequests = async () => {
   return response.data;
 };
 
+export const getFriendRequestCount = async () => {
+  const response = await api.get("/friendRequest/count");
+  return response.data;
+};
+
 
 // Conversations
 export const getConversations = async () => {

@@ -53,13 +53,13 @@ const MobileNav = ({ darkMode, toggleDarkMode }: MobileNavProps) => {
         <NavItem path="/notifications" icon={Bell} label="Alerts" />
         <NavItem path="/users" icon={Users} label="Users" />
 
-        <button
+        {/* <button
           onClick={toggleDarkMode}
           className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-gray-500 hover:text-gray-300 transition-colors"
         >
           {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           <span className="text-[10px] font-medium">Theme</span>
-        </button>
+        </button> */}
 
         <button
           onClick={() => router.push('/profile')}

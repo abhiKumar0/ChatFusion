@@ -139,7 +139,10 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             </TooltipContent>
           </Tooltip>
 
-          <Tooltip>
+
+          {/* Theme */}
+          
+          {/* <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -153,7 +156,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
             <TooltipContent side="right" className="bg-[#1a1a1d] border-white/10">
               <p className="text-sm">{darkMode ? 'Light Mode' : 'Dark Mode'}</p>
             </TooltipContent>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* User Avatar */}
           <Tooltip>
