@@ -23,11 +23,15 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
   const { data: user } = useGetMe();
   const router = useRouter();
   const pathname = usePathname();
-  const { mutate: logout } = useLogOut();
+  const { mutate: logout, } = useLogOut();
 
   const toggleLogout = () => {
-    logout();
-    router.push('/auth');
+    logout(undefined, {
+      onSuccess: () => {
+        // Use hard redirect to unmount all components and clear query cache
+        window.location.href = '/auth';
+      }
+    });
   };
 
   const isActive = (path: string) => {
@@ -48,8 +52,8 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
         size="icon"
         onClick={onClick}
         className={`relative h-11 w-11 rounded-xl transition-all duration-200 ${active
-            ? 'bg-violet-500/10 text-violet-500 shadow-sm'
-            : 'text-gray-500 hover:text-white hover:bg-white/5'
+          ? 'bg-violet-500/10 text-violet-500 shadow-sm'
+          : 'text-gray-500 hover:text-white hover:bg-white/5'
           }`}
       >
         <Icon className="w-5 h-5" />
@@ -141,7 +145,7 @@ const Sidebar = ({ darkMode, toggleDarkMode, setIsContactListOpen }: SidebarProp
 
 
           {/* Theme */}
-          
+
           {/* <Tooltip>
             <TooltipTrigger asChild>
               <Button

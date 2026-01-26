@@ -8,7 +8,7 @@ export const NotificationCount = () => {
   const [supabase] = useState(() => createClient());
   const { data: user } = useGetMe();
 
-  const { data: {count}, refetch } = useGetFriendRequestCount();
+  const { data: countData, refetch } = useGetFriendRequestCount();
   
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export const NotificationCount = () => {
 
     const channel = supabase.channel(`notifications:${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'FriendRequest', filter: `receiverId=eq.${user.id}` }, () => {
-        refetch();
+        // refetch();
       })
       .subscribe();
 
@@ -25,5 +25,5 @@ export const NotificationCount = () => {
     };
   }, [user, supabase, refetch]);
 
-  return <span>{count > 0 && count}</span>;
+  return <span>{countData?.count > 0 && countData?.count}</span>;
 };
