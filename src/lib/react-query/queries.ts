@@ -41,6 +41,7 @@ import {
   getUserByEmail,
   getKey,
   deleteConversation,
+  getFriendRequestCount,
 } from './api';
 
 
@@ -109,6 +110,7 @@ export const useLogOut = () => {
     error: mutation.error,
   };
 }
+
 
 // Password Reset Hooks
 export const useRequestPasswordReset = () => {
@@ -343,6 +345,19 @@ export const useGetFriendRequests = () => {
     queryKey: ['friendRequests'],
     queryFn: getFriendRequests,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+  return {
+    ...query,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+};
+
+export const useGetFriendRequestCount = () => {
+  const query = useQuery({
+    queryKey: ['friendRequestCount'],
+    queryFn: getFriendRequestCount,
+    staleTime: 1000 * 60 * 5,
   });
   return {
     ...query,

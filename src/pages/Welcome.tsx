@@ -18,9 +18,9 @@ const WelcomePage = () => {
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
+            <a href="#home" className="text-sm text-gray-400 hover:text-white transition-colors">Home</a>
             <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
-            <a href="#about" className="text-sm text-gray-400 hover:text-white transition-colors">About</a>
-            <a href="#pricing" className="text-sm text-gray-400 hover:text-white transition-colors">Pricing</a>
+            <a href="#stats" className="text-sm text-gray-400 hover:text-white transition-colors">Stats</a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -38,7 +38,7 @@ const WelcomePage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
+      <section id='home' className="pt-32 pb-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left content */}
@@ -222,7 +222,7 @@ const WelcomePage = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 px-6 border-y border-white/5">
+      <section id='stats' className="py-20 px-6 border-y border-white/5">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
@@ -241,7 +241,7 @@ const WelcomePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
+      <section id='cta' className="py-20 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-gray-400 mb-8">

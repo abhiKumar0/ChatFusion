@@ -83,7 +83,7 @@ export const logIn = async (data: { email: string; password: string }) => {
 };
 
 export const logOut = async () => {
-  const response = await api.get("/auth/logout");
+  const response = await api.post("/auth/logout");
   return response.data;
 };
 
@@ -183,6 +183,11 @@ export const cancelFriendRequest = async ({ targetUserId, requestId }: { targetU
 export const getFriendRequests = async () => {
   const response = await api.get("/friendRequest");
   console.log(response);
+  return response.data;
+};
+
+export const getFriendRequestCount = async () => {
+  const response = await api.get("/friendRequest/count");
   return response.data;
 };
 

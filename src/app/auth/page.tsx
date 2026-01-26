@@ -56,7 +56,7 @@ const Auth = () => {
             {/* Stats */}
             <div className="flex gap-8 pt-4">
               <div>
-                <div className="text-2xl font-bold text-white">10M+</div>
+                <div className="text-2xl font-bold text-white">10+</div>
                 <div className="text-sm text-gray-500">Active users</div>
               </div>
               <div>
