@@ -20,8 +20,9 @@ export async function GET(request: NextRequest) {
         // Get friend requests
         const { data: friendRequests, error } = await supabase
             .from('FriendRequest')
-            .select('*')
-            .or(`and(senderId.eq.${userId},receiverId.eq.${user.id}),and(senderId.eq.${user.id},receiverId.eq.${userId})`)
+            .select(`*, sender:User!FriendRequest_senderId_fkey(*)`)
+            .eq('receiverId', userId)
+            .eq('status', 'PENDING')
             .order('createdAt', { ascending: false });
 
         if (error) {
