@@ -24,7 +24,6 @@ import {
   getMessages,
   getConversations,
   getFriendRequests,
-  respondFriendRequest,
   updateMessage,
   deleteMessage,
   addReaction,
@@ -33,7 +32,6 @@ import {
   updateUser,
   uploadAvatar,
   checkUsername,
-  cancelFriendRequest,
   getUserFriends,
   initiateCall,
   updateCallStatus,
@@ -42,6 +40,9 @@ import {
   getKey,
   deleteConversation,
   getFriendRequestCount,
+  acceptFriendRequest,
+  removeFriendRequest,
+  unfriendByUserId,
 } from './api';
 
 
@@ -302,10 +303,10 @@ export const useSendFriendRequest = () => {
 
 
 //Respond to friend request mutation
-export const useRespondToFriendRequest = () => {
+export const useAcceptFriendRequest = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: respondFriendRequest,
+    mutationFn: (requestId: string) => acceptFriendRequest(requestId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -320,10 +321,10 @@ export const useRespondToFriendRequest = () => {
 };
 
 //Cancel friend request mutation
-export const useCancelFriendRequest = () => {
+export const useRemoveFriendRequest = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: cancelFriendRequest,
+    mutationFn: (requestId: string) => removeFriendRequest(requestId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
@@ -337,6 +338,24 @@ export const useCancelFriendRequest = () => {
     error: mutation.error,
   };
 };
+
+export const useUnfriendByUserId = () => {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (friendId: string) => unfriendByUserId(friendId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+}
 
 
 //Get friend requests query

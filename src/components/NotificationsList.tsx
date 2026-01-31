@@ -1,16 +1,21 @@
 'use client';
 
 import React from "react";
-import { useGetFriendRequests, useRespondToFriendRequest } from "@/lib/react-query/queries";
+import { useAcceptFriendRequest, useGetFriendRequests, useRemoveFriendRequest } from "@/lib/react-query/queries";
 import { Check, X, Bell, Loader2, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const NotificationsList = () => {
   const { data: notifications, isLoading, error } = useGetFriendRequests();
-  const respondMutation = useRespondToFriendRequest();
 
-  const handleRespond = (id: string, status: "ACCEPTED" | "REJECTED") => {
-    respondMutation.mutate({ friendRequestId: id, status });
+  const {mutate: removeMutation, isPending: isRemovePending} = useRemoveFriendRequest();
+  const {mutate: acceptMutation, isPending: isAcceptPending} = useAcceptFriendRequest();
+
+  const handleAccept = (id: string) => {
+    acceptMutation(id);
+  };
+  const handleRemove = (id: string) => {
+    removeMutation(id);
   };
 
   if (isLoading) {
@@ -80,10 +85,10 @@ const NotificationsList = () => {
                   <div className="flex gap-2 mt-3">
                     <button
                       className="flex-1 h-8 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                      onClick={() => handleRespond(n.id, "ACCEPTED")}
-                      disabled={respondMutation.isPending}
+                      onClick={() => handleAccept(n.id)}
+                      disabled={isAcceptPending}
                     >
-                      {respondMutation.isPending ? (
+                      {isAcceptPending ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
                         <Check className="w-3 h-3" />
@@ -92,8 +97,8 @@ const NotificationsList = () => {
                     </button>
                     <button
                       className="flex-1 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                      onClick={() => handleRespond(n.id, "REJECTED")}
-                      disabled={respondMutation.isPending}
+                      onClick={() => handleRemove(n.id)}
+                      disabled={isRemovePending}
                     >
                       <X className="w-3 h-3" />
                       Decline

@@ -10,9 +10,9 @@ export const POST = async (request: Request) => {
         const {data: existingUser, error: existingUserError} = await supabase
             .from('User')
             .select('*')
-            .eq('email', email)
+            .eq('email', email.trim())
             .single();
-
+        console.log(existingUser)
         if (existingUserError) {
             return NextResponse.json({ message: "User with email does not exist. Please Sign up First." }, { status: 401 });
         }

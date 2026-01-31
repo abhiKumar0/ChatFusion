@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useGetUserByUsername, useCreateConversation, useGetUserFriends, useSendFriendRequest, useCancelFriendRequest, useGetMe } from '@/lib/react-query/queries';
+import { useGetUserByUsername, useCreateConversation, useGetUserFriends, useSendFriendRequest, useRemoveFriendRequest, useGetMe, useUnfriendByUserId } from '@/lib/react-query/queries';
 import { usePresenceStore } from '@/store/usePresenceStore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ const UserProfilePage = () => {
     const { mutateAsync: createConvoMutate } = useCreateConversation();
     const sendRequestMutation = useSendFriendRequest();
 
-    const cancelRequestMutation = useCancelFriendRequest();
+    const {mutate: unfriendMutation, isPending: isUnfriendPending} = useUnfriendByUserId();
     const { onlineUsers } = usePresenceStore();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -60,8 +60,8 @@ const UserProfilePage = () => {
 
     const handleUnfriend = () => {
         if (user) {
-            cancelRequestMutation.mutate(
-                { targetUserId: user.id },
+            unfriendMutation(
+                user.id,
                 {
                     onSuccess: () => {
                         setIsUnfriendOpen(false);
@@ -73,7 +73,7 @@ const UserProfilePage = () => {
 
     const handleCancelRequest = () => {
         if (user) {
-            cancelRequestMutation.mutate({ targetUserId: user.id });
+            unfriendMutation(user.id);
         }
     };
 
@@ -224,10 +224,10 @@ const UserProfilePage = () => {
                                         {user.friendshipStatus === 'REQUEST_SENT' && (
                                             <button
                                                 onClick={handleCancelRequest}
-                                                disabled={cancelRequestMutation.isPending}
+                                                disabled={isUnfriendPending}
                                                 className="inline-flex items-center gap-2 h-10 px-4 bg-white/10 hover:bg-white/20 text-gray-300 font-medium rounded-lg transition-colors"
                                             >
-                                                {cancelRequestMutation.isPending ? (
+                                                {isUnfriendPending ? (
                                                     <Loader2 className="w-4 h-4 animate-spin" />
                                                 ) : (
                                                     <UserX className="w-4 h-4" />
