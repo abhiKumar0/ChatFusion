@@ -176,6 +176,11 @@ export const removeFriendRequest = async ( friendRequestId: string ) => {
   return response.data;
 };
 
+export const unfriendByUserId = async (friendId: string) => {
+  const res = await api.delete("friendRequest/"+friendId);
+  return res.data;
+}
+
 export const getFriendRequests = async () => {
   const response = await api.get("/friendRequest");
   console.log(response);

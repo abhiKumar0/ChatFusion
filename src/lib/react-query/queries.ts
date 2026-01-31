@@ -42,6 +42,7 @@ import {
   getFriendRequestCount,
   acceptFriendRequest,
   removeFriendRequest,
+  unfriendByUserId,
 } from './api';
 
 
@@ -337,6 +338,24 @@ export const useRemoveFriendRequest = () => {
     error: mutation.error,
   };
 };
+
+export const useUnfriendByUserId = () => {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (friendId: string) => unfriendByUserId(friendId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['friendRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['friends'] });
+    },
+  });
+  return {
+    ...mutation,
+    isLoading: mutation.isPending,
+    error: mutation.error,
+  };
+}
 
 
 //Get friend requests query
