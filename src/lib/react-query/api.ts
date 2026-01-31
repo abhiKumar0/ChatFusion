@@ -165,18 +165,14 @@ export const sendFriendRequest = async (receiverId: string) => {
   return response.data;
 };
 
-export const respondFriendRequest = async ({ friendRequestId, status }: { friendRequestId: string, status: 'ACCEPTED' | 'DECLINED' }) => {
-  const response = await api.put("/friendRequest", { friendRequestId, status });
+export const acceptFriendRequest = async (friendRequestId: string ) => {
+  const response = await api.patch("/friendRequest?friendRequestId=" + friendRequestId);
   return response.data;
 };
 
-export const cancelFriendRequest = async ({ targetUserId, requestId }: { targetUserId?: string, requestId?: string }) => {
-  // Use data property for DELETE body in axios/standard api wrappers if needed, 
-  // but standard fetch uses body. 
-  // Api wrapper likely uses axios.delete(url, { data: ... })
-  const response = await api.delete("/friendRequest", {
-    data: { targetUserId, requestId }
-  });
+//Cancel, Decline , remove Friend Request
+export const removeFriendRequest = async ( friendRequestId: string ) => {
+  const response = await api.delete("/friendRequest?friendRequestId=" + friendRequestId);
   return response.data;
 };
 

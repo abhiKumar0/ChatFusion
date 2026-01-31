@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Search, UserPlus, Check, X, ArrowLeft, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { useGetUsers, useSendFriendRequest, useCancelFriendRequest } from '@/lib/react-query/queries';
+import { useGetUsers, useSendFriendRequest, useRemoveFriendRequest } from '@/lib/react-query/queries';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -12,15 +12,15 @@ const UsersPage = () => {
     const router = useRouter();
     const { data: users, isLoading, isError } = useGetUsers();
     const { mutate: sendFriendRequest, isPending: isSending } = useSendFriendRequest();
-    const { mutate: cancelFriendRequest, isPending: isCancelling } = useCancelFriendRequest();
+    const { mutate: cancelFriendRequest, isPending: isCancelling } = useRemoveFriendRequest();
     const [searchTerm, setSearchTerm] = useState('');
 
     const handleAddFriend = (receiverId: string) => {
         sendFriendRequest(receiverId);
     };
 
-    const handleCancelRequest = (receiverId: string, requestId?: string) => {
-        cancelFriendRequest({ targetUserId: receiverId, requestId });
+    const handleCancelRequest = (requestId: string) => {
+        cancelFriendRequest(requestId);
     };
 
     const contacts = users || [];
@@ -119,7 +119,7 @@ const UsersPage = () => {
                                     ) : contact.friendshipStatus === 'REQUEST_SENT' ? (
                                         <button
                                             className="flex-1 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                                            onClick={() => handleCancelRequest(contact.id, contact.friendshipId)}
+                                            onClick={() => handleCancelRequest(contact.friendshipId)}
                                             disabled={isCancelling}
                                         >
                                             <X className="w-3 h-3" />
