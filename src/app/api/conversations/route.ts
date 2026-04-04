@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import redis from "@/lib/redis";
 
 const CONVO_QUERY = `
     *,
@@ -26,6 +27,9 @@ export const GET = async () => {
 
         if (error) throw error;
 
+
+        const unreadCounts = await redis.hgetall(`unread:${user.id}`) as Record<string, string> || {};
+
         // Build last message data and unread count for each conversation
         const processedData = data.map((convo: any) => {
             // Sort messages by date desc
@@ -46,7 +50,7 @@ export const GET = async () => {
                     createdAt: lastMsg.createdAt,
                     nonce: lastMsg.nonce // Include nonce for decryption
                 } : null,
-                unreadCount: messages.filter((m: any) => m.senderId !== user.id && m.status !== 'seen').length
+                unreadCount: parseInt(unreadCounts?.[convo.id] || '0')
             };
         });
 

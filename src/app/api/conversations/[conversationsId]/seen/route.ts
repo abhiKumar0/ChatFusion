@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import redis from "@/lib/redis";
 
 export const POST = async (request: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
@@ -30,6 +31,9 @@ export const POST = async (request: Request, { params }: { params: Promise<{ con
             console.error("[Mark Seen] Error:", error);
             return NextResponse.json({ message: error.message }, { status: 500 });
         }
+
+
+        await redis.hdel(`unread:${user.id}`, conversationId);
 
         // Notify other clients via broadcast
         if (data && data.length > 0) {

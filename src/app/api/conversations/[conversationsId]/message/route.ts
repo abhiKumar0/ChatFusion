@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import redis from "@/lib/redis";
 
 export const POST = async (req: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
@@ -122,11 +123,28 @@ export const GET = async (req: Request, { params }: { params: Promise<{ conversa
             // Fetch the createdAt of the cursor message to paginate efficiently
             // Or if IDs are time-sortable (CUIDs are), we can use lt
             // Assuming CUIDs/UUIDs, let's try to fetch the cursor message first
-            const { data: cursorMsg } = await supabase
+            const { data: cursorMsg, error: createError } = await supabase
                 .from('Message')
                 .select('createdAt')
                 .eq('id', cursor)
                 .single();
+
+            if (createError) {
+                return NextResponse.json({message: "Error while fetching cursor message"}, {status: 500});
+            }
+
+            // Increment unread count for the other participant
+            const { data: otherParticipant } = await supabase
+                .from('ConversationParticipant')
+                .select('userId')
+                .eq('conversationId', convoId)
+                .neq('userId', userId)
+                    .single();
+
+                if (otherParticipant?.userId) {
+                    await redis.hincrby(`unread:${otherParticipant.userId}`, convoId, 1);
+                }
+
 
             if (cursorMsg) {
                 query = query.lt('createdAt', cursorMsg.createdAt);

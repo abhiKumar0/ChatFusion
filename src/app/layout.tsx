@@ -6,7 +6,6 @@ import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { CryptoProvider } from "@/lib/crypto-context";
 import { AppErrorBoundary } from "@/components/ErrorBoundary";
 import GlobalCallIndicator from "@/components/GlobalCallIndicator";
-import IncomingCall from "@/components/IncomingCall";
 import { Toaster } from "@/components/ui/Toaster";
 import CallOverlay from "@/components/calls/CallOverlay";
 

@@ -17,6 +17,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
     setSupabase(supabase as any);
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, [setSupabase]);
 
   useEffect(() => {

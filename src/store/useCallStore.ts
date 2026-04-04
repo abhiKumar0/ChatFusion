@@ -92,7 +92,6 @@ export const useCallStore = create<CallState>((set, get) => ({
     });
 
     set({ isCameraOn: newCameraState });
-    console.log(`📹 Camera ${newCameraState ? 'enabled' : 'disabled'}`);
   },
 
   minimizeCall: () => {
@@ -127,7 +126,6 @@ export const useCallStore = create<CallState>((set, get) => ({
 
           // Handle incoming answer (for initial call setup)
           if (newCallData.answer_sdp && currentStatus === 'calling') {
-            console.log('subscribeToCall: Processing remote answer');
             await handleRemoteAnswer(JSON.parse(newCallData.answer_sdp));
           }
 
@@ -143,15 +141,10 @@ export const useCallStore = create<CallState>((set, get) => ({
       .on('presence', { event: 'sync' }, () => {
         const state = callChannel.presenceState();
         const userIds = Object.keys(state);
-        // console.log('👥 Presence sync:', userIds);
 
-        // Simple logic: if more than 1 user is here, or if we see a user that isn't us (logic depending on auth)
-        // For now, if we have > 1 presence entry (us + them), we assume peer is online.
         if (userIds.length > 1) {
           if (!get().isPeerOnline) {
-            console.log('👥 Peer is online! Flushing outgoing candidates...');
             set({ isPeerOnline: true });
-            // Flush outgoing buffer
             const { bufferedIceCandidates } = get();
             bufferedIceCandidates.forEach(c => {
               callChannel.send({
@@ -164,14 +157,12 @@ export const useCallStore = create<CallState>((set, get) => ({
           }
         }
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('👥 User joined:', key);
+      .on('presence', { event: 'join' }, () => {
+        // peer joined the signaling channel
       })
       .subscribe(async (status, err) => {
-        console.log(`📢 Call signaling channel status: ${status}`);
         if (status === 'SUBSCRIBED') {
           set({ callSubscription: callChannel });
-          // console.log(`✅ Subscribed to call-signaling-${callId}`);
 
           // Track our presence
           const user = await supabase.auth.getUser();
@@ -206,12 +197,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
       // For "audio calls", disable video track immediately
       if (!isVideo) {
-        localStream.getVideoTracks().forEach(track => {
-          track.enabled = false;
-        });
-        console.log('🎤 Audio call - video track disabled');
-      } else {
-        console.log('📹 Video call - video track enabled');
+        localStream.getVideoTracks().forEach(track => { track.enabled = false; });
       }
 
       set({ localStream }); // Set immediately for UI feedback
@@ -224,7 +210,6 @@ export const useCallStore = create<CallState>((set, get) => ({
       });
 
       pc.oniceconnectionstatechange = () => {
-        console.log('🔵 ICE Connection State:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           set({ callStatus: 'in-progress' });
         }
@@ -237,23 +222,14 @@ export const useCallStore = create<CallState>((set, get) => ({
           const candidateJson = event.candidate.toJSON();
 
           if (isPeerOnline && callSubscription) {
-            // console.log('🔵 Sending ICE candidate immediately');
-            callSubscription.send({
-              type: 'broadcast',
-              event: 'ice_candidate',
-              payload: candidateJson
-            });
+            callSubscription.send({ type: 'broadcast', event: 'ice_candidate', payload: candidateJson });
           } else {
-            // console.log('🔵 Buffering ICE candidate (Peer not online yet)');
             set({ bufferedIceCandidates: [...bufferedIceCandidates, candidateJson] });
           }
         }
       };
 
       pc.ontrack = (event) => {
-        console.log('🎥 ontrack fired:', event.track.kind, 'streams:', event.streams.length);
-        console.log('🎥 stream id:', event.streams[0]?.id);
-        // console.log('🔵 Received remote track:', event.track.kind);
         set({ remoteStream: event.streams[0] });
       };
 
@@ -313,15 +289,10 @@ export const useCallStore = create<CallState>((set, get) => ({
       const shouldEnableCamera = callerHasVideo;
 
       if (!shouldEnableCamera) {
-        localStream.getVideoTracks().forEach(track => {
-          track.enabled = false;
-        });
-        console.log('🎤 Accepting audio call - video track disabled');
-      } else {
-        console.log('📹 Accepting video call - video track enabled');
+        localStream.getVideoTracks().forEach(track => { track.enabled = false; });
       }
 
-      set({ localStream, isCameraOn: shouldEnableCamera, isVideo: true }); // Always have video capability
+      set({ localStream, isCameraOn: shouldEnableCamera, isVideo: true });
 
 
       const pc = new RTCPeerConnection({
@@ -332,7 +303,6 @@ export const useCallStore = create<CallState>((set, get) => ({
       });
 
       pc.oniceconnectionstatechange = () => {
-        console.log('🟢 ICE Connection State:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           set({ callStatus: 'in-progress' });
         }
@@ -357,8 +327,6 @@ export const useCallStore = create<CallState>((set, get) => ({
       };
 
       pc.ontrack = (event) => {
-        console.log('🎥 ontrack fired:', event.track.kind, 'streams:', event.streams.length);
-        console.log('🎥 stream id:', event.streams[0]?.id);
         set({ remoteStream: event.streams[0] });
       };
 
@@ -411,7 +379,6 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     // FAILSAFE: If we got an answer, peer MUST be online.
     if (!get().isPeerOnline) {
-      console.log('🛡️ Failsafe: Answer received, marking peer online & flushing candidates');
       set({ isPeerOnline: true });
       const { bufferedIceCandidates, callSubscription } = get();
       // Flush outgoing buffer
@@ -429,9 +396,6 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     // Retry loop to safely get connection
     let retryCount = 0;
-    // ... rest of the function remains similar, but omitting for brevity in this replace call (Wait, I need to match exactly or replace the whole function)
-
-    // I will replace the WHOLE function to be safe.
     let conn = connection;
     while (!conn && retryCount < 10) {
       await new Promise(r => setTimeout(r, 200));
@@ -445,18 +409,16 @@ export const useCallStore = create<CallState>((set, get) => ({
     }
 
     if (conn.signalingState === 'stable') {
-      console.log('handleRemoteAnswer: Connection already stable, ignoring');
       return;
     }
 
     if (conn.signalingState !== 'have-local-offer') {
-      console.warn(`handleRemoteAnswer: Wrong state '${conn.signalingState}'.`);
+      console.warn(`handleRemoteAnswer: Unexpected signaling state '${conn.signalingState}'.`);
       return;
     }
 
     try {
       await conn.setRemoteDescription(answerSdp);
-      // console.log('handleRemoteAnswer: Remote Description Set');
 
       const { pendingIceCandidates } = get();
       if (pendingIceCandidates.length > 0) {
@@ -466,7 +428,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         set({ pendingIceCandidates: [] });
       }
 
-      // set({ callStatus: 'in-progress' });
+      set({ callStatus: 'in-progress' });
     } catch (error) {
       console.error('handleRemoteAnswer: Error', error);
     }
@@ -478,9 +440,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     // FAILSAFE: If we get candidates, they are online.
     if (!get().isPeerOnline) {
-      console.log('🛡️ Failsafe: Candidate received, marking peer online');
       set({ isPeerOnline: true });
-      // We should flush here too
       const { bufferedIceCandidates, callSubscription } = get();
       if (callSubscription) {
         bufferedIceCandidates.forEach(c => {

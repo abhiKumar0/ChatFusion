@@ -39,7 +39,6 @@ const CallOverlay = () => {
     }, [localStream]);
 
     useEffect(() => {
-        console.log('Remote stream changed:', remoteStream);
         if (remoteVideoRef.current && remoteStream) {
             remoteVideoRef.current.srcObject = remoteStream;
             remoteVideoRef.current.play().catch(console.error);
@@ -151,18 +150,6 @@ const CallOverlay = () => {
 
         const hasRemoteVideo = remoteStream && isVideo;
         const hasLocalVideo = isCameraOn && localStream;
-
-        console.log('🎥 CallOverlay state:', {
-            remoteStream: !!remoteStream,
-            remoteStreamId: remoteStream?.id,
-            remoteTracks: remoteStream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })),
-            localStream: !!localStream,
-            isVideo,
-            isCameraOn,
-            hasRemoteVideo,
-            hasLocalVideo
-        });
-
 
         return (
             <div className="fixed inset-0 z-50 bg-gradient-to-br from-gray-900 via-black to-gray-900 flex flex-col">

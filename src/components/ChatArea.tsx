@@ -176,8 +176,30 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
     newChannel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, (payload) => {
-        console.log('[ChatArea] Database change detected:', payload.eventType, payload);
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+
+        // Browser notification
+        if (payload.eventType === 'INSERT') {
+          const msg = payload.new;
+          // Don't notify for own messages
+          if (msg.senderId !== user?.id) {
+            // Don't notify if tab is focused
+            if (document.visibilityState !== 'visible') {
+              if (Notification.permission === 'granted') {
+                const notification = new Notification(currentParticipant?.fullName || 'New Message', {
+                  body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message', // can't show content since it's encrypted
+                  icon: currentParticipant?.avatar || '/icon.png',
+                  tag: currentConversation, // prevents notification spam
+                });
+
+                notification.onclick = () => {
+                  window.focus();
+                  notification.close();
+                };
+              }
+            }
+          }
+        }
       })
       .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
       .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))

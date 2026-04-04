@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import Welcome from '@/pages/Welcome';
+import Welcome from '@/components/Welcome';
 import { useGetMe } from '@/lib/react-query/queries';
 import { useRouter } from 'next/navigation';
-import { MessageSquare } from 'lucide-react';
 import { Loading } from '@/components';
 
 export default function HomePage() {

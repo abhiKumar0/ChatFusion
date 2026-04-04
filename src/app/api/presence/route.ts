@@ -23,10 +23,7 @@ export async function GET(req: Request) {
 
         //Check all user keys in paraller
         const keys = ids.map(id => `user:online:${id}`);
-        const results = await redis.mget(...keys);  
-
-        console.log('🔍 Presence keys:', keys);
-        console.log('🔍 Presence results:', results);
+        const results = await redis.mget(...keys);
 
         const presenceMap: Record<string, boolean> = {};
 

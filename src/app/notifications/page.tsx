@@ -4,7 +4,7 @@ import React from 'react';
 import NotificationsList from "@/components/NotificationsList";
 import MobileNav from "@/components/MobileNav";
 import Loading from "@/components/Loading";
-import Welcome from "@/pages/Welcome";
+import Welcome from "@/components/Welcome";
 import { useGetMe } from "@/lib/react-query/queries";
 import { Bell, Sparkles } from "lucide-react";
 import { useState } from "react";

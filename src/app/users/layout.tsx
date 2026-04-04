@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuthStore } from '@/store/useAuthStore';
 import { Sidebar } from '@/components';
 import MobileNav from '@/components/MobileNav';
-import { Moon, Sun } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 export default function UsersLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuthStore();
   const [darkMode, setDarkMode] = useState(false);
 
   const toggleDarkMode = () => {
