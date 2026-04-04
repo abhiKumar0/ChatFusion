@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import redis from "@/lib/redis";
 
 export async function POST(request: Request) {
   try {
@@ -31,7 +32,14 @@ export async function POST(request: Request) {
     if (error) {
       console.error("Error creating call:", error);
       return NextResponse.json({ error: "Failed to create call" }, { status: 500 });
+
     }
+    
+      // 🔴 Notify receiver instantly via Redis
+      // Store call data with 60s TTL — if not answered, it expires
+
+      await redis.set(`call:pending:${receiverId}`, JSON.stringify(call), { ex: 60 });
+    
 
     return NextResponse.json(call);
   } catch (error) {

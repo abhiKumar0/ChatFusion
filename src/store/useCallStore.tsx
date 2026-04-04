@@ -251,6 +251,8 @@ export const useCallStore = create<CallState>((set, get) => ({
       };
 
       pc.ontrack = (event) => {
+        console.log('🎥 ontrack fired:', event.track.kind, 'streams:', event.streams.length);
+        console.log('🎥 stream id:', event.streams[0]?.id);
         // console.log('🔵 Received remote track:', event.track.kind);
         set({ remoteStream: event.streams[0] });
       };
@@ -355,6 +357,8 @@ export const useCallStore = create<CallState>((set, get) => ({
       };
 
       pc.ontrack = (event) => {
+        console.log('🎥 ontrack fired:', event.track.kind, 'streams:', event.streams.length);
+        console.log('🎥 stream id:', event.streams[0]?.id);
         set({ remoteStream: event.streams[0] });
       };
 
@@ -392,6 +396,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
       // Send Answer
       await answerCall(incomingCallData.id, JSON.stringify(answer));
+      await fetch('/api/call/pending', { method: 'DELETE' });
 
     } catch (e) {
       console.error('acceptCall: Failed', e);

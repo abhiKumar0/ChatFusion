@@ -1,205 +1,122 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { Call } from '@/types/types';
 import { useGetMe } from '@/lib/react-query/queries';
 import { usePresenceStore } from '@/store/usePresenceStore';
 
-
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
-    const { data: user } = useGetMe();
-    const { setSupabase, handleRemoteAnswer } = useCallStore();
+  const { data: user } = useGetMe();
+  const { setSupabase, handleRemoteAnswer } = useCallStore();
+  const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
+  const callPollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Initialize Supabase
+  useEffect(() => {
+    const supabase = createClient();
+    setSupabase(supabase as any);
+  }, [setSupabase]);
 
+  useEffect(() => {
+    if (!user?.id) return;
 
-    // Initialize Supabase
-    useEffect(() => {
-        const supabase = createClient();
-        setSupabase(supabase as any);
-        console.log('🔌 RealtimeProvider: Initialized');
-    }, [setSupabase]);
+    const supabase = createClient();
 
-    // Call Listening Logic
-    useEffect(() => {
-        if (!user?.id) {
-            console.log('📞 No user logged in');
+    // ✅ Fetch presence from Redis every 30s
+    const fetchPresence = async () => {
+      try {
+        const res = await fetch('/api/users/friends');
+        const { friends } = await res.json();
+
+        if (!friends?.length) return;
+
+        const ids = friends.map((f: any) => f.id).join(',');
+        const presenceRes = await fetch(`/api/presence?ids=${ids}`);
+        const presence = await presenceRes.json();
+
+        const onlineIds = Object.entries(presence)
+          .filter(([_, isOnline]) => isOnline)
+          .map(([id]) => id);
+
+        usePresenceStore.getState().setOnlineUsers(onlineIds);
+      } catch (err) {
+        console.error('Presence fetch error:', err);
+      }
+    };
+
+    fetchPresence();
+    const presenceInterval = setInterval(fetchPresence, 30000);
+
+    // ✅ 1. Presence heartbeat — every 30s
+    const sendHeartbeat = () => {
+      fetch('/api/presence/heartbeat', { method: 'POST' });
+    };
+    sendHeartbeat(); // immediately on mount
+    heartbeatRef.current = setInterval(sendHeartbeat, 30000);
+
+    // ✅ 2. Poll Redis for pending calls — every 2s
+    // Much cheaper than hitting Supabase DB
+    const checkForPendingCalls = async () => {
+      try {
+        const res = await fetch('/api/call/pending');
+        const { call } = await res.json();
+
+        if (call) {
+          const store = useCallStore.getState();
+          
+          // Don't override if already connecting/in-progress
+          if (store.callStatus === 'connecting' || 
+              store.callStatus === 'in-progress' ||
+              store.callStatus === 'calling') {
             return;
+          }
+
+          if (store.callStatus !== 'receiving' || store.incomingCallData?.id !== call.id) {
+            useCallStore.setState({
+              callStatus: 'receiving',
+              incomingCallData: call,
+            });
+          }
         }
+      } catch (err) {
+        console.error('Call poll error:', err);
+      }
+    };
 
-        console.log('📞 Starting call listener for:', user.id);
-        const supabase = createClient();
+    checkForPendingCalls();
+    callPollRef.current = setInterval(checkForPendingCalls, 2000);
 
-        const checkForPendingCalls = async () => {
-            try {
-                // console.log('📞 Polling for pending calls for:', user);
-                const { data, error } = await supabase
-                    .from('calls')
-                    .select(`
-                        *,
-                        caller:User!caller_id(id, username, fullName, email, avatar),
-                        receiver:User!receiver_id(id, username, fullName, email, avatar)
-                    `)
-                    .eq('receiver_id', user.id)
-                    .eq('status', 'PENDING')
-                    .order('created_at', { ascending: false })
-                    .limit(1);
+    // ✅ 3. Keep Supabase realtime only for call status updates (ENDED/REJECTED)
+    // Presence channel is completely removed
+    const channel = supabase
+      .channel(`calls-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'calls',
+      }, (payload: any) => {
+        const updated = payload.new as Call;
+        const store = useCallStore.getState();
 
-                // console.log('📞 Poll result:', { data, error });
+        if (updated.status === 'ENDED' || updated.status === 'REJECTED') {
+          if (store.callId === updated.id || store.incomingCallData?.id === updated.id) {
+            // Clear Redis key when call ends
+            fetch('/api/call/pending', { method: 'DELETE' });
+            store.resetCall();
+          }
+        }
+      })
+      .subscribe();
 
-                if (data && data.length > 0) {
-                    const pendingCall: Call = data[0];
-                    const store = useCallStore.getState();
+    return () => {
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      if (callPollRef.current) clearInterval(callPollRef.current);
+      clearInterval(presenceInterval);
+      supabase.removeChannel(channel);
+    };
+  }, [user, handleRemoteAnswer]);
 
-                    // console.log('📞 🔥 PENDING CALL FOUND!', pendingCall);
-
-                    if (store.callStatus !== 'receiving' || store.incomingCallData?.id !== pendingCall.id) {
-                        console.log('📞 ⚡ UPDATING STORE TO RECEIVING');
-                        useCallStore.setState({
-                            callStatus: 'receiving',
-                            incomingCallData: pendingCall,
-                        });
-                        // console.log('📞 ✅ Store updated:', useCallStore.getState());
-                    }
-                }
-            } catch (err) {
-                console.error('📞 Poll error:', err);
-            }
-        };
-
-        // Check immediately
-        checkForPendingCalls();
-
-        // Realtime subscription
-        const channel = supabase
-            .channel(`calls-${user.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'calls',
-                    filter: `receiver_id=eq.${user.id}`,
-                },
-                (payload: any) => {
-                    // console.log('📞 🔴 REALTIME INSERT!', payload);
-                    const newCall = payload.new as Call;
-
-                    if (newCall.status === 'PENDING') {
-                        console.log('📞 Refetching call with user data...');
-
-                        // Refetch the call with joined user data
-                        supabase
-                            .from('calls')
-                            .select(`
-                                *,
-                                caller:User!caller_id(id, username, fullName, email, avatar),
-                                receiver:User!receiver_id(id, username, fullName, email, avatar)
-                            `)
-                            .eq('id', newCall.id)
-                            .single()
-                            .then(({ data, error }) => {
-                                if (error) {
-                                    console.error('📞 Error refetching call:', error);
-                                    return;
-                                }
-
-                                if (data) {
-                                    console.log('📞 ✅ Refetched call with user data:', data);
-                                    useCallStore.setState({
-                                        callStatus: 'receiving',
-                                        incomingCallData: data,
-                                    });
-                                }
-                            });
-                    }
-                }
-            )
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'calls',
-                },
-                (payload: any) => {
-                    console.log('📞 🟡 REALTIME UPDATE!', payload);
-                    const updated = payload.new as Call;
-                    const store = useCallStore.getState();
-
-                    // NOTE: Answer handling is done in useCallStore.subscribeToCall
-                    // Only handle call end/reject here for incoming calls that were never accepted
-
-                    if (updated.status === 'ENDED' || updated.status === 'REJECTED') {
-                        // Only reset if this is for our current call or an incoming call
-                        if (store.callId === updated.id || store.incomingCallData?.id === updated.id) {
-                            store.resetCall();
-                        }
-                    }
-                }
-            )
-            .subscribe((status) => {
-                console.log('📞 Subscription:', status);
-            });
-
-        // 🟢 Global Presence Logic
-        const presenceChannel = supabase.channel('global_presence', {
-            config: {
-                presence: {
-                    key: user.id,
-                },
-            },
-        });
-
-        presenceChannel
-            .on('presence', { event: 'sync' }, () => {
-                const state = presenceChannel.presenceState();
-                console.log('🟢 Presence Sync:', state);
-                usePresenceStore.getState().syncOnlineUsers(state);
-            })
-            .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-                console.log('🟢 User Joined:', key, newPresences);
-                // Sync full state to be safe, or optimize later
-                const state = presenceChannel.presenceState();
-                usePresenceStore.getState().syncOnlineUsers(state);
-            })
-            .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-                console.log('🟢 User Left:', key, leftPresences);
-                const state = presenceChannel.presenceState();
-                usePresenceStore.getState().syncOnlineUsers(state);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    // console.log('🟢 Tracking Presence for:', user.id);
-                    await presenceChannel.track({
-                        user_id: user.id,
-                        online_at: new Date().toISOString(),
-                    });
-                }
-            });
-
-        // Poll every 2 seconds
-        const interval = setInterval(checkForPendingCalls, 2000);
-
-        // Debug tools
-        (window as any).callDebug = {
-            check: checkForPendingCalls,
-            state: () => useCallStore.getState(),
-            userId: user.id,
-        };
-
-        console.log('📞 ✅ Listener active. Try: window.callDebug.check()');
-
-        return () => {
-            console.log('📞 Cleaning up');
-            supabase.removeChannel(channel);
-            supabase.removeChannel(presenceChannel);
-            clearInterval(interval);
-            delete (window as any).callDebug;
-        };
-    }, [user, handleRemoteAnswer]);
-
-    return <>{children}</>;
+  return <>{children}</>;
 }

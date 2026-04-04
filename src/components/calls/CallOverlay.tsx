@@ -27,7 +27,6 @@ const CallOverlay = () => {
         minimizeCall
     } = useCallStore();
 
-    console.log("Incoming call data:", incomingCallData);
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -150,8 +149,20 @@ const CallOverlay = () => {
             ? incomingCallData?.caller
             : incomingCallData?.receiver;
 
-        const hasRemoteVideo = remoteStream && remoteStream.getVideoTracks().some(track => track.enabled);
-        const hasLocalVideo = isVideo && isCameraOn && localStream && localStream.getVideoTracks().some(track => track.enabled);
+        const hasRemoteVideo = remoteStream && isVideo;
+        const hasLocalVideo = isCameraOn && localStream;
+
+        console.log('🎥 CallOverlay state:', {
+            remoteStream: !!remoteStream,
+            remoteStreamId: remoteStream?.id,
+            remoteTracks: remoteStream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })),
+            localStream: !!localStream,
+            isVideo,
+            isCameraOn,
+            hasRemoteVideo,
+            hasLocalVideo
+        });
+
 
         return (
             <div className="fixed inset-0 z-50 bg-gradient-to-br from-gray-900 via-black to-gray-900 flex flex-col">
