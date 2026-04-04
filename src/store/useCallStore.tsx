@@ -466,7 +466,7 @@ export const useCallStore = create<CallState>((set, get) => ({
         set({ pendingIceCandidates: [] });
       }
 
-      set({ callStatus: 'in-progress' });
+      // set({ callStatus: 'in-progress' });
     } catch (error) {
       console.error('handleRemoteAnswer: Error', error);
     }
