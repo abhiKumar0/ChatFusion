@@ -21,6 +21,7 @@ interface CallState {
   pendingIceCandidates: RTCIceCandidateInit[]; // Buffer for incoming candidates
   bufferedIceCandidates: RTCIceCandidateInit[]; // Buffer for outgoing candidates
   isPeerOnline: boolean;
+  isScreenSharing: boolean;
 
   setSupabase: (client: SupabaseClient) => void;
   startCall: (recipientId: string, isVideo: boolean) => Promise<void>;
@@ -35,6 +36,7 @@ interface CallState {
   subscribeToCall: (callId: string) => void;
   handleRemoteAnswer: (answerSdp: RTCSessionDescriptionInit) => Promise<void>;
   handleRemoteIceCandidate: (candidate: RTCIceCandidate) => Promise<void>;
+  toggleScreenShare: () => Promise<void>;
 }
 
 
@@ -56,6 +58,7 @@ export const useCallStore = create<CallState>((set, get) => ({
   pendingIceCandidates: [], // Incoming candidates buffer
   bufferedIceCandidates: [], // Outgoing candidates buffer
   isPeerOnline: false,
+  isScreenSharing: false,
 
   setSupabase: (supabase) => set({ supabase }),
 
@@ -507,5 +510,68 @@ export const useCallStore = create<CallState>((set, get) => ({
       isPeerOnline: false
     });
   },
+
+  toggleScreenShare: async () => {
+    const {isScreenSharing, connection, localStream } = get();
+
+    try {
+      if (!isScreenSharing) {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
+
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        //Replace video track with screen track
+        const sender = connection?.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(screenTrack);
+        }
+
+        // Replace in local stream for previes
+        if (localStream) {
+          const oldVideoTrack = localStream.getVideoTracks()[0];
+          if (oldVideoTrack) {
+            localStream.removeTrack(oldVideoTrack);
+            oldVideoTrack.stop();
+          }
+          localStream.addTrack(screenTrack);
+        }
+
+        // When user stops sharing from browser UI
+        screenTrack.onended = () => {
+          get().toggleScreenShare();
+        };
+
+        set({ isScreenSharing: true, isCameraOn: false });
+
+      } else {
+        // Switch back to camera
+        const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const cameraTrack = cameraStream.getVideoTracks()[0];
+
+        const sender = connection?.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(cameraTrack);
+        }
+
+        if (localStream) {
+          const oldVideoTrack = localStream.getVideoTracks()[0];
+          if (oldVideoTrack) {
+            localStream.removeTrack(oldVideoTrack);
+            oldVideoTrack.stop();
+          }
+          localStream.addTrack(cameraTrack);
+        }
+
+        set({ isScreenSharing: false, isCameraOn: true });
+      }
+
+    } catch (e: any) {
+      if (e.name != 'NotAllowedError') {
+        console.error('Error toggling screen sharing', e);
+      }
+
+      set({ isScreenSharing: false });
+    }
+  }
 
 }));

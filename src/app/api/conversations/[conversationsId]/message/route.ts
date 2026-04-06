@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import redis from "@/lib/redis";
+import { rateLimit } from "@/lib/rateLimit"
 
 export const POST = async (req: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
@@ -13,13 +14,25 @@ export const POST = async (req: Request, { params }: { params: Promise<{ convers
         const convoId = resolvedParams.conversationsId;
         const { parentId, content, media, nonce, type } = await req.json();
 
+        
         if (!userId) {
             return NextResponse.json({ message: "Unauthorize" }, { status: 401 });
         }
-
+        
         if (!(content || media)) {
             return NextResponse.json({ message: "Message content cannot be empty" }, { status: 400 });
         }
+        
+        const { success, remaining } = await rateLimit(user.id);
+
+        if (!success) {
+            return NextResponse.json({error: "Too many messages. Slow down."}, {
+                status: 429,
+                headers: { 'X-RateLimit-Remaining' : '0'}
+            });
+        } 
+
+
 
         // Determine message type
         const hasContent = content && content.trim() !== '';

@@ -146,9 +146,22 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   // Mark messages as seen when conversation is opened
   // Only trigger when conversation changes or user changes, not on every message update
   useEffect(() => {
-    if (currentConversation && user) {
-      markAsSeen(currentConversation);
+    if (!currentConversation || !user) return;
+
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            markAsSeen(currentConversation);
+        }
+    };
+
+    // Mark seen immediately only if tab is focused
+    if (document.visibilityState === 'visible') {
+        markAsSeen(currentConversation);
     }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+
   }, [currentConversation, user?.id]); // Only re-run when conversation or user ID changes
 
   // React Query instance for creating messages
@@ -177,29 +190,31 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
     newChannel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, (payload) => {
         queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+        
+        // console.log("Payload",payload)
 
-        // Browser notification
-        if (payload.eventType === 'INSERT') {
-          const msg = payload.new;
-          // Don't notify for own messages
-          if (msg.senderId !== user?.id) {
-            // Don't notify if tab is focused
-            if (document.visibilityState !== 'visible') {
-              if (Notification.permission === 'granted') {
-                const notification = new Notification(currentParticipant?.fullName || 'New Message', {
-                  body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message', // can't show content since it's encrypted
-                  icon: currentParticipant?.avatar || '/icon.png',
-                  tag: currentConversation, // prevents notification spam
-                });
+        // // Browser notification
+        // if (payload.eventType === 'INSERT') {
+        //   const msg = payload.new;
+        //   // Don't notify for own messages
+        //   if (msg.senderId !== user?.id) {
+        //     // Don't notify if tab is focused
+        //     if (document.visibilityState !== 'visible') {
+        //       if (Notification.permission === 'granted') {
+        //         const notification = new Notification(currentParticipant?.fullName || 'New Message', {
+        //           body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message', // can't show content since it's encrypted
+        //           icon: currentParticipant?.avatar || '/icon.png',
+        //           tag: currentConversation, // prevents notification spam
+        //         });
 
-                notification.onclick = () => {
-                  window.focus();
-                  notification.close();
-                };
-              }
-            }
-          }
-        }
+        //         notification.onclick = () => {
+        //           window.focus();
+        //           notification.close();
+        //         };
+        //       }
+        //     }
+        //   }
+        // }
       })
       .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
       .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))

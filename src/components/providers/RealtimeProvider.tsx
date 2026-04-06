@@ -6,12 +6,14 @@ import { useCallStore } from '@/store/useCallStore';
 import { Call } from '@/types/types';
 import { useGetMe } from '@/lib/react-query/queries';
 import { usePresenceStore } from '@/store/usePresenceStore';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { data: user } = useGetMe();
   const { setSupabase, handleRemoteAnswer } = useCallStore();
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const callPollRef = useRef<NodeJS.Timeout | null>(null);
+  const queryClient = useQueryClient();
 
   // Initialize Supabase
   useEffect(() => {
@@ -115,13 +117,51 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       })
       .subscribe();
 
+      
+      // In RealtimeProvider.tsx, inside the useEffect where user exists
+const messageChannel = supabase
+    .channel(`global-messages-${user.id}`)
+    .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'Message',
+        filter: `senderId=neq.${user.id}` // only others' messages
+    }, (payload) => {
+        const msg = payload.new;
+        if (msg.senderId === user.id) return;
+
+        console.log("Attempting to show notification")
+
+        // Invalidate conversations for unread badge
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+
+        // Browser notification
+        if (document.visibilityState !== 'visible' && Notification.permission === 'granted') {
+          console.log('✅ showing notification');
+            const notification = new Notification('New Message', {
+                body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message',
+                icon: '/icon.png',
+                tag: msg.conversationId,
+            });
+            notification.onclick = () => {
+                window.focus();
+                window.location.href = `/chat/${msg.conversationId}`;
+                notification.close();
+            };
+        }
+    })
+    .subscribe((status) => {
+      console.log('📡 message channel status:', status);
+    });
+
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       if (callPollRef.current) clearInterval(callPollRef.current);
       clearInterval(presenceInterval);
       supabase.removeChannel(channel);
+      supabase.removeChannel(messageChannel);
     };
-  }, [user, handleRemoteAnswer]);
+  }, [user, handleRemoteAnswer, queryClient]);
 
   return <>{children}</>;
 }

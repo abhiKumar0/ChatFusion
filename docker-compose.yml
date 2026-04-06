@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  next-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # This handles variables needed DURING the build process (Next.js build)
+      args:
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
+        - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+        - GMAIL_USER=${GMAIL_USER}
+        - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+    ports:
+      - "3000:3000"
+    # This handles variables needed WHILE the app is running (Server-side)
+    env_file:
+      - .env
+    restart: always
+
+networks:
+  chatfusion-network:
+    driver: bridge
+

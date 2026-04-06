@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useCallStore } from '@/store/useCallStore';
 import { Button } from '@/components/ui/button';
-import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Minimize2 } from 'lucide-react';
+import { Phone, PhoneOff, Video, Mic, MicOff, VideoOff, Minimize2, Monitor, MonitorOff } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VideoPlayer from './VideoPlayer';
 
@@ -24,7 +24,9 @@ const CallOverlay = () => {
         otherUserId,
         toggleMic,
         toggleVideo,
-        minimizeCall
+        minimizeCall,
+        isScreenSharing,
+        toggleScreenShare
     } = useCallStore();
 
 
@@ -224,6 +226,21 @@ const CallOverlay = () => {
                         >
                             {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
                         </Button>
+
+                        <Button
+                            variant={isScreenSharing ? "destructive" : "secondary"}
+                            size="icon"
+                            className={`h-14 w-14 rounded-full backdrop-blur-md border-none text-white ${
+                                !isScreenSharing ? "bg-white/10 hover:bg-white/20" : ""
+                            }`}
+                            onClick={toggleScreenShare}
+                            title={isScreenSharing ? "Stop sharing" : "Share screen"}
+                            >
+                            {isScreenSharing 
+                                ? <MonitorOff className="w-6 h-6" /> 
+                                : <Monitor className="w-6 h-6" />
+                            }
+                            </Button>
 
                         <Button
                             variant="destructive"
