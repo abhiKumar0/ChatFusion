@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   allowedDevOrigins: ['*.ngrok.io', '*.ngrok-free.app', '*.ngrok-free.dev'],
+  experimental: {
+    serverComponentsExternalPackages: ['@upstash/redis'],
+  },
 };
 
 export default nextConfig;
