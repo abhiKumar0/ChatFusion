@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useGetMe, useGetFriends, useUpdateUser, useUploadAvatar, useCheckUsername, useCreateConversation } from '@/lib/react-query/queries';
+import { useGetMe, useGetFriends, useUpdateUser, useUploadAvatar, useCheckUsername, useCreateConversation, useLogOut } from '@/lib/react-query/queries';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from '@/components/ui/sheet';
-import { Loader2, Mail, User as UserIcon, Edit, Camera, Upload, ArrowLeft, Users, Search, MessageSquare } from 'lucide-react';
+import { Loader2, Mail, User as UserIcon, Edit, Camera, Upload, ArrowLeft, Users, Search, MessageSquare, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { User } from '@/types/types';
 
@@ -28,6 +28,17 @@ const ProfilePage = () => {
     const [usernameError, setUsernameError] = useState<string | null>(null);
     const [isCheckingUsername, setIsCheckingUsername] = useState(false);
     const { refetch: checkUsernameUnique } = useCheckUsername(formData.username);
+
+    const { mutate: logout, } = useLogOut();
+    
+      const toggleLogout = () => {
+        logout(undefined, {
+          onSuccess: () => {
+            window.location.href = '/auth';
+          }
+        });
+      };
+
 
     useEffect(() => {
         const check = async () => {
@@ -216,6 +227,13 @@ const ProfilePage = () => {
                                 </div>
                             </div>
 
+                            <div className='flex space-x-2'>
+
+                            <button className="h-10 px-4 bg-red-500/10 text-red-400 text-sm font-medium rounded-lg hover:bg-red-500/30 hover:text-red-300 transition-all flex items-center gap-2" onClick={toggleLogout}>
+                                <LogOut className="w-4 h-4" />
+                                Logout
+                            </button>
+
                             {/* Edit Button */}
                             <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
                                 <SheetTrigger asChild>
@@ -224,7 +242,7 @@ const ProfilePage = () => {
                                         Edit Profile
                                     </button>
                                 </SheetTrigger>
-                                <SheetContent className="overflow-y-auto w-full sm:max-w-md bg-[#0f0f11] border-white/5">
+                                <SheetContent className="overflow-y-auto w-full sm:max-w-md bg-[#0f0f11] border-white/5 p-4">
                                     <SheetHeader>
                                         <SheetTitle className="text-white">Edit Profile</SheetTitle>
                                         <SheetDescription className="text-gray-500">
@@ -310,7 +328,7 @@ const ProfilePage = () => {
                                         <button
                                             onClick={handleUpdateProfile}
                                             disabled={isUpdating || isUploading || isCheckingUsername || !!usernameError || !formData.username}
-                                            className="h-10 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center gap-2"
+                                            className="h-10 px-4 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors flex items-center gap-2 justify-center"
                                         >
                                             {(isUpdating || isUploading) && <Loader2 className="w-4 h-4 animate-spin" />}
                                             Save Changes
@@ -318,6 +336,9 @@ const ProfilePage = () => {
                                     </SheetFooter>
                                 </SheetContent>
                             </Sheet>
+
+                            
+                            </div>
                         </div>
                     </div>
                 </div>

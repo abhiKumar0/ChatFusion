@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground scrolbar-hidden`} >
         <AppErrorBoundary>
           <QueryProvider>
             <RealtimeProvider>
@@ -47,6 +47,7 @@ export default function RootLayout({
             </RealtimeProvider>
           </QueryProvider>
         </AppErrorBoundary>
+        <div className="md:hidden h-16 bg-[#0a0a0b]"></div>
       </body>
     </html>
   );

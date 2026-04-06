@@ -129,14 +129,14 @@ const messageChannel = supabase
         const msg = payload.new;
         if (msg.senderId === user.id) return;
 
-        console.log("Attempting to show notification")
+        // console.log("Attempting to show notification")
 
         // Invalidate conversations for unread badge
         queryClient.invalidateQueries({ queryKey: ['conversations'] });
 
         // Browser notification
         if (document.visibilityState !== 'visible' && Notification.permission === 'granted') {
-          console.log('✅ showing notification');
+          // console.log('✅ showing notification');
             const notification = new Notification('New Message', {
                 body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message',
                 icon: '/icon.png',
@@ -149,9 +149,7 @@ const messageChannel = supabase
             };
         }
     })
-    .subscribe((status) => {
-      console.log('📡 message channel status:', status);
-    });
+    .subscribe();
 
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
