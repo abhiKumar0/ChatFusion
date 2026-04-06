@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
 
+export const dynamic = 'force-dynamic'; 
+
 /*
     This route is called every 30 seconds by the client to update the user's presence.
     It uses Redis to store the user's last seen time.

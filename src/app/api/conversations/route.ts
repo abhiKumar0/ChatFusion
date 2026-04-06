@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import redis from "@/lib/redis";
 
+export const dynamic = 'force-dynamic';
+
 const CONVO_QUERY = `
     *,
     participants:ConversationParticipant!inner(userId),

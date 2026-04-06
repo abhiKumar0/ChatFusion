@@ -4,6 +4,9 @@ import { randomBytes } from "crypto";
 import redis from "@/lib/redis";
 import { rateLimit } from "@/lib/rateLimit"
 
+
+export const dynamic = 'force-dynamic'; 
+
 export const POST = async (req: Request, { params }: { params: Promise<{ conversationsId: string }> }) => {
     try {
         const supabase = await createClient();
