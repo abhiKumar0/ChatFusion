@@ -114,6 +114,7 @@ export const GET = async (req: Request, { params }: { params: Promise<{ conversa
         const { searchParams } = new URL(req.url);
         const cursor = searchParams.get('cursor');
 
+
         let query = supabase
             .from('Message')
             .select(`

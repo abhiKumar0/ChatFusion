@@ -2,7 +2,7 @@ import redis from "./redis";
 
 export async function rateLimit(
     userId: string,
-    limit:number = 10,
+    limit:number = 20,
     windowSeconds : number = 60
 ) : Promise<{success: boolean, remaining: number}> {
     
