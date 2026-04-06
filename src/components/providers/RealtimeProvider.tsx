@@ -124,8 +124,7 @@ const messageChannel = supabase
     .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'Message',
-        filter: `senderId=neq.${user.id}` // only others' messages
+        table: 'Message'
     }, (payload) => {
         const msg = payload.new;
         if (msg.senderId === user.id) return;
