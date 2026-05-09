@@ -1,29 +1,25 @@
 'use client';
 
-import { createClient } from "@/lib/supabase";
 import { useGetFriendRequestCount, useGetMe } from "@/lib/react-query/queries";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { getSocket } from "@/lib/socket";
 
 export const NotificationCount = () => {
-  const [supabase] = useState(() => createClient());
   const { data: user } = useGetMe();
-
   const { data: countData, refetch } = useGetFriendRequestCount();
-  
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+    const socket = getSocket(user.id);
 
-    const channel = supabase.channel(`notifications:${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'FriendRequest', filter: `receiverId=eq.${user.id}` }, () => {
-        // refetch();
-      })
-      .subscribe();
+    socket.on('friend_request:new', () => {
+      refetch();
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      socket.off('friend_request:new');
     };
-  }, [user, supabase, refetch]);
+  }, [user?.id, refetch]);
 
   return <span>{countData?.count > 0 && countData?.count}</span>;
 };

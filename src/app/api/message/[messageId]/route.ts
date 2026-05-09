@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const DELETE = async (req: Request, {params}: {params: Promise<{messageId: string}>}) => {
     try {
@@ -8,27 +9,31 @@ export const DELETE = async (req: Request, {params}: {params: Promise<{messageId
         const {searchParams} = new URL(req.url);
         const deleteType = searchParams.get("deleteType");
         const conversationId = searchParams.get("conversationId");
-        const supabase = await  createClient();
+        const supabase = await createClient();
         const {data: {user}} = await supabase.auth.getUser();
 
-        if (deleteType === "ALL") {
-            const {error} = await supabase.from("Message").delete().eq("id",messageId).eq   ("conversationId", conversationId).eq("senderId", user?.id);
-            if (error) {
-                console.log(error);
-                return NextResponse.json({message: "Could not delete for All the message"}, {status: 500});
-            }
+        if (!user?.id) {
+            return NextResponse.json({message: "Unauthorized"}, {status: 401});
+        }
 
-        
-        } else if (deleteType === "SELF") {
-            const {error} = await supabase
-                            .from("MessageVisibility")
-                            .insert({
-                                messageId,
-                                userId: user?.id,
-                            });
-            if (error) {
-                return NextResponse.json({message: "Could not delete for Self the message"}, {status: 500});
+        if (deleteType === "ALL") {
+            if (!conversationId) {
+                return NextResponse.json({message: "conversationId is required for delete ALL"}, {status: 400});
             }
+            await prisma.message.deleteMany({
+                where: {
+                    id: messageId,
+                    conversationId: conversationId,
+                    senderId: user.id
+                }
+            });
+        } else if (deleteType === "SELF") {
+            await prisma.messageVisibility.create({
+                data: {
+                    messageId: messageId,
+                    userId: user.id,
+                }
+            });
         }         
 
         return NextResponse.json({message: "Message deleted successfully"}, {status: 200});

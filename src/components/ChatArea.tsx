@@ -14,9 +14,9 @@
  * - Auto-scroll to latest messages
  * 
  * Real-time Features:
- * - Message updates via Supabase Postgres changes
- * - Typing indicators via Supabase broadcast
- * - Reaction updates via Supabase broadcast
+ * - Message updates via Socket.IO
+ * - Typing indicators via Socket.IO
+ * - Reaction updates via Socket.IO
  * 
  * Performance Optimizations:
  * - Memoized values (messages, participant)
@@ -36,13 +36,9 @@ import { Badge } from './ui/badge';
 import { useChatStore } from '@/store/useChatStore';
 import { usePresenceStore } from '@/store/usePresenceStore';
 import { useGetMessages, useCreateMessage, useGetMe, useGetConversationById, useMarkAsSeen } from '@/lib/react-query/queries';
-
-import { createClient } from '@/lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { getSocket } from '@/lib/socket';
 import { useQueryClient } from '@tanstack/react-query';
 import { Message } from '@/types/types';
-import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
-import { useCrypto } from '@/lib/crypto-context';
 import { MessageSkeleton } from './Loading';
 import MessageBubble from './MessageBubble';
 import { ComponentErrorBoundary } from './ErrorBoundary';
@@ -51,6 +47,8 @@ import dynamic from "next/dynamic";
 import StartCallButton from './StartButton';
 import Link from 'next/link';
 import { TopRightChatButton } from './smaller';
+import { useCrypto } from '@/lib/crypto-context'; 
+import { decryptMessage, decryptPrivateKey, encryptMessage } from '@/lib/crypto';
 
 /**
  * Extended Message type with UI-specific properties
@@ -99,6 +97,8 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [decryptedReplyingMessage, setDecryptedReplyingMessage] = useState<string>(""); // Decrypted version of message we're replying to
   const [selectedImage, setSelectedImage] = useState<{ file: File; preview: string } | null>(null);
+
+  const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
   // Refs for DOM elements and timeouts
   const messagesEndRef = useRef<HTMLDivElement>(null); // For auto-scrolling to bottom
@@ -168,73 +168,65 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
   const createMessageMutation = useCreateMessage();
   const queryClient = useQueryClient();
 
-  // Get our decrypted private key from the Crypto Context
-  // This was fetched once at app load and cached, so we don't decrypt it for every message!
-  const { decryptedPrivateKey, isLoading: cryptoLoading } = useCrypto();
 
-  // ========== Supabase Real-time Setup ==========
+  // ========== Socket.IO Real-time Setup ==========
 
-  // Supabase client (created once, reused for subscriptions)
-  const [supabase] = useState(() => createClient());
-  const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   /**
    * Real-time subscriptions for this conversation
    * Listens for message updates, typing events, and reactions
    */
   useEffect(() => {
-    if (!currentConversation || !user) return;
+    if (!currentConversation || !user?.id) return;
 
-    const newChannel = supabase.channel(`chat:${currentConversation}`);
+    const socket = getSocket(user.id);
 
-    newChannel
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${currentConversation}` }, (payload) => {
-        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
-        
-        // console.log("Payload",payload)
+    // Join this conversation's socket room
+    socket.emit('conversation:join', { conversationId: currentConversation });
 
-        // // Browser notification
-        // if (payload.eventType === 'INSERT') {
-        //   const msg = payload.new;
-        //   // Don't notify for own messages
-        //   if (msg.senderId !== user?.id) {
-        //     // Don't notify if tab is focused
-        //     if (document.visibilityState !== 'visible') {
-        //       if (Notification.permission === 'granted') {
-        //         const notification = new Notification(currentParticipant?.fullName || 'New Message', {
-        //           body: msg.type === 'IMAGE' ? '📷 Sent an image' : '💬 Sent you a message', // can't show content since it's encrypted
-        //           icon: currentParticipant?.avatar || '/icon.png',
-        //           tag: currentConversation, // prevents notification spam
-        //         });
+    // New message from someone else — add to cache
+    socket.on('message:new', (message: Message) => {
+      if (message.senderId === user.id) return; // our own message already in cache
+      queryClient.setQueryData(['messages', currentConversation], (old: any) => {
+        if (!old?.pages?.length) return old;
+        const firstPage = old.pages[0];
+        return {
+          ...old,
+          pages: [
+            { ...firstPage, messages: [...firstPage.messages, message] },
+            ...old.pages.slice(1),
+          ],
+        };
+      });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
 
-        //         notification.onclick = () => {
-        //           window.focus();
-        //           notification.close();
-        //         };
-        //       }
-        //     }
-        //   }
-        // }
-      })
-      .on('broadcast', { event: 'typing' }, () => setIsTyping(true))
-      .on('broadcast', { event: 'stop_typing' }, () => setIsTyping(false))
-      .on('broadcast', { event: 'reaction_update' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
-      })
-      .on('broadcast', { event: 'messages_seen' }, () => {
-        console.log('[ChatArea] Messages marked as seen, refetching...');
-        queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
-        queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      })
-      .subscribe();
+    // Typing indicators
+    socket.on('typing:start', ({ userId }: { userId: string }) => {
+      if (userId !== user.id) setIsTyping(true);
+    });
+    socket.on('typing:stop', ({ userId }: { userId: string }) => {
+      if (userId !== user.id) setIsTyping(false);
+    });
 
-    setChannel(newChannel);
+    // Reactions and seen
+    socket.on('message:reaction', () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+    });
+    socket.on('message:seen', () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
 
     return () => {
-      supabase.removeChannel(newChannel);
-      setChannel(null);
+      socket.emit('conversation:leave', { conversationId: currentConversation });
+      socket.off('message:new');
+      socket.off('typing:start');
+      socket.off('typing:stop');
+      socket.off('message:reaction');
+      socket.off('message:seen');
     };
-  }, [currentConversation, user, queryClient, supabase]);
+  }, [currentConversation, user?.id, queryClient]);
 
 
   /**
@@ -352,30 +344,23 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
    * then disappears 1 second after they stop.
    */
   const handleTyping = useCallback(() => {
-    if (!channel || !currentConversation) return;
-
-    // Let other users know we're typing
-    channel.send({ type: 'broadcast', event: 'typing' });
-
-    // Clear the previous "stop typing" timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Schedule a "stop typing" event for 1 second from now
-    // If user keeps typing, this gets cancelled and rescheduled
+    if (!currentConversation || !user?.id) return;
+    const socket = getSocket(user.id);
+    socket.emit('typing:start', { conversationId: currentConversation });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      channel.send({ type: 'broadcast', event: 'stop_typing' });
+      socket.emit('typing:stop', { conversationId: currentConversation });
     }, 1000);
-  }, [channel, currentConversation]);
+  }, [currentConversation, user?.id]);
 
   /**
    * Broadcast reaction updates
    * Called when user adds/removes a reaction to a message
    */
   const handleBroadcastReaction = useCallback(() => {
-    channel?.send({ type: 'broadcast', event: 'reaction_update' });
-  }, [channel]);
+    if (!currentConversation || !user?.id) return;
+    getSocket(user.id).emit('message:reaction', { conversationId: currentConversation, reaction: null });
+  }, [currentConversation, user?.id]);
 
   /**
    * Handle image selection from file input
@@ -453,9 +438,9 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
     setError(null); // Clear any previous errors
 
     // Stop typing when sending message
-    if (channel && typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      channel.send({ type: 'broadcast', event: 'stop_typing' });
+    if (currentConversation && user?.id) {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      getSocket(user.id).emit('typing:stop', { conversationId: currentConversation });
     }
 
     const participant = conversationData?.participants?.find((p: { user: { id: string } }) => p.user.id !== user.id)?.user;
@@ -563,7 +548,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
         setSelectedImage(imageToSend);
       }
     }
-  }, [newMessage, selectedImage, currentConversation, user, currentParticipant, decryptedPrivateKey, conversationData, channel, createMessageMutation, replyingTo, clearReplyingTo, convertImageToBase64]);
+  }, [newMessage, selectedImage, currentConversation, user, currentParticipant, conversationData, createMessageMutation, replyingTo, clearReplyingTo, convertImageToBase64]);
 
 
   // Handle input change with typing indicator

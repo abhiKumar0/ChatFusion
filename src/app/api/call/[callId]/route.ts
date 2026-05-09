@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ callId: string }> }) {
   try {
@@ -10,18 +11,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data, error } = await supabase
-      .from('calls')
-      .update({ status })
-      .eq('id', callId)
-      .select(`
-        *,
-        caller:User!caller_id(*),
-        receiver:User!receiver_id(*)
-      `)
-      .single();
-
-    if (error) throw error;
+    const data = await prisma.call.update({
+        where: { id: callId },
+        data: { status },
+        include: {
+            caller: true,
+            receiver: true
+        }
+    });
 
     return NextResponse.json(data);
   } catch (error) {

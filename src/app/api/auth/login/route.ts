@@ -1,19 +1,19 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const POST = async (request: Request) => {
     try {
         const supabase = await createClient();
-        // console.log(request)
         const { email, password } = await request.json();
         console.log(email, password);
-        const {data: existingUser, error: existingUserError} = await supabase
-            .from('User')
-            .select('*')
-            .eq('email', email.trim())
-            .single();
+        
+        const existingUser = await prisma.user.findUnique({
+            where: { email: email.trim() }
+        });
+        
         console.log(existingUser)
-        if (existingUserError) {
+        if (!existingUser) {
             return NextResponse.json({ message: "User with email does not exist. Please Sign up First." }, { status: 401 });
         }
 
@@ -21,22 +21,15 @@ export const POST = async (request: Request) => {
             email,
             password,
         });
-        // console.log(data, error);
 
         if (error) {
             return NextResponse.json({ message: "Incorrect Password." }, { status: 401 });
         }
-        
-        // console.log(data);
 
         // Fetch user profile to return consistent data structure
-        const { data: profile } = await supabase
-            .from('User')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-        // console.log("profile", profile)
+        const profile = await prisma.user.findUnique({
+            where: { id: data.user.id }
+        });
 
         return NextResponse.json({ 
             user: profile || data.user,

@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // Create response object
   let response = NextResponse.next({
     request: {
@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
 
   // This triggers token refresh if needed
   const { data: { user }, error } = await supabase.auth.getUser()
+  
   
   // console.log('🔐 [MIDDLEWARE] Auth check:', {
   //   path: request.nextUrl.pathname,

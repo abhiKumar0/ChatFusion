@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const GET = async () => {
     try {
@@ -8,29 +9,31 @@ export const GET = async () => {
         const currentUserId = authUser?.id;
 
         // Fetch all users
-        let query = supabase.from('User').select('*');
-        
-        if (currentUserId) {
-            query = query.neq('id', currentUserId);
-        }
+        const users = await prisma.user.findMany({
+            where: currentUserId ? {
+                id: { not: currentUserId }
+            } : undefined
+        });
 
-        const { data: users, error } = await query;
-
-        if (error) {
+        if (!users) {
             return NextResponse.json({message: "Users not found"}, { status: 404 });
         }
 
-        let usersWithStatus = users;
+        let usersWithStatus = users as any[];
 
-        if (currentUserId && users) {
+        if (currentUserId && users.length > 0) {
             // Fetch friend requests involving the current user
-            const { data: requests } = await supabase
-                .from('FriendRequest')
-                .select('*')
-                .or(`senderId.eq.${currentUserId},receiverId.eq.${currentUserId}`);
+            const requests = await prisma.friendRequest.findMany({
+                where: {
+                    OR: [
+                        { senderId: currentUserId },
+                        { receiverId: currentUserId }
+                    ]
+                }
+            });
             
             usersWithStatus = users.map((user) => {
-                const request = requests?.find(
+                const request = requests.find(
                     (r) => 
                         (r.senderId === currentUserId && r.receiverId === user.id) || 
                         (r.receiverId === currentUserId && r.senderId === user.id)

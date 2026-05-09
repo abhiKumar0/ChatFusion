@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
@@ -13,13 +14,19 @@ export async function GET(
     const { data: { user: currentUser } } = await supabase.auth.getUser();
 
     // Fetch Target User details
-    const { data: user, error } = await supabase
-      .from('User')
-      .select('id, username, fullName, avatar, bio, status')
-      .eq('id', userId)
-      .single();
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+          id: true,
+          username: true,
+          fullName: true,
+          avatar: true,
+          // bio: true,
+          publicKey: true
+      }
+    });
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -28,11 +35,14 @@ export async function GET(
 
     if (currentUser && currentUser.id !== userId) {
       // Check friendship status
-      const { data: requestData } = await supabase
-        .from('FriendRequest')
-        .select('*')
-        .or(`and(senderId.eq.${currentUser.id},receiverId.eq.${userId}),and(senderId.eq.${userId},receiverId.eq.${currentUser.id})`)
-        .single();
+      const requestData = await prisma.friendRequest.findFirst({
+        where: {
+            OR: [
+                { senderId: currentUser.id, receiverId: userId },
+                { senderId: userId, receiverId: currentUser.id }
+            ]
+        }
+      });
       
       if (requestData) {
           friendshipId = requestData.id;

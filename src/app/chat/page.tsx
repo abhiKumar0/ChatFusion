@@ -7,13 +7,15 @@ import { useRouter } from 'next/navigation';
 import { useGetMe } from '@/lib/react-query/queries';
 
 export default function ChatPage() {
-    const { currentConversation } = useChatStore();
     const router = useRouter();
     const { data: user } = useGetMe();
+    const { currentConversation, setCurrentConversation } = useChatStore();
 
-    if (!user) {
-        router.replace('/');
-    }
+    useEffect(() => {
+        if (user && !currentConversation) {
+            router.replace('/');
+        }
+    }, [user, currentConversation, router]);
 
     return (
         <div className="flex-1 flex flex-col items-center justify-center h-full bg-[#0a0a0b] relative overflow-hidden">

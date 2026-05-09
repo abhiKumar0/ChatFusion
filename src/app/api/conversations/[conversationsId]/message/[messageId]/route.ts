@@ -1,104 +1,69 @@
-import { createClient } from "@/lib/supabase-server";
-import { NextResponse } from "next/server";
+import { createClient } from '@/lib/supabase-server';
+import { NextResponse } from 'next/server';
+import { MessageService } from '@/services/MessageService';
+import { rateLimit } from '@/lib/rateLimit';
 
-// Update a message (only by its sender)
-export const PATCH = async (
+export const dynamic = 'force-dynamic';
+
+export const POST = async (
   req: Request,
-  { params }: { params: Promise<{ conversationsId: string; messageId: string }> }
+  { params }: { params: Promise<{ conversationsId: string }> }
 ) => {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    const { success } = await rateLimit(user.id);
+    if (!success) return NextResponse.json({ error: 'Too many messages' }, { status: 429 });
 
-    const { conversationsId, messageId } = await params;
-    const { content, nonce } = await req.json();
+    const { conversationsId } = await params;
+    const { content, media, nonce, type, parentId } = await req.json();
 
-    if (!content || typeof content !== "string") {
-      return NextResponse.json({ message: "Content is required" }, { status: 400 });
+    const message = await MessageService.sendMessage({
+      conversationId: conversationsId,
+      senderId: user.id,
+      content,
+      media,
+      nonce,
+      type,
+      parentId,
+    });
+
+    // Emit via Socket.IO
+    const io = (global as any).io;
+    if (io) {
+      io.to(`conversation:${conversationsId}`).emit('message:new', message);
     }
 
-    if (!nonce || typeof nonce !== "string") {
-      return NextResponse.json({ message: "Nonce is required" }, { status: 400 });
-    }
-
-    // Ensure message exists in conversation and user is the sender
-    const { data: message } = await supabase
-        .from('Message')
-        .select('id')
-        .eq('id', messageId)
-        .eq('conversationId', conversationsId)
-        .eq('senderId', userId)
-        .single();
-
-    if (!message) {
-      return NextResponse.json({ message: "Message not found" }, { status: 404 });
-    }
-
-    const { data: updated, error } = await supabase
-      .from('Message')
-      .update({ content, nonce, updatedAt: new Date().toISOString() })
-      .eq('id', messageId)
-      .select(`
-        *,
-        sender:User(*),
-        reactions:Reaction(
-          *,
-          user:User(id, fullName, username)
-        )
-      `)
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(updated);
+    return NextResponse.json(message, { status: 201 });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ message: "Error updating message" }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 };
 
-// Delete a message (only by its sender)
-export const DELETE = async (
+export const GET = async (
   req: Request,
-  { params }: { params: Promise<{ conversationsId: string; messageId: string }> }
+  { params }: { params: Promise<{ conversationsId: string }> }
 ) => {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    if (!userId) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    const { conversationsId } = await params;
+    const { searchParams } = new URL(req.url);
+    const cursor = searchParams.get('cursor') ?? undefined;
 
-    const { conversationsId, messageId } = await params;
+    const result = await MessageService.getMessages({
+      conversationId: conversationsId,
+      cursor,
+    });
 
-    // Ensure message exists in conversation and user is the sender
-    const { data: message } = await supabase
-        .from('Message')
-        .select('id')
-        .eq('id', messageId)
-        .eq('conversationId', conversationsId)
-        .eq('senderId', userId)
-        .single();
-
-    if (!message) {
-      return NextResponse.json({ message: "Message not found" }, { status: 404 });
-    }
-
-    const { error } = await supabase
-      .from('Message')
-      .delete()
-      .eq('id', messageId);
-
-    if (error) throw error;
-
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ message: "Error deleting message" }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
   }
 };
-
-

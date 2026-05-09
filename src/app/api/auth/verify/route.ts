@@ -1,6 +1,6 @@
-
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const POST = async (request: Request) => {
     try {
@@ -22,25 +22,22 @@ export const POST = async (request: Request) => {
         );
 
         // 1. Verify OTP
-        const { data: verificationData, error: verificationError } = await supabaseAdmin
-            .from('VerificationCodes')
-            .select('*')
-            .eq('email', email)
-            .eq('code', otp)
-            .single();
+        const verificationData = await prisma.verificationCodes.findFirst({
+            where: {
+                email: email,
+                code: otp
+            }
+        });
 
-        if (verificationError || !verificationData) {
+        if (!verificationData) {
             return NextResponse.json({ message: "Invalid verification code" }, { status: 400 });
         }
 
-        // Check verificationData.expiresAt
-        // Note: User seems to have configured DB column as 'expiresAt'
         if (new Date(verificationData.expiresAt) < new Date()) {
             return NextResponse.json({ message: "Verification code expired" }, { status: 400 });
         }
 
         // 2. Sign up the user (using Admin method)
-        // Note: passing 'email_confirm: true' since we just verified it via OTP
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: email.trim(),
             password: password,
@@ -52,42 +49,42 @@ export const POST = async (request: Request) => {
 
         if (authData.user) {
             // 3. Insert into 'User' table
-            const { error: profileError } = await supabaseAdmin
-                .from('User')
-                .insert({
-                    id: authData.user.id,
-                    email: email,
-                    username: email.split('@')[0] + Math.floor(Math.random() * 1000),
-                    fullName: fullName,
-                    password: 'supa-auth-managed',
-                    publicKey: publicKey,
-                    updatedAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                    isOnline: false,
+            try {
+                await prisma.user.create({
+                    data: {
+                        id: authData.user.id,
+                        email: email,
+                        username: email.split('@')[0] + Math.floor(Math.random() * 1000),
+                        fullName: fullName,
+                        password: 'supa-auth-managed',
+                        publicKey: publicKey,
+                        isOnline: false,
+                    }
                 });
-
-            if (profileError) {
+            } catch (profileError: any) {
                 console.log("Profile error", profileError);
                 await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
                 return NextResponse.json({ message: "Profile creation failed: " + profileError.message }, { status: 500 });
             }
 
             // 4. Insert Secrets
-            const { error: keyError } = await supabaseAdmin
-                .from('UserSecrets')
-                .insert({
-                    userId: authData.user.id,
-                    encryptedPrivateKey: encryptPrivateKey,
+            try {
+                await prisma.userSecrets.create({
+                    data: {
+                        userId: authData.user.id,
+                        encryptedPrivateKey: encryptPrivateKey,
+                    }
                 });
-
-            if (keyError) {
+            } catch (keyError: any) {
                 console.log("Key error", keyError);
                 await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
                 return NextResponse.json({ message: "Key creation failed: " + keyError.message }, { status: 500 });
             }
 
             // 5. Delete OTP
-            await supabaseAdmin.from('VerificationCodes').delete().eq('email', email);
+            await prisma.verificationCodes.deleteMany({
+                where: { email: email }
+            });
         }
 
         return NextResponse.json({ user: authData.user }, { status: 201 });

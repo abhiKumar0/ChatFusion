@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import redis from "@/lib/redis";
+import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rateLimit"
 
 
@@ -35,56 +35,50 @@ export const POST = async (req: Request, { params }: { params: Promise<{ convers
             });
         } 
 
-
-
         // Determine message type
         const hasContent = content && content.trim() !== '';
         const messageType = type || (media && !hasContent ? 'IMAGE' : 'TEXT');
 
         // Verify user is part of this conversation
-        const { data: participant } = await supabase
-            .from('ConversationParticipant')
-            .select('conversationId')
-            .eq('conversationId', convoId)
-            .eq('userId', userId)
-            .single();
+        const participant = await prisma.conversationParticipant.findFirst({
+            where: {
+                conversationId: convoId,
+                userId: userId
+            },
+            select: { conversationId: true }
+        });
 
         if (!participant) {
             return NextResponse.json({ message: "Conversation not found or you are not a participant" }, { status: 404 });
         }
 
         // Create message with initial 'sent' status
-        const { data: newMessage, error: createError } = await supabase
-            .from('Message')
-            .insert({
+        const newMessage = await prisma.message.create({
+            data: {
                 senderId: userId,
                 content: content || '',
-                media,
+                media: media,
                 conversationId: convoId,
                 parentMessageId: parentId,
                 nonce: nonce || (content ? randomBytes(12).toString('base64') : ''),
                 type: messageType,
-                status: 'sent', // Initial status when message is created
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            })
-            .select(`
-                *,
-                sender:User(*),
-                parentMessage:Message!parentMessageId(
-                    *,
-                    sender:User(*)
-                )
-            `)
-            .single();
-
-        if (createError) throw createError;
+                status: 'sent'
+            },
+            include: {
+                sender: true,
+                parentMessage: {
+                    include: {
+                        sender: true
+                    }
+                }
+            }
+        });
 
         // 4. Update the conversation's updatedAt timestamp
-        await supabase
-            .from('Conversation')
-            .update({ updatedAt: new Date().toISOString() })
-            .eq('id', convoId);
+        await prisma.conversation.update({
+            where: { id: convoId },
+            data: { updatedAt: new Date() }
+        });
 
         return NextResponse.json(newMessage, { status: 201 });
 
@@ -117,64 +111,75 @@ export const GET = async (req: Request, { params }: { params: Promise<{ conversa
         const { searchParams } = new URL(req.url);
         const cursor = searchParams.get('cursor');
 
-
-        let query = supabase
-            .from('Message')
-            .select(`
-                *,
-                sender:User(id, fullName, username, publicKey, email),
-                parentMessage:parentMessageId(
-                    *,
-                    sender:User(id, fullName, username)
-                ),
-                reactions:Reaction(
-                    *,
-                    user:User(id, fullName, username)
-                )
-            `)
-            .eq('conversationId', convoId)
-            .order('createdAt', { ascending: false })
-            .limit(MESSAGE_BATCH_SIZE);
+        let messages;
 
         if (cursor) {
-            // Fetch the createdAt of the cursor message to paginate efficiently
-            // Or if IDs are time-sortable (CUIDs are), we can use lt
-            // Assuming CUIDs/UUIDs, let's try to fetch the cursor message first
-            const { data: cursorMsg, error: createError } = await supabase
-                .from('Message')
-                .select('createdAt')
-                .eq('id', cursor)
-                .single();
+            const cursorMsg = await prisma.message.findUnique({
+                where: { id: cursor },
+                select: { createdAt: true }
+            });
 
-            if (createError) {
+            if (!cursorMsg) {
                 return NextResponse.json({message: "Error while fetching cursor message"}, {status: 500});
             }
 
-            // Increment unread count for the other participant
-            const { data: otherParticipant } = await supabase
-                .from('ConversationParticipant')
-                .select('userId')
-                .eq('conversationId', convoId)
-                .neq('userId', userId)
-                    .single();
-
-                if (otherParticipant?.userId) {
-                    await redis.hincrby(`unread:${otherParticipant.userId}`, convoId, 1);
+            messages = await prisma.message.findMany({
+                where: {
+                    conversationId: convoId,
+                    createdAt: { lt: cursorMsg.createdAt }
+                },
+                take: MESSAGE_BATCH_SIZE,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    sender: {
+                        select: { id: true, fullName: true, username: true, publicKey: true, email: true }
+                    },
+                    parentMessage: {
+                        include: {
+                            sender: {
+                                select: { id: true, fullName: true, username: true }
+                            }
+                        }
+                    },
+                    reactions: {
+                        include: {
+                            user: {
+                                select: { id: true, fullName: true, username: true }
+                            }
+                        }
+                    }
                 }
-
-
-            if (cursorMsg) {
-                query = query.lt('createdAt', cursorMsg.createdAt);
-            }
+            });
+        } else {
+            messages = await prisma.message.findMany({
+                where: { conversationId: convoId },
+                take: MESSAGE_BATCH_SIZE,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    sender: {
+                        select: { id: true, fullName: true, username: true, publicKey: true, email: true }
+                    },
+                    parentMessage: {
+                        include: {
+                            sender: {
+                                select: { id: true, fullName: true, username: true }
+                            }
+                        }
+                    },
+                    reactions: {
+                        include: {
+                            user: {
+                                select: { id: true, fullName: true, username: true }
+                            }
+                        }
+                    }
+                }
+            });
         }
-
-        const { data: messages, error } = await query;
-
-        if (error) throw error;
 
         let nextCursor = null;
 
-        if (messages && messages.length === MESSAGE_BATCH_SIZE) {
+        if (messages.length === MESSAGE_BATCH_SIZE) {
             nextCursor = messages[MESSAGE_BATCH_SIZE - 1].id;
         }
 

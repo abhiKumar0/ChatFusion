@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
@@ -10,15 +11,15 @@ export async function GET(
     const { userId } = await params;
 
     // Fetch friends where user is sender OR receiver AND status is ACCEPTED
-    const { data: friendRequests, error } = await supabase
-        .from('FriendRequest')
-        .select('*')
-        .or(`senderId.eq.${userId},receiverId.eq.${userId}`)
-        .eq('status', 'ACCEPTED');
-
-    if (error) {
-        throw error;
-    }
+    const friendRequests = await prisma.friendRequest.findMany({
+        where: {
+            OR: [
+                { senderId: userId },
+                { receiverId: userId }
+            ],
+            status: 'ACCEPTED'
+        }
+    });
 
     if (!friendRequests || friendRequests.length === 0) {
         return NextResponse.json([]);
@@ -32,14 +33,17 @@ export async function GET(
     });
 
     // Fetch all user data
-    const { data: users, error: userError } = await supabase
-        .from('User')
-        .select('id, username, fullName, avatar, status')
-        .in('id', Array.from(userIds));
-
-    if (userError) {
-        throw userError;
-    }
+    const users = await prisma.user.findMany({
+        where: {
+            id: { in: Array.from(userIds) }
+        },
+        select: {
+            id: true,
+            username: true,
+            fullName: true,
+            avatar: true
+        }
+    });
 
     // Create a map for quick user lookup
     const userMap = new Map(users?.map(u => [u.id, u]) || []);

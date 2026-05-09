@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Conversation {
+  id                      String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt               DateTime                  @default(now())
+  avatar                  String?
+  name                    String?
+  type                    ConversationType          @default(ONE_TO_ONE)
+  updatedAt               DateTime                  @updatedAt
+  participants            ConversationParticipant[]
+  messages                Message[]
+}
+
+model ConversationParticipant {
+  conversationId String          @db.Uuid
+  userId         String          @db.Uuid
+  role           ParticipantRole @default(MEMBER)
+  lastDeletedAt  DateTime?       @db.Timestamptz(6)
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cp_conversation")
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cp_user")
+
+  @@id([userId, conversationId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model FriendRequest {
+  id                                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status                              FriendRequestStatus @default(PENDING)
+  createdAt                           DateTime            @default(now())
+  updatedAt                           DateTime            @updatedAt
+  senderId                            String              @db.Uuid
+  receiverId                          String              @db.Uuid
+  receiver User                @relation("FriendRequest_receiverIdToUser", fields: [receiverId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender   User                @relation("FriendRequest_senderIdToUser", fields: [senderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([senderId, receiverId])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Message {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId          String              @db.Uuid
+  content           String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  media             String?
+  conversationId    String              @db.Uuid
+  nonce             String
+  parentMessageId   String?             @db.Uuid
+  status            String              @default("sent")
+  type              MessageType         @default(TEXT)
+  readAt            DateTime?           @db.Timestamptz(6)
+  conversation      Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_msg_conversation")
+  parentMessage     Message?            @relation("MessageToMessage", fields: [parentMessageId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_msg_parent")
+  replies           Message[]           @relation("MessageToMessage")
+  sender            User                @relation(fields: [senderId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_msg_sender")
+  messageVisibility MessageVisibility[]
+  reactions         Reaction[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MessageVisibility {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId String    @db.Uuid
+  userId    String    @db.Uuid
+  hiddenAt  DateTime? @default(now()) @db.Timestamptz(6)
+  message   Message   @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([messageId, userId])
+  @@index([messageId, userId], map: "idx_visibility_lookup")
+}
+
+model Reaction {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emoji     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messageId String   @db.Uuid
+  userId    String   @db.Uuid
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_react_msg")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_react_user")
+
+  @@unique([userId, messageId, emoji])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model User {
+  id                                           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username                                     String                    @unique
+  email                                        String                    @unique
+  avatar                                       String?
+  createdAt                                    DateTime                  @default(now())
+  updatedAt                                    DateTime                  @updatedAt
+  password                                     String
+  publicKey                                    String?
+  fullName                                     String?
+  isOnline                                     Boolean                   @default(false)
+  participants                                 ConversationParticipant[]
+  receivedFriendRequests                       FriendRequest[]           @relation("FriendRequest_receiverIdToUser")
+  sentFriendRequests                           FriendRequest[]           @relation("FriendRequest_senderIdToUser")
+  messages                                     Message[]
+  messageVisibilities                          MessageVisibility[]
+  reactions                                    Reaction[]
+  userSecrets                                  UserSecrets?
+  callsMade                                    Call[]                   @relation("calls_caller_idToUser")
+  callsReceived                                Call[]                   @relation("calls_receiver_idToUser")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UserSecrets {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @unique @db.Uuid
+  encryptedPrivateKey String
+  createdAt           DateTime? @default(now()) @db.Timestamptz(6)
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VerificationCodes {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email     String    @unique
+  code      String
+  expiresAt DateTime  @db.Timestamptz(6)
+  createdAt DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([email], map: "verification_codes_email_idx")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Call {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status           String   @default("PENDING")
+  offerSdp         String?
+  answerSdp        String?
+  iceCandidates    String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  isVideo          Boolean? @default(true)
+  callerId         String   @db.Uuid
+  receiverId       String?  @db.Uuid
+  caller           User     @relation("calls_caller_idToUser", fields: [callerId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_calls_caller")
+  receiver         User?    @relation("calls_receiver_idToUser", fields: [receiverId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_calls_receiver")
+}
+
+enum ConversationType {
+  ONE_TO_ONE
+  GROUP
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  STICKER
+  AUDIO
+  VIDEO
+  FILE
+}
+
+enum ParticipantRole {
+  ADMIN
+  MEMBER
+}
