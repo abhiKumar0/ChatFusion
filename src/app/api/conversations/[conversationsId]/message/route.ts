@@ -80,11 +80,17 @@ export const POST = async (req: Request, { params }: { params: Promise<{ convers
             data: { updatedAt: new Date() }
         });
 
+        // 5. Emit message to connected clients in real-time
+        const io = (global as any).io;
+        if (io) {
+            io.to(`conversation:${convoId}`).emit('message:new', newMessage);
+        }
+
         return NextResponse.json(newMessage, { status: 201 });
 
     } catch (error) {
         console.log(error);
-        return NextResponse.json({ message: "Error while sending a message" }, { status: 500 })
+        return NextResponse.json({ message: "Error while sending a message", error }, { status: 500 })
     }
 }
 

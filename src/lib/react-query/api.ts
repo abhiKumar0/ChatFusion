@@ -79,7 +79,7 @@ export const confirmPasswordReset = async ({ email, otp, newPassword }: any) => 
 
 export const logIn = async (data: { email: string; password: string }) => {
   const response = await api.post("/auth/login", data);
-  console.log(response);
+  console.log("Login response:",response);
   return response.data;
 };
 
