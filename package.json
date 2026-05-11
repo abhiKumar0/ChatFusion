@@ -2,13 +2,12 @@
   "name": "chatfusion",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "ts-node --project tsconfig.server.json src/server.ts",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "server": "ts-node src/server.ts"
+    "build:server": "tsc --project tsconfig.server.json",
+    "start": "node dist/src/server.js",
+    "lint": "next lint"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

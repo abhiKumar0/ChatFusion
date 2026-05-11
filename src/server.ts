@@ -3,8 +3,12 @@ import { Server } from 'socket.io';
 import next from 'next';
 
 const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev });
+const port = parseInt(process.env.PORT || '3000');
+const hostname = process.env.HOSTNAME || 'localhost';
+const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
+
 
 app.prepare().then(() => {
   const httpServer = createServer(handle);
@@ -96,7 +100,7 @@ app.prepare().then(() => {
     });
   });
 
-  httpServer.listen(3000, () => {
-    console.log('> Ready on http://localhost:3000');
+  httpServer.listen(port, () => {
+    console.log(`> Ready on http://localhost:${port}`);
   });
 });
