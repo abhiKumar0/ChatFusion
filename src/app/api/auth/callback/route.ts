@@ -9,6 +9,8 @@ export async function GET(request: Request) {
   // if "next" is in param, use it as the redirect URL
   const next = searchParams.get("next") ?? "/chat";
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -17,7 +19,7 @@ export async function GET(request: Request) {
     const { data: profile } = await supabase.auth.getUser();
     
     if (!profile?.user?.id) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+        return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
     }
 
     const user = await prisma.user.findUnique({
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
 
     if (!user) {
       if (!profile.user?.email) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+        return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
       }
       const {publicKey, privateKey} = await generateUserKeys();
       const encryptedPrivateKey = encryptPrivateKey(privateKey, profile.user.email);
@@ -56,15 +58,15 @@ export async function GET(request: Request) {
           });
       } catch (newUserError) {
           console.error("Error creating new user:", newUserError);
-          return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+          return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
       }
 
     }
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${appUrl}${next}`);
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
 }
