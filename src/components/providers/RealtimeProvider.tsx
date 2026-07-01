@@ -1,14 +1,67 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { getSocket, disconnectSocket } from '@/lib/socket';
-import { useGetMe } from '@/lib/react-query/queries';
+import { useGetConversations, useGetMe } from '@/lib/react-query/queries';
 import { usePresenceStore } from '@/store/usePresenceStore';
 import { useCallStore } from '@/store/useCallStore';
 import { Call } from '@/types/types';
+import { useGetFriends } from '@/lib/react-query/queries';
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { data: user } = useGetMe();
+  const {data: friends} = useGetFriends()
+  const {data: conversations} = useGetConversations();
+
+
+  // Collect unique user IDs of all friends and active chat contacts
+  const contactIds = useMemo(() => {
+    if (!user?.id) return []
+
+    const ids = new Set<string>();
+
+    friends?.forEach(f => ids.add(f.id))
+
+    conversations?.forEach((convo: any) => {
+      convo.allParticipants?.forEach((p: any) => {
+        if (p.user.id !== user.id) {
+          ids.add(p.user.id);
+        }
+      })
+    })
+
+    return Array.from(ids);
+    
+  }, [friends, conversations, user?.id])
+
+
+  useEffect(() => {
+      if (contactIds.length === 0) return;
+
+      const updatePresenceList = async() => {
+        try {
+          const ids = contactIds.join(',');  
+          const res = await fetch(`/api/presence/?ids=${ids}`);
+        
+          if (res.ok) {
+            const presenceMap = await res.json();
+
+            // Extract only the user IDs that are online
+            const onlineIds = Object.keys(presenceMap).filter((id) => presenceMap[id]);
+
+            //Hydrate the Store
+            usePresenceStore.getState().setOnlineUsers(onlineIds);
+
+          }
+        } catch (error) {
+          console.log("Error in updatePresenceList:", error);
+        }
+      }
+
+      updatePresenceList();
+
+    }, [contactIds])
+
 
   useEffect(() => {
     if (!user?.id) return;
@@ -28,6 +81,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       }
       store.setOnlineUsers(Array.from(current));
     });
+
+    
+
 
     // ── Incoming Call ──
     socket.on('call:incoming', (call: Call) => {

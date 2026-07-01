@@ -1,6 +1,7 @@
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import next from 'next';
+import { PresenceService } from './services/PresenceService';
 
 const dev = process.env.NODE_ENV !== 'production';
 const port = parseInt(process.env.PORT || '3000');
@@ -39,11 +40,20 @@ app.prepare().then(() => {
     socket.join(`user:${userId}`);
 
     // ── Presence ──
-    socket.on('presence:online', () => {
+    socket.on('presence:online', async () => {
+
+      //Save the presence in redis
+      await PresenceService.setOnline(userId);
+
       socket.broadcast.emit('presence:update', { userId, isOnline: true });
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
+      
+      //Remove the presence from redis
+      await PresenceService.setOffline(userId);
+
+
       socket.broadcast.emit('presence:update', { userId, isOnline: false });
     });
 
