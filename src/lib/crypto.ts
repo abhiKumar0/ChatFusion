@@ -21,6 +21,7 @@ export async function encryptMessage(
     senderPrivateKey_base64: string
 ) {
     await sodiumReady;
+    
     // Convert keys from base64 back to Uint8Array
     const recipientPublicKey = sodium.from_base64(recipientPublicKey_base64);
     const senderPrivateKey = sodium.from_base64(senderPrivateKey_base64);
