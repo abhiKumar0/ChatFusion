@@ -96,4 +96,58 @@ export class MessageService {
       nextCursor: messages.length === limit ? messages[limit - 1].id : null,
     };
   }
+
+  static async updateMessage({
+    messageId,
+    senderId,
+    content,
+    nonce
+  }: {
+    messageId: string;
+    senderId: string;
+    content: string;
+    nonce: string;
+  }) {
+
+    // Check if message exist
+    const message = await prisma.message.findFirst({
+      where: { id: messageId, senderId},
+    });
+
+    if (!message) {
+      throw new Error("Message not found or you are not the sender");
+    }
+
+    // Update the message
+    const updatedMessage = await prisma.message.update({
+      where: { id: messageId},
+      data: {
+        content,
+        nonce,
+        updatedAt: new Date()
+      },
+      include: {
+        sender: true,
+        parentMessage: {
+          include: { sender: true },
+        },
+      },
+    });
+
+    return updatedMessage;
+  }
+
+  static async deleteMessage({ messageId, senderId }: { messageId: string; senderId: string }) {
+    // Check if message exist
+    const message = await prisma.message.findFirst({
+      where: { id: messageId, senderId },
+    });
+
+    if (!message) throw new Error('Message not found or you are not the sender');
+
+    // Delete message
+    await prisma.message.delete({
+      where: { id: messageId },
+    });
+  }
 }

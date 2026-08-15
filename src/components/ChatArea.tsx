@@ -4,7 +4,7 @@
  * The main chat interface for displaying and sending encrypted messages.
  * 
  * Key Features:
- * - Real-time messaging with Supabase subscriptions
+ * - Real-time messaging with Socket.IO
  * - End-to-end encryption for all messages
  * - Optimistic UI updates for instant message feedback
  * - Typing indicators to show when the other person is typing
@@ -12,11 +12,16 @@
  * - Reply/quote functionality
  * - Emoji picker integration
  * - Auto-scroll to latest messages
+ * - Online/Offline presence indicators
+ * - Voice/Video call initiation
+ * - Mark messages as seen
  * 
  * Real-time Features:
  * - Message updates via Socket.IO
  * - Typing indicators via Socket.IO
  * - Reaction updates via Socket.IO
+ * - Seen status updates via Socket.IO
+ * - Message edit updates via Socket.IO
  * 
  * Performance Optimizations:
  * - Memoized values (messages, participant)
@@ -209,13 +214,23 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
       if (userId !== user.id) setIsTyping(false);
     });
 
-    // Reactions and seen
+    // Reactions, edits, and seen
     socket.on('message:reaction', () => {
       queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
     });
     socket.on('message:seen', () => {
       queryClient.invalidateQueries({ queryKey: ['messages', currentConversation] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+    socket.on('message:update', (updatedMessage: any) => {
+      queryClient.setQueryData(['messages', currentConversation], (old: any) => {
+        if (!old?.pages?.length) return old;
+        const pages = old.pages.map((page: any) => ({
+          ...page,
+          messages: page.messages.map((m: any) => (m.id === updatedMessage.id ? updatedMessage : m)),
+        }));
+        return { ...old, pages };
+      });
     });
 
     return () => {
@@ -225,6 +240,7 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
       socket.off('typing:stop');
       socket.off('message:reaction');
       socket.off('message:seen');
+      socket.off('message:update');
     };
   }, [currentConversation, user?.id, queryClient]);
 
@@ -364,7 +380,8 @@ const ChatArea = ({ conversationId }: { conversationId: string }) => {
 
   /**
    * Handle image selection from file input
-   * \n   * Validates file type and size before creating a preview
+   *
+   * Validates file type and size before creating a preview
    */
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

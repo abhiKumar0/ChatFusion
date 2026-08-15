@@ -43,6 +43,7 @@ interface CallState {
 function createPeerConnection(otherUserId: string, onTrack: (stream: MediaStream) => void) {
   const pc = new RTCPeerConnection(ICE_SERVERS);
 
+  // If Connection state changes then update call status
   pc.oniceconnectionstatechange = () => {
     if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
       useCallStore.setState({ callStatus: 'in-progress' });
@@ -52,6 +53,7 @@ function createPeerConnection(otherUserId: string, onTrack: (stream: MediaStream
     }
   };
 
+  // As ice candidate gathers, send them on socket connection
   pc.onicecandidate = (event) => {
     if (event.candidate) {
       getSocket('').emit('call:ice-candidate', {
@@ -61,6 +63,8 @@ function createPeerConnection(otherUserId: string, onTrack: (stream: MediaStream
     }
   };
 
+
+  // When remote stream is received, update the store
   pc.ontrack = (event) => {
     onTrack(event.streams[0]);
   };
@@ -113,10 +117,15 @@ export const useCallStore = create<CallState>((set, get) => ({
       const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       if (!isVideo) localStream.getVideoTracks().forEach(t => { t.enabled = false; });
 
+      // Create the connection and set the remote stream
       const pc = createPeerConnection(recipientId, (remoteStream) => set({ remoteStream }));
+
       localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
+      // Create SDP offer
       const offer = await pc.createOffer();
+
+      //This fires ice candidate gathering
       await pc.setLocalDescription(offer);
 
       // Persist call to DB and notify receiver via Socket.IO
@@ -142,18 +151,25 @@ export const useCallStore = create<CallState>((set, get) => ({
     set({ callStatus: 'connecting', pendingIceCandidates: [] });
 
     try {
+      //Get the local stream
       const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      
       const shouldEnableCamera = incomingCallData.isVideo ?? true;
       if (!shouldEnableCamera) localStream.getVideoTracks().forEach(t => { t.enabled = false; });
 
       const callerId = incomingCallData.callerId ?? incomingCallData.caller_id;
+
+      // Create the peer connection with the caller's ID and remote stream handler
       const pc = createPeerConnection(callerId, (remoteStream) => set({ remoteStream }));
+
       localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
 
       const offerSdp = typeof incomingCallData.offerSdp === 'string'
         ? JSON.parse(incomingCallData.offerSdp)
         : incomingCallData.offerSdp ?? incomingCallData.offer_sdp;
 
+      //Set the remote description
       await pc.setRemoteDescription(offerSdp);
 
       // Flush any ICE candidates that arrived before remote description was set
@@ -162,7 +178,10 @@ export const useCallStore = create<CallState>((set, get) => ({
         await pc.addIceCandidate(new RTCIceCandidate(c));
       }
 
+      // Create the answer SDP
       const answer = await pc.createAnswer();
+
+      //Set the local description
       await pc.setLocalDescription(answer);
 
       // Send answer via socket
@@ -188,13 +207,21 @@ export const useCallStore = create<CallState>((set, get) => ({
   // ── Remote SDP / ICE Handlers (called from RealtimeProvider socket events) ──
   handleRemoteAnswer: async (answerSdp) => {
     const { connection } = get();
+
+    //checks if peer connection exists
     if (!connection || connection.signalingState !== 'have-local-offer') return;
     try {
+
+      //Applies answer sdp from receiver
       await connection.setRemoteDescription(answerSdp);
       const { pendingIceCandidates } = get();
+
+      //Add ice candidates
       for (const c of pendingIceCandidates) {
         await connection.addIceCandidate(new RTCIceCandidate(c));
       }
+
+      //Update call status
       set({ pendingIceCandidates: [], callStatus: 'in-progress' });
     } catch (e) {
       console.error('handleRemoteAnswer failed:', e);
@@ -203,11 +230,14 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   handleRemoteIceCandidate: async (candidate) => {
     const { connection } = get();
+
+    //Avoids race conditions where ice candidates are sent before remote SDP
     if (!connection || !connection.remoteDescription) {
       set(s => ({ pendingIceCandidates: [...s.pendingIceCandidates, candidate] }));
       return;
     }
     try {
+      //Add ice candidates
       await connection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (e) {
       console.warn('addIceCandidate error:', e);
