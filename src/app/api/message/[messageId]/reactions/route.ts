@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 // Add a reaction to a message
 export const POST = async (
@@ -19,26 +20,40 @@ export const POST = async (
     if (!emoji) return NextResponse.json({ message: "Emoji is required" }, { status: 400 });
 
     // Ensure message is in conversation
-    const { data: message } = await supabase
-        .from('Message')
-        .select('id')
-        .eq('id', messageId)
-        .eq('conversationId', conversationId)
-        .single();
+    const message = await prisma.message.findFirst({
+        where: {
+            id: messageId,
+            conversationId: conversationId
+        },
+        select: { id: true }
+    });
 
     if (!message) return NextResponse.json({ message: "Message not found" }, { status: 404 });
     
-
-    const { data: reaction, error } = await supabase
-      .from('Reaction')
-      .upsert({ userId, messageId, emoji, createdAt: new Date(), updatedAt: new Date() }, { onConflict: 'userId, messageId, emoji' })
-      .select(`
-        *,
-        user:User(id, fullName, username)
-      `)
-      .single();
-
-    if (error) throw error;
+    const reaction = await prisma.reaction.upsert({
+        where: {
+            userId_messageId_emoji: {
+                userId,
+                messageId,
+                emoji
+            }
+        },
+        update: {},
+        create: {
+            userId,
+            messageId,
+            emoji
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    fullName: true,
+                    username: true
+                }
+            }
+        }
+    });
 
     return NextResponse.json(reaction);
   } catch (error) {
@@ -66,12 +81,13 @@ export const DELETE = async (
 
     if (!reactionId) return NextResponse.json({ message: "Reaction ID is required" }, { status: 400 });
 
-    const { error } = await supabase
-      .from('Reaction')
-      .delete()
-      .match({ userId, messageId, id:reactionId });
-
-    if (error) throw error;
+    await prisma.reaction.deleteMany({
+        where: {
+            id: reactionId,
+            messageId: messageId,
+            userId: userId
+        }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -79,5 +95,3 @@ export const DELETE = async (
     return NextResponse.json({ message: "Error removing reaction" }, { status: 500 });
   }
 };
-
-

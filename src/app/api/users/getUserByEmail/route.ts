@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
     const { email } = await request.json();
 
     if (!email) {
@@ -14,13 +13,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Search for user by email
-    const { data: user, error } = await supabase
-      .from('User')
-      .select('id, email, fullName, username, avatar')
-      .eq('email', email)
-      .single();
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+          id: true,
+          email: true,
+          fullName: true,
+          username: true,
+          avatar: true
+      }
+    });
 
-    if (error || !user) {
+    if (!user) {
       return NextResponse.json(
         { message: 'No account found with this email address' },
         { status: 404 }

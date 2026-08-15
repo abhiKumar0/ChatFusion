@@ -10,13 +10,12 @@ import { Card, CardContent } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { useChatStore } from '@/store/useChatStore';
 import { useGetConversations, useGetMe, useSendInvite } from '@/lib/react-query/queries';
-import { createClient } from '@/lib/supabase';
+import { getSocket } from '@/lib/socket';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConversationSkeleton } from './Loading';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import { useRouter } from 'next/navigation';
 import { usePresenceStore } from '@/store/usePresenceStore';
-import { useCrypto } from '@/lib/crypto-context';
 import { decryptMessage } from '@/lib/crypto';
 
 
@@ -166,9 +165,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
   const { data: conversations, isLoading, error } = useGetConversations();
   const { setCurrentConversation, setCurrentParticipant } = useChatStore();
   const { data: user } = useGetMe();
-  const [supabase] = useState(() => createClient());
   const queryClient = useQueryClient();
-  const { decryptedPrivateKey } = useCrypto(); // Get decrypted private key
 
   const { mutateAsync: sendInvite, isPending: isInviting } = useSendInvite();
 
@@ -190,16 +187,15 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
 
   // Listen for new messages to update conversation list
   React.useEffect(() => {
-    const channel = supabase.channel('conversations_list')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'Message' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      })
-      .subscribe();
-
+    if (!user?.id) return;
+    const socket = getSocket(user.id);
+    socket.on('message:new', () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
     return () => {
-      supabase.removeChannel(channel);
+      socket.off('message:new');
     };
-  }, [supabase, queryClient]);
+  }, [user?.id, queryClient]);
 
   const { onlineUsers } = usePresenceStore();
 
@@ -327,7 +323,7 @@ const ContactList = ({ onContactSelect, selectedConversationId }: ContactListPro
                   isSelected={selectedConversationId === convo.id}
                   onClick={() => handleConversationClick(convo)}
                   currentUserId={user?.id}
-                  decryptedPrivateKey={decryptedPrivateKey ?? undefined}
+                  decryptedPrivateKey={undefined}
                 />
               ))
             ) : searchTerm ? (

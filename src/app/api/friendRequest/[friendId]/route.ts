@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
-
+import { prisma } from "@/lib/prisma";
 
 export const DELETE = async (request: Request, {params}: {params: Promise<{friendId: string}>}) => {
     try {
@@ -16,24 +16,22 @@ export const DELETE = async (request: Request, {params}: {params: Promise<{frien
             return NextResponse.json({message: "Friend Id is required"});
         }
 
-        const { data: reqData, error } = await supabase
-        .from("FriendRequest")
-        .select("*")
-        .or(`and(senderId.eq.${userId},receiverId.eq.${friendId}),and(senderId.eq.${friendId},receiverId.eq.${userId})`)
-        .single();
+        const reqData = await prisma.friendRequest.findFirst({
+            where: {
+                OR: [
+                    { senderId: userId, receiverId: friendId },
+                    { senderId: friendId, receiverId: userId }
+                ]
+            }
+        });
 
         if (!reqData) {
-            return NextResponse.json({message: "No Conenction exist"}, {status: 404});
+            return NextResponse.json({message: "No Connection exist"}, {status: 404});
         }
 
-        const  {error: unfriendError} = await supabase
-            .from("FriendRequest")
-            .delete()
-            .eq("id", reqData.id);
-        
-        if (unfriendError) {
-            return NextResponse.json({message: unfriendError.message}, {status: 400})
-        }
+        await prisma.friendRequest.delete({
+            where: { id: reqData.id }
+        });
 
         return NextResponse.json({message: "Unfriended Successfully"}, {status: 200});
 
@@ -41,4 +39,4 @@ export const DELETE = async (request: Request, {params}: {params: Promise<{frien
         console.log("Remove Friend Error:",err);
         return NextResponse.json({error: err}, {status: 500})
     }
-} 
+}

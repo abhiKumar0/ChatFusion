@@ -1,31 +1,18 @@
-
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import otpGenerator from 'otp-generator';
 import { transporter, mailOptions } from "@/lib/nodemailer";
 import { getOtpEmailTemplate } from "@/lib/email-templates";
+import { prisma } from "@/lib/prisma";
 
 export const POST = async (request: Request) => {
     try {
         const { fullName, email } = await request.json();
 
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-            {
-                auth: {
-                    autoRefreshToken: false,
-                    persistSession: false,
-                },
-            }
-        );
-
         // 1. Check if user exists
-        const { data: existingUser } = await supabaseAdmin
-            .from('User')
-            .select('id')
-            .eq('email', email)
-            .single();
+        const existingUser = await prisma.user.findUnique({
+            where: { email: email },
+            select: { id: true }
+        });
 
         if (existingUser) {
             return NextResponse.json({ message: "User already exists" }, { status: 400 });
@@ -37,18 +24,23 @@ export const POST = async (request: Request) => {
             specialChars: false,
             lowerCaseAlphabets: false
         });
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 mins
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
         // 3. Store OTP in 'VerificationCodes'
-        const { error: otpError } = await supabaseAdmin
-            .from('VerificationCodes')
-            .upsert({
-                email: email,
-                code: otp,
-                expiresAt: expiresAt
-            }, { onConflict: 'email' });
-
-        if (otpError) {
+        try {
+            await prisma.verificationCodes.upsert({
+                where: { email: email },
+                update: {
+                    code: otp,
+                    expiresAt: expiresAt
+                },
+                create: {
+                    email: email,
+                    code: otp,
+                    expiresAt: expiresAt
+                }
+            });
+        } catch (otpError: any) {
             console.error("OTP Store Error:", otpError);
             return NextResponse.json({ message: "Database Error: " + otpError.message }, { status: 500 });
         }

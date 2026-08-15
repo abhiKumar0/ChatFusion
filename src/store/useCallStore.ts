@@ -1,8 +1,14 @@
 import { create } from 'zustand';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { initiateCall, updateCallStatus, answerCall } from '@/lib/react-query/api';
+import { getSocket } from '@/lib/socket';
 
 type CallStatus = 'idle' | 'calling' | 'receiving' | 'connecting' | 'in-progress' | 'ended';
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
 
 interface CallState {
   callStatus: CallStatus;
@@ -12,34 +18,59 @@ interface CallState {
   remoteStream: MediaStream | null;
   otherUserId: string | null;
   incomingCallData: any | null;
-  supabase: SupabaseClient | null;
   isVideo: boolean;
   isMicOn: boolean;
   isCameraOn: boolean;
   isCallMinimized: boolean;
-  callSubscription: any | null;
-  pendingIceCandidates: RTCIceCandidateInit[]; // Buffer for incoming candidates
-  bufferedIceCandidates: RTCIceCandidateInit[]; // Buffer for outgoing candidates
-  isPeerOnline: boolean;
   isScreenSharing: boolean;
+  pendingIceCandidates: RTCIceCandidateInit[];
 
-  setSupabase: (client: SupabaseClient) => void;
   startCall: (recipientId: string, isVideo: boolean) => Promise<void>;
   acceptCall: () => Promise<void>;
-  rejectCall: () => Promise<void>;
+  rejectCall: () => void;
   endCall: () => void;
   resetCall: () => void;
   toggleMic: () => void;
-  toggleVideo: () => Promise<void>;
+  toggleVideo: () => void;
   minimizeCall: () => void;
   restoreCall: () => void;
-  subscribeToCall: (callId: string) => void;
   handleRemoteAnswer: (answerSdp: RTCSessionDescriptionInit) => Promise<void>;
-  handleRemoteIceCandidate: (candidate: RTCIceCandidate) => Promise<void>;
+  handleRemoteIceCandidate: (candidate: RTCIceCandidateInit) => Promise<void>;
   toggleScreenShare: () => Promise<void>;
 }
 
+// ── Helper: create a peer connection with ICE wired to socket ──
+function createPeerConnection(otherUserId: string, onTrack: (stream: MediaStream) => void) {
+  const pc = new RTCPeerConnection(ICE_SERVERS);
 
+  // If Connection state changes then update call status
+  pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+      useCallStore.setState({ callStatus: 'in-progress' });
+    }
+    if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+      useCallStore.getState().resetCall();
+    }
+  };
+
+  // As ice candidate gathers, send them on socket connection
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      getSocket('').emit('call:ice-candidate', {
+        otherUserId,
+        candidate: event.candidate.toJSON(),
+      });
+    }
+  };
+
+
+  // When remote stream is received, update the store
+  pc.ontrack = (event) => {
+    onTrack(event.streams[0]);
+  };
+
+  return pc;
+}
 
 export const useCallStore = create<CallState>((set, get) => ({
   callStatus: 'idle',
@@ -49,451 +80,201 @@ export const useCallStore = create<CallState>((set, get) => ({
   callId: null,
   otherUserId: null,
   incomingCallData: null,
-  supabase: null,
   isVideo: true,
   isMicOn: true,
   isCameraOn: true,
   isCallMinimized: false,
-  callSubscription: null,
-  pendingIceCandidates: [], // Incoming candidates buffer
-  bufferedIceCandidates: [], // Outgoing candidates buffer
-  isPeerOnline: false,
   isScreenSharing: false,
+  pendingIceCandidates: [],
 
-  setSupabase: (supabase) => set({ supabase }),
-
+  // ── UI Controls ──
   toggleMic: () => {
     const { localStream, isMicOn } = get();
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !isMicOn;
-      });
-      set({ isMicOn: !isMicOn });
-    }
+    localStream?.getAudioTracks().forEach(t => { t.enabled = !isMicOn; });
+    set({ isMicOn: !isMicOn });
   },
 
-
-  toggleVideo: async () => {
+  toggleVideo: () => {
     const { localStream, isCameraOn } = get();
-
-    if (!localStream) {
-      console.error('toggleVideo: No local stream');
-      return;
-    }
-
-    // Since we always have video tracks now, just toggle them on/off
-    const videoTracks = localStream.getVideoTracks();
-
-    if (videoTracks.length === 0) {
-      console.error('toggleVideo: No video tracks available');
-      return;
-    }
-
-    const newCameraState = !isCameraOn;
-    videoTracks.forEach(track => {
-      track.enabled = newCameraState;
-    });
-
-    set({ isCameraOn: newCameraState });
+    localStream?.getVideoTracks().forEach(t => { t.enabled = !isCameraOn; });
+    set({ isCameraOn: !isCameraOn });
   },
 
-  minimizeCall: () => {
-    set({ isCallMinimized: true });
-  },
+  minimizeCall: () => set({ isCallMinimized: true }),
+  restoreCall: () => set({ isCallMinimized: false }),
 
-  restoreCall: () => {
-    set({ isCallMinimized: false });
-  },
-
-  // --- Realtime Subscription Listener ---
-  subscribeToCall: (callId) => {
-    const { supabase, handleRemoteAnswer, handleRemoteIceCandidate } = get();
-    if (!supabase) return;
-
-    // Unsubscribe from existing if any
-    const existingSub = get().callSubscription;
-    if (existingSub) {
-      existingSub.unsubscribe();
-    }
-
-    const callChannel = supabase.channel(`call-signaling-${callId}`);
-
-    callChannel
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'calls', filter: `id=eq.${callId}` },
-        async (payload) => {
-          const newCallData = payload.new;
-          const currentStatus = get().callStatus;
-          const connection = get().connection;
-
-          // Handle incoming answer (for initial call setup)
-          if (newCallData.answer_sdp && currentStatus === 'calling') {
-            await handleRemoteAnswer(JSON.parse(newCallData.answer_sdp));
-          }
-
-          if (newCallData.status === 'ENDED' || newCallData.status === 'REJECTED' || newCallData.status === 'MISSED') {
-            get().resetCall();
-          }
-        }
-      )
-      .on('broadcast', { event: 'ice_candidate' }, (payload) => {
-        // console.log('🔔 Broadcast ICE candidate received:', payload);
-        handleRemoteIceCandidate(payload.payload);
-      })
-      .on('presence', { event: 'sync' }, () => {
-        const state = callChannel.presenceState();
-        const userIds = Object.keys(state);
-
-        if (userIds.length > 1) {
-          if (!get().isPeerOnline) {
-            set({ isPeerOnline: true });
-            const { bufferedIceCandidates } = get();
-            bufferedIceCandidates.forEach(c => {
-              callChannel.send({
-                type: 'broadcast',
-                event: 'ice_candidate',
-                payload: c
-              });
-            });
-            set({ bufferedIceCandidates: [] });
-          }
-        }
-      })
-      .on('presence', { event: 'join' }, () => {
-        // peer joined the signaling channel
-      })
-      .subscribe(async (status, err) => {
-        if (status === 'SUBSCRIBED') {
-          set({ callSubscription: callChannel });
-
-          // Track our presence
-          const user = await supabase.auth.getUser();
-          await callChannel.track({
-            online: true,
-            userId: user.data.user?.id,
-            updatedAt: new Date().toISOString()
-          });
-        }
-        if (err) {
-          console.error("Realtime subscription failed:", err);
-        }
-      });
-  },
-
-  // --- Start Call Action (Caller) ---
+  // ── Start Call (Caller side) ──
   startCall: async (recipientId, isVideo) => {
     set({
       callStatus: 'calling',
-      isVideo: true, // Always true - we always get video capability
-      isCameraOn: isVideo, // Camera on only if video call
       otherUserId: recipientId,
-      isPeerOnline: false,
-      bufferedIceCandidates: [],
-      pendingIceCandidates: []
+      isVideo,
+      isCameraOn: isVideo,
+      pendingIceCandidates: [],
     });
 
     try {
-      // ALWAYS request video permission (even for audio calls)
-      // This way we can toggle video on/off without renegotiation
       const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (!isVideo) localStream.getVideoTracks().forEach(t => { t.enabled = false; });
 
-      // For "audio calls", disable video track immediately
-      if (!isVideo) {
-        localStream.getVideoTracks().forEach(track => { track.enabled = false; });
-      }
+      // Create the connection and set the remote stream
+      const pc = createPeerConnection(recipientId, (remoteStream) => set({ remoteStream }));
 
-      set({ localStream }); // Set immediately for UI feedback
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-      });
-
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          set({ callStatus: 'in-progress' });
-        }
-      };
-
-      // 1. Setup Trickle ICE Listener with Buffering
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          const { isPeerOnline, callSubscription, bufferedIceCandidates } = get();
-          const candidateJson = event.candidate.toJSON();
-
-          if (isPeerOnline && callSubscription) {
-            callSubscription.send({ type: 'broadcast', event: 'ice_candidate', payload: candidateJson });
-          } else {
-            set({ bufferedIceCandidates: [...bufferedIceCandidates, candidateJson] });
-          }
-        }
-      };
-
-      pc.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
-      };
-
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
+      // Create SDP offer
       const offer = await pc.createOffer();
+
+      //This fires ice candidate gathering
       await pc.setLocalDescription(offer);
 
-      // Initialize call in DB - store initial camera state preference
-      const callData = await initiateCall({
-        receiverId: recipientId,
-        offerSdp: JSON.stringify(offer),
-        isVideo: isVideo // Store the original preference (camera on/off initially)
+      // Persist call to DB and notify receiver via Socket.IO
+      const res = await fetch('/api/call/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverId: recipientId, offerSdp: JSON.stringify(offer), isVideo }),
       });
+      const callData = await res.json();
 
-      // Subscribe and Track Presence
-      get().subscribeToCall(callData.id);
-
-      set({
-        connection: pc,
-        localStream,
-        callId: callData.id,
-        incomingCallData: callData, // Store call data with receiver info
-        otherUserId: callData.receiver_id
-      });
-
+      set({ connection: pc, localStream, callId: callData.id, incomingCallData: callData });
     } catch (e) {
-      console.error("Failed to start call", e);
+      console.error('startCall failed:', e);
       get().resetCall();
     }
   },
 
-  // --- Accept Call Action (Receiver) ---
+  // ── Accept Call (Receiver side) ──
   acceptCall: async () => {
-    const { incomingCallData, supabase } = get();
-    if (!incomingCallData || !supabase) return;
+    const { incomingCallData } = get();
+    if (!incomingCallData) return;
+
+    set({ callStatus: 'connecting', pendingIceCandidates: [] });
 
     try {
-      set({
-        callStatus: 'connecting',
-        isPeerOnline: false, // Will verify via presence
-        bufferedIceCandidates: [],
-        pendingIceCandidates: []
-      });
-
-      // Check if caller started with camera on or off
-      // Since we now always send isVideo: true in DB, we need another way to know
-      // For now, always get video but check the incomingCallData
-      const callerHasVideo = incomingCallData.is_video ?? incomingCallData.isVideo ?? true;
-
-      // ALWAYS request video permission (even for audio calls)
+      //Get the local stream
       const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      
+      const shouldEnableCamera = incomingCallData.isVideo ?? true;
+      if (!shouldEnableCamera) localStream.getVideoTracks().forEach(t => { t.enabled = false; });
 
-      // Match the caller's video state - if they started with camera off, we start with camera off too
-      // But we'll default to camera on since the UI will show the toggle
-      // Actually, let's always start with camera matching the call type
-      const shouldEnableCamera = callerHasVideo;
+      const callerId = incomingCallData.callerId ?? incomingCallData.caller_id;
 
-      if (!shouldEnableCamera) {
-        localStream.getVideoTracks().forEach(track => { track.enabled = false; });
-      }
+      // Create the peer connection with the caller's ID and remote stream handler
+      const pc = createPeerConnection(callerId, (remoteStream) => set({ remoteStream }));
 
-      set({ localStream, isCameraOn: shouldEnableCamera, isVideo: true });
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
 
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-        ]
-      });
+      const offerSdp = typeof incomingCallData.offerSdp === 'string'
+        ? JSON.parse(incomingCallData.offerSdp)
+        : incomingCallData.offerSdp ?? incomingCallData.offer_sdp;
 
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          set({ callStatus: 'in-progress' });
-        }
-      };
-
-      // Outgoing ICE Candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          const { isPeerOnline, callSubscription, bufferedIceCandidates } = get();
-          const candidateJson = event.candidate.toJSON();
-
-          if (isPeerOnline && callSubscription) {
-            callSubscription.send({
-              type: 'broadcast',
-              event: 'ice_candidate',
-              payload: candidateJson
-            });
-          } else {
-            set({ bufferedIceCandidates: [...bufferedIceCandidates, candidateJson] });
-          }
-        }
-      };
-
-      pc.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
-      };
-
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-      // Subscribe to signaling channel
-      get().subscribeToCall(incomingCallData.id);
-
-      set({
-        connection: pc,
-        localStream,
-        callId: incomingCallData.id,
-        otherUserId: incomingCallData.caller_id
-      });
-
-      // Handle Remote Offer
-      const offerSdp = typeof incomingCallData.offer_sdp === 'string'
-        ? JSON.parse(incomingCallData.offer_sdp)
-        : incomingCallData.offer_sdp;
-
+      //Set the remote description
       await pc.setRemoteDescription(offerSdp);
 
-      // Important: Process any buffered *incoming* ICE candidates now that remote description is set
+      // Flush any ICE candidates that arrived before remote description was set
       const { pendingIceCandidates } = get();
-      if (pendingIceCandidates.length > 0) {
-        // console.log(`🟢 Flushing ${pendingIceCandidates.length} buffered incoming candidates`);
-        for (const candidate of pendingIceCandidates) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-        set({ pendingIceCandidates: [] });
+      for (const c of pendingIceCandidates) {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
       }
 
+      // Create the answer SDP
       const answer = await pc.createAnswer();
+
+      //Set the local description
       await pc.setLocalDescription(answer);
 
-      // Send Answer
-      await answerCall(incomingCallData.id, JSON.stringify(answer));
-      await fetch('/api/call/pending', { method: 'DELETE' });
+      // Send answer via socket
+      getSocket('').emit('call:answer', {
+        callerId,
+        answerSdp: JSON.stringify(answer),
+      });
 
+      // Persist answer to DB
+      await fetch(`/api/call/${incomingCallData.id}/answer`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answerSdp: JSON.stringify(answer) }),
+      });
+
+      set({ connection: pc, localStream, callId: incomingCallData.id, otherUserId: callerId, pendingIceCandidates: [] });
     } catch (e) {
-      console.error('acceptCall: Failed', e);
+      console.error('acceptCall failed:', e);
       get().resetCall();
     }
   },
 
-  // --- Realtime Handlers ---
-
+  // ── Remote SDP / ICE Handlers (called from RealtimeProvider socket events) ──
   handleRemoteAnswer: async (answerSdp) => {
-    const { connection, callStatus } = get();
+    const { connection } = get();
 
-    // FAILSAFE: If we got an answer, peer MUST be online.
-    if (!get().isPeerOnline) {
-      set({ isPeerOnline: true });
-      const { bufferedIceCandidates, callSubscription } = get();
-      // Flush outgoing buffer
-      if (callSubscription) {
-        bufferedIceCandidates.forEach(c => {
-          callSubscription.send({
-            type: 'broadcast',
-            event: 'ice_candidate',
-            payload: c
-          });
-        });
-        set({ bufferedIceCandidates: [] });
-      }
-    }
-
-    // Retry loop to safely get connection
-    let retryCount = 0;
-    let conn = connection;
-    while (!conn && retryCount < 10) {
-      await new Promise(r => setTimeout(r, 200));
-      conn = get().connection;
-      retryCount++;
-    }
-
-    if (!conn) {
-      console.error('handleRemoteAnswer: Connection not found after retries');
-      return;
-    }
-
-    if (conn.signalingState === 'stable') {
-      return;
-    }
-
-    if (conn.signalingState !== 'have-local-offer') {
-      console.warn(`handleRemoteAnswer: Unexpected signaling state '${conn.signalingState}'.`);
-      return;
-    }
-
+    //checks if peer connection exists
+    if (!connection || connection.signalingState !== 'have-local-offer') return;
     try {
-      await conn.setRemoteDescription(answerSdp);
 
+      //Applies answer sdp from receiver
+      await connection.setRemoteDescription(answerSdp);
       const { pendingIceCandidates } = get();
-      if (pendingIceCandidates.length > 0) {
-        for (const candidate of pendingIceCandidates) {
-          await conn.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-        set({ pendingIceCandidates: [] });
+
+      //Add ice candidates
+      for (const c of pendingIceCandidates) {
+        await connection.addIceCandidate(new RTCIceCandidate(c));
       }
 
-      set({ callStatus: 'in-progress' });
-    } catch (error) {
-      console.error('handleRemoteAnswer: Error', error);
+      //Update call status
+      set({ pendingIceCandidates: [], callStatus: 'in-progress' });
+    } catch (e) {
+      console.error('handleRemoteAnswer failed:', e);
     }
   },
-
 
   handleRemoteIceCandidate: async (candidate) => {
-    const { connection, pendingIceCandidates } = get();
+    const { connection } = get();
 
-    // FAILSAFE: If we get candidates, they are online.
-    if (!get().isPeerOnline) {
-      set({ isPeerOnline: true });
-      const { bufferedIceCandidates, callSubscription } = get();
-      if (callSubscription) {
-        bufferedIceCandidates.forEach(c => {
-          callSubscription.send({
-            type: 'broadcast',
-            event: 'ice_candidate',
-            payload: c
-          });
-        });
-        set({ bufferedIceCandidates: [] });
-      }
-    }
-
-    // If no connection or no remote description, buffer it
+    //Avoids race conditions where ice candidates are sent before remote SDP
     if (!connection || !connection.remoteDescription) {
-      // console.log('📡 Buffering incoming ICE candidate (conn/remoteDesc missing)');
-      set({ pendingIceCandidates: [...pendingIceCandidates, candidate] });
+      set(s => ({ pendingIceCandidates: [...s.pendingIceCandidates, candidate] }));
       return;
     }
-
     try {
+      //Add ice candidates
       await connection.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (e: any) {
-      console.warn("📡 Error adding ICE candidate:", e.message);
+    } catch (e) {
+      console.warn('addIceCandidate error:', e);
     }
   },
 
-  rejectCall: async () => {
+  // ── Call Control ──
+  rejectCall: () => {
     const { incomingCallData } = get();
-    if (incomingCallData?.id) {
-      await updateCallStatus(incomingCallData.id, 'ENDED');
+    if (incomingCallData) {
+      getSocket('').emit('call:reject', { callerId: incomingCallData.callerId ?? incomingCallData.caller_id });
+      fetch(`/api/call/${incomingCallData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'REJECTED' }),
+      });
     }
     get().resetCall();
   },
 
   endCall: () => {
-    const { callId } = get();
+    const { callId, otherUserId } = get();
+    if (otherUserId) getSocket('').emit('call:end', { otherUserId });
     if (callId) {
-      updateCallStatus(callId, 'ENDED');
+      fetch(`/api/call/${callId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ENDED' }),
+      });
     }
     get().resetCall();
   },
 
   resetCall: () => {
-    const { localStream, connection, callSubscription } = get();
-
+    const { localStream, connection } = get();
     localStream?.getTracks().forEach(t => t.stop());
     connection?.close();
-    callSubscription?.unsubscribe();
-
     set({
       callStatus: 'idle',
       connection: null,
@@ -502,76 +283,44 @@ export const useCallStore = create<CallState>((set, get) => ({
       callId: null,
       otherUserId: null,
       incomingCallData: null,
-      callSubscription: null,
       isVideo: false,
       isCallMinimized: false,
+      isScreenSharing: false,
       pendingIceCandidates: [],
-      bufferedIceCandidates: [],
-      isPeerOnline: false
     });
   },
 
+  // ── Screen Share ──
   toggleScreenShare: async () => {
-    const {isScreenSharing, connection, localStream } = get();
-
+    const { isScreenSharing, connection, localStream } = get();
     try {
       if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({video: true, audio: false});
-
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
         const screenTrack = screenStream.getVideoTracks()[0];
-
-        //Replace video track with screen track
         const sender = connection?.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          await sender.replaceTrack(screenTrack);
-        }
-
-        // Replace in local stream for previes
+        if (sender) await sender.replaceTrack(screenTrack);
         if (localStream) {
-          const oldVideoTrack = localStream.getVideoTracks()[0];
-          if (oldVideoTrack) {
-            localStream.removeTrack(oldVideoTrack);
-            oldVideoTrack.stop();
-          }
+          const old = localStream.getVideoTracks()[0];
+          if (old) { localStream.removeTrack(old); old.stop(); }
           localStream.addTrack(screenTrack);
         }
-
-        // When user stops sharing from browser UI
-        screenTrack.onended = () => {
-          get().toggleScreenShare();
-        };
-
+        screenTrack.onended = () => get().toggleScreenShare();
         set({ isScreenSharing: true, isCameraOn: false });
-
       } else {
-        // Switch back to camera
         const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
         const cameraTrack = cameraStream.getVideoTracks()[0];
-
         const sender = connection?.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          await sender.replaceTrack(cameraTrack);
-        }
-
+        if (sender) await sender.replaceTrack(cameraTrack);
         if (localStream) {
-          const oldVideoTrack = localStream.getVideoTracks()[0];
-          if (oldVideoTrack) {
-            localStream.removeTrack(oldVideoTrack);
-            oldVideoTrack.stop();
-          }
+          const old = localStream.getVideoTracks()[0];
+          if (old) { localStream.removeTrack(old); old.stop(); }
           localStream.addTrack(cameraTrack);
         }
-
         set({ isScreenSharing: false, isCameraOn: true });
       }
-
     } catch (e: any) {
-      if (e.name != 'NotAllowedError') {
-        console.error('Error toggling screen sharing', e);
-      }
-
+      if (e.name !== 'NotAllowedError') console.error('toggleScreenShare error:', e);
       set({ isScreenSharing: false });
     }
-  }
-
+  },
 }));

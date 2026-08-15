@@ -1,7 +1,7 @@
-
 import { encryptPrivateKey, generateUserKeys } from "@/lib/crypto";
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -9,51 +9,64 @@ export async function GET(request: Request) {
   // if "next" is in param, use it as the redirect URL
   const next = searchParams.get("next") ?? "/chat";
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     //Profile data
     const { data: profile } = await supabase.auth.getUser();
-    const {data: user} = await supabase.from('User').select('*').eq('id', profile?.user?.id).single();
+    
+    if (!profile?.user?.id) {
+        return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
+    }
 
-    /*
-      if user is not found in the database, create a new user
-      Generate keys
-      update public key in user table
-      and add private key to user secrets table
-    */
-  //  console.log("Profidfdfle",profile.user?.email)
-  //  console.log("User",user)
+    const user = await prisma.user.findUnique({
+        where: { id: profile.user.id }
+    });
 
     if (!user) {
       if (!profile.user?.email) {
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+        return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
       }
       const {publicKey, privateKey} = await generateUserKeys();
       const encryptedPrivateKey = encryptPrivateKey(privateKey, profile.user.email);
 
-      const { data:newUser, error:newUserError } = await supabase.rpc                ('create_user_with_secrets', {
-        p_id: profile.user.id,
-          p_email: profile.user.email,
-          p_username: profile.user.email.split('@')[0],
-          p_full_name: profile.user.user_metadata.full_name,
-          p_avatar: profile.user.user_metadata.avatar_url,
-          p_public_key: publicKey,
-          p_private_key: encryptedPrivateKey
-      });
+      // Create user and secrets using a Prisma transaction
+      try {
+          await prisma.$transaction(async (tx) => {
+              await tx.user.create({
+                  data: {
+                      id: profile.user!.id,
+                      email: profile.user!.email!,
+                      username: profile.user!.email!.split('@')[0],
+                      fullName: profile.user!.user_metadata.full_name || profile.user!.email!.split('@')[0],
+                      avatar: profile.user!.user_metadata.avatar_url,
+                      password: 'oauth-managed',
+                      publicKey: publicKey,
+                      isOnline: false,
+                  }
+              });
 
-      if (newUserError) {
-        console.error("Error creating new user:", newUserError);
-        return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+              await tx.userSecrets.create({
+                  data: {
+                      userId: profile.user!.id,
+                      encryptedPrivateKey: encryptedPrivateKey
+                  }
+              });
+          });
+      } catch (newUserError) {
+          console.error("Error creating new user:", newUserError);
+          return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
       }
 
     }
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${appUrl}${next}`);
     }
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${appUrl}/auth/auth-code-error`);
 }

@@ -1,25 +1,18 @@
-import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
     try {
-        const supabase = await createClient();
         const { username } = await request.json();
 
         if (!username) {
             return NextResponse.json({ message: "Username is required" }, { status: 400 });
         }
 
-        const { data: user, error } = await supabase
-            .from('User')
-            .select('id')
-            .eq('username', username)
-            .single();
-
-        if (error && error.code !== 'PGRST116') {
-             console.error("Error checking username:", error);
-             return NextResponse.json({ message: "Error checking username" }, { status: 500 });
-        }
+        const user = await prisma.user.findUnique({
+            where: { username: username },
+            select: { id: true }
+        });
 
         if (user) {
             return NextResponse.json({ available: false }, { status: 200 });

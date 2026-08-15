@@ -1,6 +1,6 @@
-
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const POST = async (request: Request) => {
     try {
@@ -13,14 +13,14 @@ export const POST = async (request: Request) => {
         );
 
         // 1. Verify OTP
-        const { data: verificationData, error: verificationError } = await supabaseAdmin
-            .from('VerificationCodes')
-            .select('*')
-            .eq('email', email)
-            .eq('code', otp)
-            .single();
+        const verificationData = await prisma.verificationCodes.findFirst({
+            where: {
+                email: email,
+                code: otp
+            }
+        });
 
-        if (verificationError || !verificationData) {
+        if (!verificationData) {
             return NextResponse.json({ message: "Invalid or expired verification code" }, { status: 400 });
         }
 
@@ -29,13 +29,10 @@ export const POST = async (request: Request) => {
         }
 
         // 2. Find Auth User ID
-        // We need the Auth ID to update the password.
-        // We can get it from the 'User' table if we store it there (id is same as auth.id)
-        const { data: userProfile } = await supabaseAdmin
-            .from('User')
-            .select('id')
-            .eq('email', email)
-            .single();
+        const userProfile = await prisma.user.findUnique({
+            where: { email: email },
+            select: { id: true }
+        });
 
         if (!userProfile) {
             return NextResponse.json({ message: "User not found" }, { status: 404 });
@@ -52,7 +49,9 @@ export const POST = async (request: Request) => {
         }
 
         // 4. Delete OTP
-        await supabaseAdmin.from('VerificationCodes').delete().eq('email', email);
+        await prisma.verificationCodes.deleteMany({
+            where: { email: email }
+        });
 
         return NextResponse.json({ message: "Password updated successfully" });
 

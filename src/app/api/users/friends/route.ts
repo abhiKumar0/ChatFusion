@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const GET = async (request: Request) => {
     try {
@@ -13,16 +14,15 @@ export const GET = async (request: Request) => {
         }
 
         // Fetch accepted friend requests
-        const { data: friendRequests, error } = await supabase
-            .from('FriendRequest')
-            .select('*')
-            .or(`senderId.eq.${userId},receiverId.eq.${userId}`)
-            .eq('status', 'ACCEPTED');
-
-        if (error) {
-            console.error("Error fetching friends:", error);
-            return NextResponse.json({ message: "Error fetching friends" }, { status: 500 });
-        }
+        const friendRequests = await prisma.friendRequest.findMany({
+            where: {
+                OR: [
+                    { senderId: userId },
+                    { receiverId: userId }
+                ],
+                status: 'ACCEPTED'
+            }
+        });
 
         if (!friendRequests || friendRequests.length === 0) {
             return NextResponse.json({ friends: [] }, { status: 200 });
@@ -36,15 +36,17 @@ export const GET = async (request: Request) => {
         });
 
         // Fetch all user data
-        const { data: users, error: userError } = await supabase
-            .from('User')
-            .select('id, username, fullName, avatar')
-            .in('id', Array.from(userIds));
-
-        if (userError) {
-            console.error("Error fetching user data:", userError);
-            return NextResponse.json({ message: "Error fetching user data" }, { status: 500 });
-        }
+        const users = await prisma.user.findMany({
+            where: {
+                id: { in: Array.from(userIds) }
+            },
+            select: {
+                id: true,
+                username: true,
+                fullName: true,
+                avatar: true
+            }
+        });
 
         // Create a map for quick user lookup
         const userMap = new Map(users?.map(u => [u.id, u]) || []);

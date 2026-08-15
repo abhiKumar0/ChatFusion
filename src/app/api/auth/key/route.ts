@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { prisma } from "@/lib/prisma";
 
 export const GET = async (request: Request) => {
     try {
@@ -13,20 +14,16 @@ export const GET = async (request: Request) => {
 
        const userId = authUser.id;
 
-       const {data:  userSecret, error} = await supabase
-            .from("UserSecrets")
-            .select("*")
-            .eq("userId", userId)
-            .single();
+       const userSecret = await prisma.userSecrets.findUnique({
+           where: { userId: userId }
+       });
         
-        
-        if (error) {
+        if (!userSecret) {
             return NextResponse.json({message: "Error Retieving Private Key"}, {status: 500});
         }
 
         return NextResponse.json({userSecret}, {status: 200});       
        
-
     } catch (error) {
         console.log("Error During Retieving Private Key", error);
         
